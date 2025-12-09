@@ -1,33 +1,3 @@
-" Setting gVim hide gui
-    " Hide menu bar and tool bar by default in GVim
-    if has('gui_running')
-        set guioptions-=mT
-    endif
-    
-    " Function to toggle the menu bar and tool bar in GVim
-    function! ToggleGvimMenuToolbar()
-        if has('gui_running')
-            let l:opts = &guioptions
-            if l:opts =~# 'm' && l:opts =~# 'T'
-                set guioptions-=m
-                set guioptions-=T
-                echo "Menu bar and tool bar hidden"
-            else
-                set guioptions+=mT
-                echo "Menu bar and tool bar shown"
-            endif
-        endif
-    endfunction
-    
-    " Map <F10> to toggle menu bar and tool bar
-    nnoremap <F10> :call ToggleGvimMenuToolbar()<CR>
-
-    " Auto-run the function when GUI starts
-    augroup auto_toggle_gvim_toolbar
-        autocmd!
-        autocmd GUIEnter * call ToggleGvimMenuToolbar()
-    augroup END
-
 " Setting gvim auto fullscreen when open
     if has('gui_running')
         " Set GVim window to maximize
@@ -559,3 +529,33 @@
     let g:indentLine_color_gui = '#0055aa'
     let g:indentLine_char = '|'
     " let g:indentLine_char_list = ['|', '¦', '┆', '┊']
+
+" Setting gVim hide gui
+    " Hide menu bar and tool bar by default in GVim
+    if has('gui_running')
+        set guioptions-=mT
+    endif
+    
+    " Function to toggle the menu bar and tool bar in GVim
+    function! ToggleGvimMenuToolbar()
+        if has('gui_running')
+            let l:opts = &guioptions
+            if l:opts =~# 'm' && l:opts =~# 'T'
+                set guioptions-=m
+                set guioptions-=T
+                echo "Menu bar and tool bar hidden"
+            else
+                set guioptions+=mT
+                echo "Menu bar and tool bar shown"
+            endif
+        endif
+    endfunction
+    
+    " Map <F10> to toggle menu bar and tool bar
+    nnoremap <F10> :call ToggleGvimMenuToolbar()<CR>
+
+    " Auto-run the function when GUI starts
+    augroup auto_toggle_gvim_toolbar
+        autocmd!
+        autocmd GUIEnter * call ToggleGvimMenuToolbar()
+    augroup END
