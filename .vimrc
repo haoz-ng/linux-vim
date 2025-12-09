@@ -557,3 +557,6 @@
         autocmd!
         autocmd GUIEnter * call ToggleGvimMenuToolbar()
     augroup END
+
+" Setting to copy full path of current file
+    nnoremap <F12> :let @+ = expand('%:p') <bar> echo "Copied full path of file!"<CR>
