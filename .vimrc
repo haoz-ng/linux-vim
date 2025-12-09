@@ -539,7 +539,7 @@
       endif
     endfunction
     
-    map <F11> <Esc>:call ToggleGUICruft()<cr>
+    map <F10> <Esc>:call ToggleGUICruft()<cr>
     
     " by default, hide gui menus
     set guioptions=i
