@@ -543,10 +543,8 @@
             if l:opts =~# 'm' && l:opts =~# 'T'
                 set guioptions-=m
                 set guioptions-=T
-                echo "Menu bar and tool bar hidden"
             else
                 set guioptions+=mT
-                echo "Menu bar and tool bar shown"
             endif
         endif
     endfunction
