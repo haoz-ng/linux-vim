@@ -431,6 +431,7 @@
     " highlight CursorColumn ctermbg=236 guibg=#333333
     highlight CursorLine guibg=#001933
     highlight CursorColumn guibg=#001933
+
 " Setting found word highlight color
     highlight Search ctermfg=blue ctermbg=grey guifg=#0000ff guibg=#888888
 
