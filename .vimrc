@@ -22,6 +22,12 @@
     " Map <F10> to toggle menu bar and tool bar
     nnoremap <F10> :call ToggleGvimMenuToolbar()<CR>
 
+    " Auto-run the function when GUI starts
+    augroup auto_toggle_gvim_toolbar
+        autocmd!
+        autocmd GUIEnter * call ToggleGvimMenuToolbar()
+    augroup END
+
 " Setting gvim auto fullscreen when open
     if has('gui_running')
         " Set GVim window to maximize
@@ -29,9 +35,6 @@
         
         " Set GVim window to position (0,0), size 1600x1000 pixels
         " autocmd GUIEnter * call system("wmctrl -ir " . v:windowid . " -e 0,0,0,1600,1000")
-
-        " Set gvim hide gui by default
-        autocmd GUIEnter * call ToggleGvimMenuToolbar()
     endif
 
 " Setting key-bind F11 to toggle fullscreen
@@ -456,8 +459,8 @@
 " Setting line color
     " highlight CursorLine ctermbg=236 guibg=#333333
     " highlight CursorColumn ctermbg=236 guibg=#333333
-    highlight CursorLine guifg=#00ffff
-    highlight CursorColumn guifg=#00ffff
+    highlight CursorLine guibg=#001933
+    highlight CursorColumn guibg=#001933
 " Setting found word highlight color
     highlight Search ctermfg=blue ctermbg=grey guifg=#0000ff guibg=#888888
 
