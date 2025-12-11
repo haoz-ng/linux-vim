@@ -43,11 +43,10 @@
     syntax enable
     syntax on
     set background=dark
-    " let g:github_colors_block_diffmark = 0
-    " colorscheme github
-    " let g:airline_theme = "github"
-    " colorscheme ghdark
-    colorscheme moonfly
+    colorscheme github
+    " colorscheme moonfly
+    highlight Normal ctermbg=black guibg=#000000
+    highlight LineNr ctermbg=black guibg=#000000
 
 " Setting cursor
     set cursorcolumn
@@ -415,7 +414,7 @@
     let g:bookmark_center = 1
 
 " Setting line number color
-    highlight CursorLineNr guifg=#00ffff
+    highlight CursorLineNr guifg=#00ffff guibg=#001933
 
 " Setting key-bind clear highlight
     nnoremap <S-l> :nohlsearch<CR>
@@ -427,8 +426,6 @@
     vnoremap <C-f> "zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>
 
 " Setting line color
-    " highlight CursorLine ctermbg=236 guibg=#333333
-    " highlight CursorColumn ctermbg=236 guibg=#333333
     highlight CursorLine guibg=#001933
     highlight CursorColumn guibg=#001933
 
