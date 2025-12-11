@@ -45,8 +45,10 @@
     set background=dark
     colorscheme github
     " colorscheme moonfly
-    highlight Normal ctermbg=black guibg=#000000
-    highlight LineNr ctermbg=black guibg=#000000
+    highlight Normal      ctermbg=black guibg=#000000
+    highlight LineNr      ctermbg=black guibg=#000000
+    highlight NonText     ctermbg=black guibg=#000000
+    highlight EndOfBuffer ctermbg=black guibg=#000000
 
 " Setting cursor
     set cursorcolumn
