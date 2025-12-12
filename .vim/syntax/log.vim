@@ -94,11 +94,11 @@ syn match logXmlEntity       /&#\?\w\+;/
 syn keyword logLevelEmergency EMERGENCY EMERG
 syn keyword logLevelAlert ALERT
 syn keyword logLevelCritical CRITICAL CRIT FATAL
-syn keyword logLevelError ERROR ERR FAILURE SEVERE UVM_ERROR FATAL UVM_FATAL Error
+syn keyword logLevelError ERROR ERR FAILURE SEVERE UVM_ERROR FATAL UVM_FATAL Error DEBUG FINE HAOZ haoz Haoz hz_debug HZ_DEBUG debug Debug
 syn keyword logLevelWarning WARNING WARN
-syn keyword logLevelNotice NOTICE
-syn keyword logLevelInfo INFO UVM_INFO INFO 
-syn keyword logLevelDebug DEBUG FINE HAOZ haoz Haoz hz_debug HZ_DEBUG debug Debug
+syn keyword logLevelNotice NOTICE UVM_INFO INFO
+" syn keyword logLevelInfo INFO
+" syn keyword logLevelDebug DEBUG FINE
 syn keyword logLevelTrace TRACE FINER FINEST
 
 
