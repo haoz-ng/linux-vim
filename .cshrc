@@ -1,6 +1,5 @@
 alias ll        "ls -alF --color=auto"
 
-set ip = "hostname -I | awk '{print $1}' | tr -d '[:space:]'"
 alias cwdcmd ' \
   if ( "$cwd" == "$HOME" ) then \
     set prompt = "\n[%T]%{\e]2;%~\a%}[%m:%n][%{\033[1;32m%}~%{\033[0m%}]\n%{\033[1;36m%}Haoz %#%#%{\033[0m%}%s "; \
