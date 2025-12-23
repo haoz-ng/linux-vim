@@ -117,6 +117,35 @@
     nnoremap cc :call CommentLine()<CR>
     nnoremap bb :call UncommentLine()<CR>
 
+    function! ToggleCommentLine()
+        let cl = exists('b:comment_leader') ? b:comment_leader : '//'
+        let line = getline('.')
+        if line =~ '^\s*' . cl
+            call UncommentLine()
+        else
+            call CommentLine()
+        endif
+    endfunction
+    
+    function! ToggleCommentRange(start, end)
+        let cl = exists('b:comment_leader') ? b:comment_leader : '//'
+        let all_commented = 1
+        for lnum in range(a:start, a:end)
+            if getline(lnum) !~ '^\s*' . cl
+                let all_commented = 0
+                break
+            endif
+        endfor
+        if all_commented
+            call UncommentRange(a:start, a:end)
+        else
+            call CommentRange(a:start, a:end)
+        endif
+    endfunction
+    
+    nnoremap cc :call ToggleCommentLine()<CR>
+    vnoremap cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
+
 " Setting auto save
     augroup autosave
         autocmd!
