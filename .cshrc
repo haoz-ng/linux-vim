@@ -13,6 +13,6 @@ cwdcmd
 
 alias gf "grep -rn"
 
-alias gvim 'gvim \!* &'
-alias g    'gvim \!* &'
-
+alias gvim     'gvim \!* &'
+alias g        'gvim \!* &'
+alias gdiff    'gvimdiff'
