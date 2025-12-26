@@ -589,3 +589,35 @@
 
 " Setting to copy full path of current file
     nnoremap <F12> :let @+ = expand('%:p') <bar> echo "Copied full path of file!"<CR>
+
+" gvimdiff highlight
+    " Auto-set custom diff colors when vimdiff starts
+    augroup diffcolors
+      autocmd!
+      autocmd ColorScheme * call s:DiffHighlights()
+    augroup END
+    
+    function! s:DiffHighlights()
+      if &background ==# 'dark'
+        highlight DiffAdd      guibg=#29762e guifg=NONE gui=NONE
+        highlight DiffChange   guibg=#304e75 guifg=NONE gui=NONE
+        highlight DiffDelete   guibg=#772e2e guifg=NONE gui=NONE
+        highlight DiffText     guibg=#aa3a3a guifg=NONE gui=NONE
+        highlight DiffRemoved  guibg=#772e2e guifg=NONE gui=NONE
+        highlight DiffFile     guibg=#304e75 guifg=NONE gui=NONE
+        highlight DiffNewFile  guibg=#29762e guifg=NONE gui=NONE
+        " Optional: Vertical separator
+        highlight VertSplit    guibg=#191E2A guifg=#5A637A
+      else
+        highlight DiffAdd      guibg=#cce8cc guifg=NONE gui=NONE
+        highlight DiffChange   guibg=#cce0fa guifg=NONE gui=NONE
+        highlight DiffDelete   guibg=#facccc guifg=NONE gui=NONE
+        highlight DiffText     guibg=#ffbaba guifg=NONE gui=NONE
+        highlight DiffRemoved  guibg=#facccc guifg=NONE gui=NONE
+        highlight DiffFile     guibg=#cce0fa guifg=NONE gui=NONE
+        highlight DiffNewFile  guibg=#cce8cc guifg=NONE gui=NONE
+      endif
+    endfunction
+    
+    " Optionally: apply colors at startup or after colorscheme
+    autocmd VimEnter * call s:DiffHighlights()
