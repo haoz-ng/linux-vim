@@ -621,3 +621,28 @@
     
     " Optionally: apply colors at startup or after colorscheme
     autocmd VimEnter * call s:DiffHighlights()
+
+" gvimdiff quick replace
+    autocmd FilterReadPre * if &diff | nnoremap <buffer> df dp | endif
+    autocmd VimEnter * if &diff | nnoremap <buffer> df dp | endif
+
+" Disable folds in all diff mode (vimdiff/gvimdiff) windows
+    function! UnfoldAllDiffWindows()
+        " Save win id
+        let curr_win = win_getid()
+        " Loop over all windows
+        for i in range(1, winnr('$'))
+            execute i . 'wincmd w'
+            if &diff
+                setlocal nofoldenable foldmethod=manual
+                silent! normal! zR
+            endif
+        endfor
+        " Restore previous window
+        call win_gotoid(curr_win)
+    endfunction
+    
+    augroup Difffoldfix
+        autocmd!
+        autocmd VimEnter * call UnfoldAllDiffWindows()
+    augroup END
