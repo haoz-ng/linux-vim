@@ -5,4 +5,6 @@ nnoremap h <Nop>
 nnoremap j <Nop>
 nnoremap k <Nop>
 nnoremap l <Nop>
-
+nnoremap s <Nop>
+nnoremap c <Nop>
+nnoremap v <Nop>
