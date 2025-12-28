@@ -646,3 +646,16 @@
         autocmd!
         autocmd VimEnter * call UnfoldAllDiffWindows()
     augroup END
+
+" Setting key for vim bookmark
+    " Unmap default bookmark keys if needed
+    silent! unmap mm
+    silent! unmap mn
+    silent! unmap mp
+    
+    " Toggle bookmark: Ctrl+Shift+K
+    nnoremap <C-S-k> :BookmarkToggle<CR>
+    " Previous bookmark: Ctrl+Shift+J
+    nnoremap <C-S-j> :BookmarkPrev<CR>
+    " Next bookmark: Ctrl+Shift+L
+    nnoremap <C-S-l> :BookmarkNext<CR>
