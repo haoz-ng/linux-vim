@@ -17,7 +17,7 @@
 
 " Setting file format
     set encoding=utf-8
-    set guifont=Monospace\ Regular\ 11
+    set guifont=Monospace\ Regular\ 10
     set ic
 
 " Setting auto read (auto load)
