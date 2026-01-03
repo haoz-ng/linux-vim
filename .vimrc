@@ -399,8 +399,8 @@
     endfunction
 
 " Setting slider 
-    set guioptions+=r
-    set guioptions+=b
+    " set guioptions+=r
+    " set guioptions+=b
 
 " Map Ctrl+X in visual mode to cut to clipboard
     " Cut selection to clipboard in visual mode
@@ -563,7 +563,7 @@
 " Setting gVim hide gui
     " Hide menu bar and tool bar by default in GVim
     if has('gui_running')
-        set guioptions-=mTr
+        set guioptions-=mTrlb
     endif
     
     " Function to toggle the menu bar and tool bar in GVim
@@ -574,8 +574,10 @@
                 set guioptions-=m
                 set guioptions-=T
                 set guioptions-=r
+                set guioptions-=l
+                set guioptions-=b
             else
-                set guioptions+=mTr
+                set guioptions+=mTrlb
             endif
         endif
     endfunction
