@@ -563,7 +563,7 @@
 " Setting gVim hide gui
     " Hide menu bar and tool bar by default in GVim
     if has('gui_running')
-        set guioptions-=mT
+        set guioptions-=mTr
     endif
     
     " Function to toggle the menu bar and tool bar in GVim
@@ -573,8 +573,9 @@
             if l:opts =~# 'm' && l:opts =~# 'T'
                 set guioptions-=m
                 set guioptions-=T
+                set guioptions-=r
             else
-                set guioptions+=mT
+                set guioptions+=mTr
             endif
         endif
     endfunction
