@@ -651,4 +651,6 @@
         autocmd VimEnter * call UnfoldAllDiffWindows()
     augroup END
 
-
+" Setting gvim tabname
+    highlight TabLine guifg=#00ffff
+    " highlight TabLineFill guibg=#1A1A1A
