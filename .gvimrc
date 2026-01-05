@@ -9,3 +9,6 @@ nnoremap s <Nop>
 nnoremap c <Nop>
 nnoremap v <Nop>
 nnoremap p <Nop>
+vnoremap p <Nop>
+nnoremap d <Nop>
+vnoremap d <Nop>
