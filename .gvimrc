@@ -8,3 +8,4 @@ nnoremap l <Nop>
 nnoremap s <Nop>
 nnoremap c <Nop>
 nnoremap v <Nop>
+nnoremap p <Nop>
