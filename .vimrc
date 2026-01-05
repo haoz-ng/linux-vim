@@ -31,7 +31,7 @@
     set mouse=a
 
 " Setting tab title
-    " set showtabline=2
+    set showtabline=2
     set guitablabel=%t%M
 
 " Setting tab
