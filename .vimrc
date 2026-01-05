@@ -648,4 +648,8 @@
         autocmd VimEnter * call UnfoldAllDiffWindows()
     augroup END
 
-
+" gvimdiff bind
+    if &diff
+      nnoremap dn ]c     " dn: jump to next change
+      nnoremap db [c     " db: jump to previous change
+    endif
