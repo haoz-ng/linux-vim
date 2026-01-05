@@ -277,9 +277,6 @@
 " Setting folded lines color
     highlight Folded ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
 
-" Setting split divider color
-    highlight VertSplit ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
-
 " Setting reopen at last position
     if has("autocmd")
       au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | exe "normal! g`\"" | endif
@@ -656,3 +653,6 @@
       nnoremap dn ]c     " dn: jump to next change
       nnoremap db [c     " db: jump to previous change
     endif
+
+" Setting split divider color
+    highlight VertSplit ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
