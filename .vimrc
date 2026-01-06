@@ -668,3 +668,6 @@
     
     " Optional: Map Ctrl+U in normal mode (toggle word case)
     nnoremap <C-U> g~iw
+
+" Unbind Del in normal mode
+    nnoremap <Del> <Nop>
