@@ -653,3 +653,18 @@
 
 " Setting split divider color
     highlight VertSplit ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
+
+" Function to toggle uppercase and lowercase (for visual selection or word under cursor)
+    function! ToggleCase()
+        if mode() ==# 'v' || mode() ==# 'V' || mode() ==# "\<C-v>"
+            normal! g~
+        else
+            normal! g~iw
+        endif
+    endfunction
+    
+    " Map Ctrl+U in visual mode (toggle case)
+    vnoremap <C-U> :<C-u>call ToggleCase()<CR>
+    
+    " Optional: Map Ctrl+U in normal mode (toggle word case)
+    nnoremap <C-U> g~iw
