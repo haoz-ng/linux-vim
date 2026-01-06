@@ -12,4 +12,4 @@ nnoremap p <Nop>
 vnoremap p <Nop>
 nnoremap d <Nop>
 vnoremap d <Nop>
-nunmap <C-U>
+nnoremap <C-U>
