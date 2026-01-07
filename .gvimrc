@@ -12,5 +12,4 @@ nnoremap p <Nop>
 vnoremap p <Nop>
 nnoremap d <Nop>
 vnoremap d <Nop>
-nnoremap <C-U>
 nnoremap <Del> <Nop>
