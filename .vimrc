@@ -665,9 +665,10 @@
     
     " Map Ctrl+U in visual mode (toggle case)
     vnoremap <C-U> :<C-u>call ToggleCase()<CR>
+    nnoremap <C-U> :<C-u>call ToggleCase()<CR>
     
     " Optional: Map Ctrl+U in normal mode (toggle word case)
-    nnoremap <C-U>
+    " nnoremap <C-U>
 
 " Unbind Del in normal mode
     nnoremap <Del> <Nop>
