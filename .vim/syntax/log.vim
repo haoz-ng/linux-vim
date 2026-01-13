@@ -96,7 +96,7 @@ syn keyword logLevelAlert ALERT
 syn keyword logLevelCritical CRITICAL CRIT FATAL
 syn keyword logLevelError ERROR ERR FAILURE SEVERE UVM_ERROR FATAL UVM_FATAL Error DEBUG FINE HAOZ haoz Haoz hz_debug HZ_DEBUG debug Debug ERRMSG
 syn keyword logLevelWarning WARNING WARN
-syn keyword logLevelNotice NOTICE UVM_INFO INFO
+syn keyword logLevelNotice NOTICE UVM_INFO INFO nguyenanhhao
 " syn keyword logLevelInfo INFO
 " syn keyword logLevelDebug DEBUG FINE
 syn keyword logLevelTrace TRACE FINER FINEST
