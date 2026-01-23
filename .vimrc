@@ -35,9 +35,9 @@
     set guitablabel=%t%M
 
 " Setting tab
-    " set tabstop=4
-    " set shiftwidth=4
-    " set expandtab
+    set tabstop=4
+    set shiftwidth=4
+    set expandtab
     set autoindent
 
 " Setting theme
