@@ -487,6 +487,9 @@
     endif
     highlight Cursor guifg=blue
 
+" Setting split divider color
+    highlight VertSplit guifg=#00ffff
+
 " Setting for Ctrl z to undo in all mode
     " Map Ctrl+Z to Undo in Normal mode
     nnoremap <C-z> u
@@ -650,9 +653,6 @@
       nnoremap dn ]c     " dn: jump to next change
       nnoremap db [c     " db: jump to previous change
     endif
-
-" Setting split divider color
-    highlight VertSplit ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
 
 " Function to toggle uppercase and lowercase (for visual selection or word under cursor)
     function! ToggleCase()
