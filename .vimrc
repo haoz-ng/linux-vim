@@ -488,7 +488,7 @@
     highlight Cursor guifg=blue
 
 " Setting split divider color
-    highlight VertSplit guifg=#00ffff
+    highlight VertSplit guifg=#00ffff guibg=#191E2A
 
 " Setting for Ctrl z to undo in all mode
     " Map Ctrl+Z to Undo in Normal mode
@@ -608,7 +608,7 @@
         highlight DiffFile     guibg=#304e75 guifg=NONE gui=NONE
         highlight DiffNewFile  guibg=#29762e guifg=NONE gui=NONE
         " Optional: Vertical separator
-        highlight VertSplit    guibg=#191E2A guifg=#5A637A
+        " highlight VertSplit    guibg=#191E2A guifg=#5A637A
       else
         highlight DiffAdd      guibg=#cce8cc guifg=NONE gui=NONE
         highlight DiffChange   guibg=#cce0fa guifg=NONE gui=NONE
