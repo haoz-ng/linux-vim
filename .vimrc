@@ -158,7 +158,7 @@
     noremap <C-n> :tabnew<cr>           " open new tab
     noremap <C-w> :q<cr>                " quit file
     noremap <C-\> :vs<cr><C-w>w         " vertical split
-    noremap <C-o> :E<cr>                " open file
+    noremap <C-o> :E<cr>:edit!<cr>      " open file
 
 " Setting status line
     set laststatus=2
