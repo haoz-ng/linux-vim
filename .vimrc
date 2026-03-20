@@ -175,8 +175,7 @@
     augroup autosave
         autocmd!
         autocmd BufRead * if &filetype == "" | setlocal ft=log | endif
-        " Only save on InsertLeave, not TextChanged
-        autocmd InsertLeave * if &readonly == 0 && &modified | silent write | endif
+        autocmd TextChanged,InsertLeave * if &readonly == 0 && &modified | silent write | endif
     augroup END
 
 " Setting key-bind
