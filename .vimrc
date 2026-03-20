@@ -22,7 +22,7 @@
 
 " Setting auto read (auto load)
     set autoread
-    set autoread | au CursorHold * checktime | call feedkeys("lh")
+    au CursorHold,CursorHoldI * silent! checktime
 
 " Setting line number
     set nu
@@ -175,7 +175,8 @@
     augroup autosave
         autocmd!
         autocmd BufRead * if &filetype == "" | setlocal ft=log | endif
-        autocmd FileType * autocmd TextChanged,InsertLeave <buffer> if &readonly == 0 | silent write | endif
+        " Only save on InsertLeave, not TextChanged
+        autocmd InsertLeave * if &readonly == 0 && &modified | silent write | endif
     augroup END
 
 " Setting key-bind
@@ -220,7 +221,8 @@
     
     function! StatuslineStartTimer()
       if g:statusline_timer == 0
-        let g:statusline_timer = timer_start(100, {-> StatusLineColorMonitor()}, {'repeat': -1})
+        " ✅ Increase interval to reduce race conditions
+        let g:statusline_timer = timer_start(500, {-> StatusLineColorMonitor()}, {'repeat': -1})
       endif
     endfunction
     
@@ -285,10 +287,10 @@
     nnoremap     <S-End>              v<End>
 
     " Auto unselect when not holding shift
-    vmap        <Left>                <Esc>
-    vmap        <Right>               <Esc><Right>
-    vmap        <Up>                  <Esc><Up>
-    vmap        <Down>                <Esc><Down>
+    xnoremap <Left> <Esc>
+    xnoremap <Right> <Esc><Right>
+    xnoremap <Up> <Esc><Up>
+    xnoremap <Down> <Esc><Down>
 
 " Setting select current word using Ctrl D
     nnoremap <C-d> :let @/='\<'.expand('<cword>').'\>'<CR>viw
