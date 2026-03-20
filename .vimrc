@@ -149,7 +149,10 @@
 
     " Function to toggle 'comment_syntax haoz' at end of line
     function! ToggleCommentSyntaxHaoz()
+        " Get the comment leader and unescape it
         let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
+        let l:comment = substitute(l:comment, '\\/\\/', '//', 'g')  " Convert \/ \/ to //
+        
         let l:pattern = '\s*' . escape(l:comment, '/\.*$^~[]') . '\s* haoz\s*$'
         let l:current_line = getline('.')
         
