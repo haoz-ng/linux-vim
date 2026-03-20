@@ -147,6 +147,27 @@
     nnoremap cc :call ToggleCommentLine()<CR>
     vnoremap cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
 
+    " Function to toggle 'comment_syntax haoz' at end of line
+    function! ToggleCommentSyntaxHaoz()
+        let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
+        let l:pattern = '\s*' . escape(l:comment, '/\.*$^~[]') . '\s* haoz\s*$'
+        let l:current_line = getline('.')
+        
+        if l:current_line =~ l:pattern
+            " Remove the comment
+            call setline('.', substitute(l:current_line, l:pattern, '', ''))
+        else
+            " Add the comment
+            call setline('.', l:current_line . ' ' . l:comment . ' haoz')
+        endif
+    endfunction
+    
+    " Bind to 'hh' in normal mode
+    nnoremap hh :call ToggleCommentSyntaxHaoz()<CR>
+
+    " Visual mode mapping
+    vnoremap hh :call ToggleCommentSyntaxHaoz()<CR>
+
 " Setting auto save
     augroup autosave
         autocmd!
