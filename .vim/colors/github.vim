@@ -389,7 +389,7 @@ call s:Col('Identifier', 'blue')
 call s:Col('PreProc', 'red')
 call s:Col('Macro', 'blue')
 call s:Col('Define', 'purple')
-call s:Col('Comment', 'base2')
+call s:Col('Comment', 'base2') | call s:Attr('Comment', 'italic')
 call s:Col('Constant', 'blue')
 call s:Col('String', 'darkblue')
 call s:Col('Function', 'purple')
@@ -401,6 +401,7 @@ call s:Col('SpecialComment', 'base0')
 call s:Col('Label', 'base0')
 call s:Col('StorageClass', 'red')
 call s:Col('Structure', 'red')
+call s:Col('Fixme', 'red') | call s:Attr('Fixme', 'underline,italic')
 
 " Particular Languages {{{
 
