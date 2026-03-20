@@ -401,7 +401,6 @@ call s:Col('SpecialComment', 'base0')
 call s:Col('Label', 'base0')
 call s:Col('StorageClass', 'red')
 call s:Col('Structure', 'red')
-call s:Col('Fixme', 'red') | call s:Attr('Fixme', 'underline,italic')
 
 " Particular Languages {{{
 
