@@ -329,3 +329,36 @@ call s:hi("DiffAdd",        s:blue,     "NONE",      "NONE")
 call s:hi("DiffChange",     s:blue,     "NONE",      "NONE")
 call s:hi("DiffDelete",     s:blue,     "NONE",      "NONE")
 call s:hi("DiffText",       s:blue,     "NONE",      "NONE") 
+
+" ============================================
+" NERDTREE - USING EXISTING COLORS
+" ============================================
+
+" Map to your existing colors
+let s:term_cyan  = s:blue      " Use your blue as cyan
+let s:term_green = "#00FF00"   " Bright green for special files
+
+" Directories - your blue (cyan-like)
+call s:hi("NERDTreeDir",          s:blue,       "NONE", "NONE")
+call s:hi("NERDTreeDirSlash",     s:blue,       "NONE", "NONE")
+
+" Files - your blue
+call s:hi("NERDTreeFile",         s:blue,       "NONE", "NONE")
+
+" Special files (with *) - bright green
+call s:hi("NERDTreeFlags",        s:term_green, "NONE", "NONE")
+call s:hi("NERDTreeExecFile",     s:term_green, "NONE", "NONE")
+
+" Arrows - your blue
+call s:hi("NERDTreeOpenable",     s:blue,       "NONE", "NONE")
+call s:hi("NERDTreeClosable",     s:blue,       "NONE", "NONE")
+
+" Link targets - white/normal
+call s:hi("NERDTreeLinkFile",     s:blue,       "NONE", "NONE")
+call s:hi("NERDTreeLinkTarget",   "#FFFFFF",    "NONE", "NONE")
+
+" CWD - bright green
+call s:hi("NERDTreeCWD",          s:term_green, "NONE", "NONE")
+
+" Selection background - your existing Pmenu style
+call s:hi("NERDTreeCursorLine",   "NONE",       "#363636", "NONE")
