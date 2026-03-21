@@ -29,6 +29,7 @@ syn sync lines=1000
 "       SystemVerilog Syntax
 "##########################################################
 
+syn keyword verilogStatement   uvm_phase uvm_component
 syn keyword verilogStatement   always and assign automatic buf
 syn keyword verilogStatement   bufif0 bufif1 cell cmos
 syn keyword verilogStatement   config deassign defparam design
@@ -299,7 +300,7 @@ elseif index(s:verilog_syntax_fold, "block") >= 0 || index(s:verilog_syntax_fold
         \ transparent
         \ fold
 else
-    syn keyword verilogStatement  begin end
+    syn keyword verilogBeginEnd  begin end
 endif
 
 if index(s:verilog_syntax_fold, "define") >= 0 || index(s:verilog_syntax_fold, "all") >= 0
@@ -386,6 +387,7 @@ if version >= 508 || !exists("did_verilog_syn_inits")
    HiLink verilogOperator        Special
    HiLink verilogPrototype       Statement
    HiLink verilogStatement       Statement
+   HiLink verilogBeginEnd        BeginEnd
    HiLink verilogGlobal          Define
    HiLink verilogDirective       SpecialComment
    HiLink verilogEscape          Special
