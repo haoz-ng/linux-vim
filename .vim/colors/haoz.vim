@@ -335,8 +335,8 @@ call s:hi("DiffText",       s:blue,     "NONE",      "NONE")
 " ============================================
 
 " Map to your existing colors
-let s:term_cyan  = s:blue      " Use your blue as cyan
-let s:term_green = "#00FF00"   " Bright green for special files
+let s:term_cyan  = s:blue      " Use blue as terminal cyan
+let s:term_green = s:green     " Use green as terminal green
 
 " Directories - your blue (cyan-like)
 call s:hi("NERDTreeDir",          s:blue,       "NONE", "NONE")
