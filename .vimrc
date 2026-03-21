@@ -221,7 +221,7 @@
     
     function! StatuslineStartTimer()
       if g:statusline_timer == 0
-        " ✅ Increase interval to reduce race conditions
+        " Increase interval to reduce race conditions
         let g:statusline_timer = timer_start(500, {-> StatusLineColorMonitor()}, {'repeat': -1})
       endif
     endfunction
@@ -566,8 +566,8 @@
       endif
     endfunction
 
-    " Nerdtree open on right side
-    let g:NERDTreeWinPos = "right"
+    " Nerdtree open on left side
+    let g:NERDTreeWinPos = "left"
 
     " window size
     let g:NERDTreeWinSize = 72
