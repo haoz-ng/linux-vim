@@ -306,9 +306,9 @@ call s:hi("verilogObject",       s:blue,     "NONE", "NONE")
 call s:hi("verilogConditional",  "#bf65cf",  "NONE", "NONE")
 call s:hi("verilogRepeat",       "#bf65cf",  "NONE", "NONE")
 call s:hi("verilogOperator",     s:red,      "NONE", "NONE")
-call s:hi("Comment",             s:BFBF9E,   "NONE", "italic")
+call s:hi("Comment",             s:white,    "NONE", "italic")
 call s:hi("Todo",                s:green,    "NONE", "underline,italic")
-call s:hi("String",              s:white,    "NONE", "NONE")
+call s:hi("String",              s:cyan,     "NONE", "NONE")
 
 "for other synxtax
 call s:hi("Function",       "#bf65cf",  "NONE",      "NONE")
