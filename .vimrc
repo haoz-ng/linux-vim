@@ -44,12 +44,13 @@
     syntax enable
     syntax on
     set background=dark
-    colorscheme github
-    " colorscheme moonfly
+    colorscheme haoz
     highlight Normal      ctermbg=black guibg=#000000
     highlight LineNr      ctermbg=black guibg=#000000
     highlight NonText     ctermbg=black guibg=#000000
     highlight EndOfBuffer ctermbg=black guibg=#000000
+    highlight SignColumn  ctermbg=black guibg=#000000
+    highlight FoldColumn  ctermbg=black guibg=#000000
 
 " Setting cursor
     set cursorcolumn
