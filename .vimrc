@@ -272,7 +272,8 @@
 " Setting fold 
     augroup filtype_verilog
         " autocmd!
-        autocmd FileType Verilog,verilog_systemverilog setlocal foldmethod=indent
+        " autocmd FileType Verilog,verilog_systemverilog setlocal foldmethod=indent
+        autocmd FileType Verilog,sverilog setlocal foldmethod=indent
         autocmd BufNewFile,BufRead *.v,*.sv,*.svh setlocal foldmethod=indent
         " autocmd BufNewFile,BufRead *.v,*.sv,*.svh let b:match_words='\<function\>:\<endfunction\>,\<task\>:\<endtask\>,\<begin\>:\<end\>,\<`protect\>:\<endprotect\>,\<generate\>:\<endg$
     augroup END
