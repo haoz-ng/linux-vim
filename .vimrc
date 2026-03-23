@@ -246,7 +246,25 @@
     " Exit Vim if NERDTree is the only window remaining in the only tab.
     autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 && exists('b:NERDTree') && b:NERDTree.isTabTree() | call feedkeys(":quit\<CR>:\<BS>") | endif
 
-    noremap <C-b> :NERDTreeToggle<cr>
+    " smart toggle nerdtree
+    noremap <silent> <C-b> :call SmartNERDTreeToggle()<CR>
+    
+    function! SmartNERDTreeToggle()
+        if g:NERDTree.IsOpen()
+            :NERDTreeClose
+        else
+            if @% == ""
+                " No file open, use current working directory
+                :NERDTreeCWD
+            elseif filereadable(expand('%'))
+                " File exists, find it in tree
+                :NERDTreeFind
+            else
+                " New unsaved file, use its directory
+                execute ':NERDTree ' . expand('%:p:h')
+            endif
+        endif
+    endfunction
 
 " Setting current selection tab color
     :hi TabLineSel ctermfg=159 ctermbg=0
