@@ -588,7 +588,7 @@
     let g:NERDTreeWinPos = "left"
 
     " window size
-    let g:NERDTreeWinSize = 72
+    let g:NERDTreeWinSize = 50
 
 " Setting wrap
     set linebreak               " wrap at word boundaries instead of characters
