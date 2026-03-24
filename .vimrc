@@ -172,6 +172,70 @@
     " Visual mode mapping
     vnoremap hh :call ToggleCommentSyntaxHaoz()<CR>
 
+    function! ToggleHaozCommentAtBeginning()
+        let cl = exists('b:comment_leader') ? b:comment_leader : '//'
+        let cl = substitute(cl, '\\/\\/', '//', 'g')
+        
+        let line = getline('.')
+        let indent = matchstr(line, '^\s*')
+        let content = substitute(line, '^\s*', '', '')
+        
+        " Pattern to match "// haoz " or "# haoz " at the beginning
+        let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+        
+        if content =~ pattern
+            " Remove "haoz" comment
+            let new_content = substitute(content, pattern, '', '')
+            call setline('.', indent . new_content)
+        else
+            " Add "haoz" comment
+            if content != ''
+                call setline('.', indent . cl . ' haoz ' . content)
+            endif
+        endif
+    endfunction
+    
+    function! ToggleHaozCommentRangeAtBeginning(start, end)
+        let cl = exists('b:comment_leader') ? b:comment_leader : '//'
+        let cl = substitute(cl, '\\/\\/', '//', 'g')
+        
+        " Check if ALL selected lines have "haoz" comment
+        let all_have_haoz = 1
+        let pattern = '^\s*' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+        
+        for lnum in range(a:start, a:end)
+            let line = getline(lnum)
+            let content = substitute(line, '^\s*', '', '')
+            if content != '' && content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+                let all_have_haoz = 0
+                break
+            endif
+        endfor
+        
+        " Toggle based on whether all lines have haoz
+        for lnum in range(a:start, a:end)
+            let line = getline(lnum)
+            let indent = matchstr(line, '^\s*')
+            let content = substitute(line, '^\s*', '', '')
+            
+            if content != ''
+                if all_have_haoz
+                    " Remove "haoz" comment
+                    let new_content = substitute(content, '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+', '', '')
+                    call setline(lnum, indent . new_content)
+                else
+                    " Add "haoz" comment (only if not already present)
+                    if content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+                        call setline(lnum, indent . cl . ' haoz ' . content)
+                    endif
+                endif
+            endif
+        endfor
+    endfunction
+
+    nnoremap ch :call ToggleHaozCommentAtBeginning()<CR>
+    vnoremap ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>
+
 " Setting auto save
     augroup autosave
         autocmd!
