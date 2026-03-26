@@ -297,6 +297,7 @@ endfunction
 
 "for verilog/systemverilog syntax
 call s:hi("verilogStatement",    s:red,      "NONE", "NONE")
+call s:hi("verilogTypeDef",      s:red,      "NONE", "NONE")
 call s:hi("verilogBeginEnd",     s:blue,     "NONE", "NONE")
 call s:hi("verilogIdentifier",   s:red,      "NONE", "NONE")
 call s:hi("verilogMethod",       "#bf65cf",  "NONE", "NONE")
