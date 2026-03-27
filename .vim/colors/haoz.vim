@@ -331,6 +331,7 @@ call s:hi("DiffChange",     s:blue,     "NONE",      "NONE")
 call s:hi("DiffDelete",     s:blue,     "NONE",      "NONE")
 call s:hi("DiffText",       s:blue,     "NONE",      "NONE") 
 call s:hi("NonText",        "#00ffff",  "NONE",      "NONE") 
+call s:hi("Normal",         "#e0e0e0",  "NONE",      "NONE") 
 
 " ============================================
 " NERDTREE - USING EXISTING COLORS
