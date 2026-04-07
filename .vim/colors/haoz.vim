@@ -365,3 +365,43 @@ call s:hi("NERDTreeCWD",          s:term_green, "NONE", "NONE")
 
 " Selection background - your existing Pmenu style
 call s:hi("NERDTreeCursorLine",   "NONE",       "#363636", "NONE")
+
+" ============================================
+" DIFF MODE COLORS - Enhanced Configuration
+" ============================================
+
+" Background colors for diff modes
+let s:diff_add_bg    = "#2d4a2d"
+let s:diff_change_bg = "#3d3d2d"
+let s:diff_delete_bg = "#4a2d2d"
+let s:diff_text_bg   = "#2d3d4a"
+
+" Foreground colors using your existing palette
+let s:diff_add_fg    = s:green
+let s:diff_change_fg = s:yellow
+let s:diff_delete_fg = s:red
+let s:diff_text_fg   = s:blue
+
+" Diff highlighting
+call s:hi("DiffAdd",    s:diff_add_fg,    s:diff_add_bg,    "NONE")
+call s:hi("DiffChange", s:diff_change_fg, s:diff_change_bg, "NONE")
+call s:hi("DiffDelete", s:diff_delete_fg, s:diff_delete_bg, "NONE")
+call s:hi("DiffText",   s:diff_text_fg,   s:diff_text_bg,   "bold")
+
+" Git gutter / Signify signs
+call s:hi("SignifySignAdd",    s:green,  "NONE", "NONE")
+call s:hi("GitGutterAdd",      s:green,  "NONE", "NONE")
+call s:hi("SignifySignChange", s:yellow, "NONE", "NONE")
+call s:hi("GitGutterChange",   s:yellow, "NONE", "NONE")
+call s:hi("SignifySignDelete", s:red,    "NONE", "NONE")
+call s:hi("GitGutterDelete",   s:red,    "NONE", "NONE")
+
+" Fugitive (Git Plugin)
+call s:hi("diffAdded",     s:green,  "NONE", "NONE")
+call s:hi("diffRemoved",   s:red,    "NONE", "NONE")
+call s:hi("diffChanged",   s:yellow, "NONE", "NONE")
+call s:hi("diffFile",      s:blue,   "NONE", "bold")
+call s:hi("diffNewFile",   s:green,  "NONE", "bold")
+call s:hi("diffLine",      s:cyan,   "NONE", "italic")
+call s:hi("diffIndexLine", s:magenta,"NONE", "NONE")
+
