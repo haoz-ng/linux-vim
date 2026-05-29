@@ -524,37 +524,39 @@ autocmd VimEnter * call NERDTreeAddKeyMap({
 function! OpenSmart(node)
     let l:path = a:node.path.str()
 
-    " ── Try last active normal window first ──
-    let l:target_win = get(g:winlist_last_active, tabpagenr(), -1)
+    " ── Count normal (non-special, non-NERDTree) windows ──
+    let l:normal_wins = []
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call add(l:normal_wins, l:i)
+        endif
+    endfor
 
-    " ── Validate last active window ──
-    if l:target_win == -1
-        \ || l:target_win > winnr('$')
-        \ || WinListIsSpecial(winbufnr(l:target_win))
-        \ || WinListIsNERDTree(winbufnr(l:target_win))
-        let l:target_win = -1
-        for l:i in range(1, winnr('$'))
-            let l:bn = winbufnr(l:i)
-            if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-                let l:target_win = l:i
+    if len(l:normal_wins) == 0
+        " ── No normal window exists yet ──
+        " Find the rightmost non-NERDTree window (WinList) as anchor
+        let l:anchor = -1
+        for l:i in range(winnr('$'), 1, -1)
+            if !WinListIsNERDTree(winbufnr(l:i))
+                let l:anchor = l:i
                 break
             endif
         endfor
-    endif
 
-    if l:target_win != -1
-        execute 'noautocmd ' . l:target_win . 'wincmd w'
-        execute 'edit ' . fnameescape(l:path)
-    else
-        let l:origin_tab = tabpagenr()
-        execute 'silent tabedit ' . fnameescape(l:path)
-        let l:new_tab = tabpagenr()
-        if !exists('g:winlist_tab_open')
-            let g:winlist_tab_open = {}
+        if l:anchor == -1
+            wincmd l
+            let l:anchor = winnr()
         endif
-        let g:winlist_tab_open[l:new_tab] = 1
-        call timer_start(150, {-> s:OpenWinListOnTab(l:new_tab)})
-        execute 'tabnext ' . l:origin_tab
+
+        execute 'noautocmd ' . l:anchor . 'wincmd w'
+        execute 'rightbelow vertical split ' . fnameescape(l:path)
+
+    else
+        " ── Normal window(s) exist → always split right of the rightmost one ──
+        let l:rightmost = l:normal_wins[-1]
+        execute 'noautocmd ' . l:rightmost . 'wincmd w'
+        execute 'rightbelow vertical split ' . fnameescape(l:path)
     endif
 endfunction
 
