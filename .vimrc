@@ -733,15 +733,10 @@ function! WinListIsOpen() abort
     return bufwinnr(WinListBufName()) != -1
 endfunction
 
-" ── Auto-close tab when WinList is the only window left ─────
-"   Called from WinEnter so the closing window is already gone.
-"   We scan every window in the current tab; if NONE of them is
-"   a real file window the tab has nothing useful → close it.
 " ── Auto-close tab when only WinList remains ─────────────────
 function! WinListCheckAutoCloseTab() abort
     if g:winlist_opening | return | endif
 
-    " Count real (non-special, non-NERDTree) windows in this tab
     let l:real = 0
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
@@ -755,10 +750,8 @@ function! WinListCheckAutoCloseTab() abort
 
     if l:real == 0
         if tabpagenr('$') <= 1
-            " Last tab and nothing real left → quit GVim entirely
             qall!
         else
-            " Other tabs still exist → just close this tab
             silent! tabclose
         endif
     endif
@@ -980,9 +973,11 @@ function! WinListOpen() abort
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
 
-        nnoremap <silent> <buffer> <CR> :call WinListJump()<CR>
-        nnoremap <silent> <buffer> q    :call WinListClose()<CR>
-        nnoremap <silent> <buffer> r    :call WinListRefreshAllTabs()<CR>
+        " ── Buffer-local keymaps for WinList panel ──────────────
+        nnoremap <silent> <buffer> <CR>          :call WinListJump()<CR>
+        nnoremap <silent> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
+        nnoremap <silent> <buffer> q             :call WinListClose()<CR>
+        nnoremap <silent> <buffer> r             :call WinListRefreshAllTabs()<CR>
 
         let g:winlist_tab_open[l:tabnr] = 1
 
@@ -1015,6 +1010,21 @@ function! WinListOpenInAllTabs() abort
     let l:cur = tabpagenr()
     tabdo call WinListOpen()
     execute 'tabnext ' . l:cur
+endfunction
+
+" ── Mouse Jump (double-click on filename line only) ─────────
+function! WinListMouseJump() abort
+    " Warp cursor to the clicked position
+    if v:mouse_lnum > 0
+        call cursor(v:mouse_lnum, v:mouse_col)
+    endif
+
+    " Only act on filename lines:  "  1: foo.v"  or  "> 2: bar.sv [+]"
+    " Path lines (5 spaces + path) and header lines (===) are ignored
+    let l:line = getline('.')
+    if l:line =~# '^[> ]*\d\+:'
+        call WinListJump()
+    endif
 endfunction
 
 " ── Jump ────────────────────────────────────────────────────
@@ -1085,11 +1095,7 @@ endfunction
 " ── Autocmds ────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
-    " ── Auto-close tab when only WinList remains ──────────────
-    " WinEnter fires after a window is closed and focus moves on,
-    " so winnr('$') already reflects the new window count.
     autocmd WinEnter * call WinListCheckAutoCloseTab()
-
     autocmd WinEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd BufEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd BufDelete  * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
