@@ -524,18 +524,26 @@ autocmd VimEnter * call NERDTreeAddKeyMap({
 function! OpenSmart(node)
     let l:path = a:node.path.str()
 
-    let l:bufs  = tabpagebuflist()
-    let l:other = 0
-    for b in l:bufs
-        if buflisted(b)
-            if exists('t:NERDTreeBufName') && bufname(b) ==# t:NERDTreeBufName
-                continue
-            endif
-            let l:other += 1
-        endif
-    endfor
+    " ── Try last active normal window first ──
+    let l:target_win = get(g:winlist_last_active, tabpagenr(), -1)
 
-    if l:other == 0
+    " ── Validate last active window ──
+    if l:target_win == -1
+        \ || l:target_win > winnr('$')
+        \ || WinListIsSpecial(winbufnr(l:target_win))
+        \ || WinListIsNERDTree(winbufnr(l:target_win))
+        let l:target_win = -1
+        for l:i in range(1, winnr('$'))
+            let l:bn = winbufnr(l:i)
+            if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+                let l:target_win = l:i
+                break
+            endif
+        endfor
+    endif
+
+    if l:target_win != -1
+        execute 'noautocmd ' . l:target_win . 'wincmd w'
         execute 'edit ' . fnameescape(l:path)
     else
         let l:origin_tab = tabpagenr()
@@ -775,7 +783,51 @@ function! WinListFixWidth() abort
     execute 'noautocmd ' . l:cur . 'wincmd w'
 endfunction
 
-" ── Refresh ─────────────────────────────────────────────────
+" ── Build shared lines across ALL tabs ──────────────────────
+function! WinListBuildAllTabLines() abort
+    let l:cur_tab = tabpagenr()
+    let l:lines   = []
+
+    for l:t in range(1, tabpagenr('$'))
+        call add(l:lines, '=== Tab ' . l:t . ' ===')
+
+        let l:wins_in_tab = tabpagebuflist(l:t)
+        let l:active_win  = get(g:winlist_last_active, l:t, 1)
+
+        " ── Two counters: raw for active detection, display for labeling ──
+        let l:raw_idx     = 0
+        let l:display_idx = 0
+
+        for l:bn in l:wins_in_tab
+            let l:raw_idx += 1
+
+            " ── Skip WinList and NERDTree panels entirely ──
+            if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn)
+                continue
+            endif
+
+            " ── Display index starts from 1 for real files only ──
+            let l:display_idx += 1
+
+            let l:name    = bufname(l:bn)
+            let l:display = l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t')
+            let l:mod     = getbufvar(l:bn, '&modified') ? ' [+]' : ''
+
+            " ── Mark active window in current tab ──
+            if l:t == l:cur_tab && l:raw_idx == l:active_win
+                let l:prefix = '> '
+            else
+                let l:prefix = '  '
+            endif
+
+            call add(l:lines, printf('%s%d: %s%s', l:prefix, l:display_idx, l:display, l:mod))
+        endfor
+    endfor
+
+    return l:lines
+endfunction
+
+" ── Refresh (current tab panel only) ────────────────────────
 function! WinListRefresh() abort
     if g:winlist_opening | return | endif
     if !WinListIsOpen()  | return | endif
@@ -783,37 +835,14 @@ function! WinListRefresh() abort
     let l:wl_winnr = bufwinnr(WinListBufName())
     let l:cur_win  = winnr()
 
-    " Track last active normal window
-    if l:cur_win != l:wl_winnr && !WinListIsSpecial()
+    " ── Track last active normal window ──
+    if l:cur_win != l:wl_winnr
+        \ && !WinListIsSpecial()
+        \ && !WinListIsNERDTree(winbufnr(l:cur_win))
         let g:winlist_last_active[tabpagenr()] = l:cur_win
     endif
 
-    let l:active = get(g:winlist_last_active, tabpagenr(), 1)
-    if l:active > winnr('$') || l:active == l:wl_winnr
-        let l:fw = WinListFindNormalWin()
-        let l:active = l:fw != -1 ? l:fw : 1
-    endif
-
-    let l:wins = []
-
-    " ✅ Always show WinList panel itself as entry 1
-    let l:wl_prefix = l:cur_win == l:wl_winnr ? '> ' : '  '
-    call add(l:wins, printf('%s%d: %s', l:wl_prefix, l:wl_winnr, '[WinList]'))
-
-    " ✅ Add all other windows — skip WinList and NERDTree
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn)
-            continue
-        endif
-        let l:name    = bufname(l:bn)
-        let l:display = l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t')
-        let l:mod     = getbufvar(l:bn, '&modified') ? ' [+]' : ''
-        let l:prefix  = l:i == l:active ? '> ' : '  '
-        call add(l:wins, printf('%s%d: %s%s', l:prefix, l:i, l:display, l:mod))
-    endfor
-
-    let l:lines = ['=== Windows ==='] + l:wins
+    let l:lines = WinListBuildAllTabLines()
     let g:winlist_width = WinListCalcWidth(l:lines)
 
     execute 'noautocmd ' . l:wl_winnr . 'wincmd w'
@@ -825,6 +854,49 @@ function! WinListRefresh() abort
     execute 'vertical resize ' . g:winlist_width
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
     call WinListFixWidth()
+endfunction
+
+" ── Refresh ALL tabs' panels ────────────────────────────────
+function! WinListRefreshAllTabs() abort
+    if g:winlist_opening | return | endif
+    let l:cur_tab = tabpagenr()
+    let l:cur_win = winnr()
+
+    " ── Track active win before iterating ──
+    if !WinListIsSpecial() && !WinListIsNERDTree()
+        let g:winlist_last_active[l:cur_tab] = l:cur_win
+    endif
+
+    " ── Build shared lines once for all tabs ──
+    let l:lines = WinListBuildAllTabLines()
+    let g:winlist_width = WinListCalcWidth(l:lines)
+
+    " ── Push same content to every tab that has a WinList panel ──
+    for l:t in range(1, tabpagenr('$'))
+        let l:wl_buf = WinListBufName(l:t)
+        if !bufexists(l:wl_buf) | continue | endif
+
+        execute 'noautocmd tabnext ' . l:t
+        let l:wl_wnr = bufwinnr(l:wl_buf)
+        if l:wl_wnr == -1
+            execute 'noautocmd tabnext ' . l:cur_tab
+            continue
+        endif
+
+        let l:restore_win = winnr()
+        execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
+        setlocal modifiable
+        silent! %delete _
+        call setline(1, l:lines)
+        setlocal nomodifiable nomodified
+        call WinListApplySyntax()
+        execute 'vertical resize ' . g:winlist_width
+        execute 'noautocmd ' . l:restore_win . 'wincmd w'
+    endfor
+
+    " ── Return to original tab and window ──
+    execute 'noautocmd tabnext ' . l:cur_tab
+    execute 'noautocmd ' . l:cur_win . 'wincmd w'
 endfunction
 
 " ── Open ────────────────────────────────────────────────────
@@ -866,7 +938,7 @@ function! WinListOpen() abort
 
         nnoremap <silent> <buffer> <CR> :call WinListJump()<CR>
         nnoremap <silent> <buffer> q    :call WinListClose()<CR>
-        nnoremap <silent> <buffer> r    :call WinListRefresh()<CR>
+        nnoremap <silent> <buffer> r    :call WinListRefreshAllTabs()<CR>
 
         let g:winlist_tab_open[l:tabnr] = 1
 
@@ -879,7 +951,7 @@ function! WinListOpen() abort
         let g:winlist_opening = 0
     endtry
 
-    call WinListRefresh()
+    call WinListRefreshAllTabs()
 endfunction
 
 " ── Close / Toggle ──────────────────────────────────────────
@@ -906,17 +978,39 @@ function! WinListJump() abort
     let l:line = getline('.')
     let l:m    = matchlist(l:line, '^[> ]*\(\d\+\):')
     if empty(l:m) | return | endif
-    let l:t = str2nr(l:m[1])
+    let l:display_idx = str2nr(l:m[1])
 
-    " Block jumping to WinList panel itself
-    let l:bn = winbufnr(l:t)
-    if WinListIsWinList(l:bn)
-        echo '[WinList] Cannot jump to panel window'
-        return
+    " ── Find which tab this entry belongs to ──
+    let l:header_tab = 0
+    for l:lnum in range(1, line('.'))
+        let l:hdr = matchlist(getline(l:lnum), '^=== Tab \(\d\+\) ===$')
+        if !empty(l:hdr)
+            let l:header_tab = str2nr(l:hdr[1])
+        endif
+    endfor
+
+    " ── Switch to target tab if needed ──
+    if l:header_tab > 0 && l:header_tab != tabpagenr()
+        execute 'tabnext ' . l:header_tab
     endif
 
-    if l:t > 0 && l:t <= winnr('$')
-        execute l:t . 'wincmd w'
+    " ── Map display index → real window number (skip special wins) ──
+    let l:count    = 0
+    let l:real_win = -1
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn)
+            continue
+        endif
+        let l:count += 1
+        if l:count == l:display_idx
+            let l:real_win = l:i
+            break
+        endif
+    endfor
+
+    if l:real_win != -1
+        execute l:real_win . 'wincmd w'
     endif
 endfunction
 
@@ -937,7 +1031,7 @@ function! s:RestorePanel(tabnr) abort
     if !WinListIsOpen()
         call WinListOpen()
     else
-        call WinListRefresh()
+        call WinListRefreshAllTabs()
     endif
 endfunction
 
@@ -950,16 +1044,17 @@ endfunction
 " ── Autocmds ────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
-    autocmd WinEnter   * if !g:winlist_opening | call WinListRefresh() | endif
-    autocmd BufDelete  * if !g:winlist_opening | call WinListRefresh() | endif
-    autocmd BufWipeout * if !g:winlist_opening | call WinListRefresh() | endif
+    autocmd WinEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
+    autocmd BufEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
+    autocmd BufDelete  * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
+    autocmd BufWipeout * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd VimResized * call WinListFixWidth()
     autocmd WinLeave   * call WinListFixWidth()
     autocmd TabLeave   * call WinListOnTabLeave()
     autocmd TabEnter   * call WinListOnTabEnter()
     autocmd TabNew     * call WinListOnTabNew()
     autocmd VimEnter   * call WinListOpen()
-    autocmd TextChanged,TextChangedI,BufWritePost * call WinListRefresh()
+    autocmd TextChanged,TextChangedI,BufWritePost * call WinListRefreshAllTabs()
 augroup END
 
 " ── Keymaps + Commands ──────────────────────────────────────
@@ -970,5 +1065,5 @@ nnoremap <silent> <leader>wa :call WinListOpenInAllTabs()<CR>
 command! WinList        call WinListOpen()
 command! WinListClose   call WinListClose()
 command! WinListFix     call WinListFixWidth()
-command! WinListRefresh call WinListRefresh()
+command! WinListRefresh call WinListRefreshAllTabs()
 command! WinListAllTabs call WinListOpenInAllTabs()
