@@ -681,7 +681,7 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 let g:winlist_min_width  = 15
 let g:winlist_max_width  = 75
 let g:winlist_padding    = 2
-let g:winlist_width      = 20
+let g:winlist_width      = 36
 
 if !exists('g:winlist_tab_open')
     let g:winlist_tab_open = {}
@@ -733,6 +733,52 @@ function! WinListIsOpen() abort
     return bufwinnr(WinListBufName()) != -1
 endfunction
 
+" ── Auto-close tab when WinList is the only window left ─────
+"   Called from WinEnter so the closing window is already gone.
+"   We scan every window in the current tab; if NONE of them is
+"   a real file window the tab has nothing useful → close it.
+" ── Auto-close tab when only WinList remains ─────────────────
+function! WinListCheckAutoCloseTab() abort
+    if g:winlist_opening | return | endif
+
+    " Count real (non-special, non-NERDTree) windows in this tab
+    let l:real = 0
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsWinList(l:bn) && !WinListIsNERDTree(l:bn)
+            let l:bt = getbufvar(l:bn, '&buftype')
+            if l:bt ==# '' || l:bt ==# 'acwrite'
+                let l:real += 1
+            endif
+        endif
+    endfor
+
+    if l:real == 0
+        if tabpagenr('$') <= 1
+            " Last tab and nothing real left → quit GVim entirely
+            qall!
+        else
+            " Other tabs still exist → just close this tab
+            silent! tabclose
+        endif
+    endif
+endfunction
+
+" ── Short path: last 5 directory components + filename ──────
+function! WinListShortPath(fullpath) abort
+    if a:fullpath ==# '' | return '[No Name]' | endif
+    let l:parts = split(a:fullpath, '/')
+    if len(l:parts) > 5
+        let l:parts = l:parts[-5:]
+        return '…/' . join(l:parts, '/')
+    else
+        if a:fullpath[0] ==# '/'
+            return '/' . join(l:parts, '/')
+        endif
+        return join(l:parts, '/')
+    endif
+endfunction
+
 " ── Highlights ──────────────────────────────────────────────
 function! WinListSetupHighlight() abort
     highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold   cterm=bold
@@ -741,6 +787,7 @@ function! WinListSetupHighlight() abort
     highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
     highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
     highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic cterm=NONE
+    highlight default WinListPath       guifg=#7a8a9a ctermfg=66  gui=NONE   cterm=NONE
 endfunction
 call WinListSetupHighlight()
 
@@ -754,12 +801,13 @@ function! WinListApplySyntax() abort
     syntax clear
     syntax match WinListHeader     /^===.*===$/
     syntax match WinListActive     /^>.*$/
-        \ contains=WinListActiveMark,WinListNumber,WinListModified,WinListSpecial
-    syntax match WinListActiveMark /^>/    contained
-    syntax match WinListNumber     /\d\+:/ contained
+        \ contains=WinListActiveMark,WinListNumber,WinListModified,WinListSpecial,WinListPath
+    syntax match WinListActiveMark /^>/         contained
+    syntax match WinListNumber     /\d\+:/      contained
     syntax match WinListNumber     /^\s\+\d\+:/
     syntax match WinListModified   /\[+\]/
     syntax match WinListSpecial    /\[[^\]+]\+\]/
+    syntax match WinListPath       /^\s\+[…\/].*/
 endfunction
 
 " ── Width ───────────────────────────────────────────────────
@@ -794,33 +842,34 @@ function! WinListBuildAllTabLines() abort
         let l:wins_in_tab = tabpagebuflist(l:t)
         let l:active_win  = get(g:winlist_last_active, l:t, 1)
 
-        " ── Two counters: raw for active detection, display for labeling ──
         let l:raw_idx     = 0
         let l:display_idx = 0
 
         for l:bn in l:wins_in_tab
             let l:raw_idx += 1
 
-            " ── Skip WinList and NERDTree panels entirely ──
             if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn)
                 continue
             endif
 
-            " ── Display index starts from 1 for real files only ──
             let l:display_idx += 1
 
-            let l:name    = bufname(l:bn)
-            let l:display = l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t')
-            let l:mod     = getbufvar(l:bn, '&modified') ? ' [+]' : ''
+            let l:fullpath = bufname(l:bn)
+            let l:fname    = l:fullpath ==# '' ? '[No Name]' : fnamemodify(l:fullpath, ':t')
+            let l:mod      = getbufvar(l:bn, '&modified') ? ' [+]' : ''
 
-            " ── Mark active window in current tab ──
-            if l:t == l:cur_tab && l:raw_idx == l:active_win
-                let l:prefix = '> '
+            let l:prefix = (l:t == l:cur_tab && l:raw_idx == l:active_win) ? '> ' : '  '
+
+            call add(l:lines, printf('%s%d: %s%s', l:prefix, l:display_idx, l:fname, l:mod))
+
+            if l:fullpath !=# ''
+                let l:abspath = fnamemodify(l:fullpath, ':p')
+                let l:dirpath = fnamemodify(l:abspath, ':h')
+                let l:short   = WinListShortPath(l:dirpath)
+                call add(l:lines, '     ' . l:short)
             else
-                let l:prefix = '  '
+                call add(l:lines, '     -')
             endif
-
-            call add(l:lines, printf('%s%d: %s%s', l:prefix, l:display_idx, l:display, l:mod))
         endfor
     endfor
 
@@ -835,7 +884,6 @@ function! WinListRefresh() abort
     let l:wl_winnr = bufwinnr(WinListBufName())
     let l:cur_win  = winnr()
 
-    " ── Track last active normal window ──
     if l:cur_win != l:wl_winnr
         \ && !WinListIsSpecial()
         \ && !WinListIsNERDTree(winbufnr(l:cur_win))
@@ -862,16 +910,13 @@ function! WinListRefreshAllTabs() abort
     let l:cur_tab = tabpagenr()
     let l:cur_win = winnr()
 
-    " ── Track active win before iterating ──
     if !WinListIsSpecial() && !WinListIsNERDTree()
         let g:winlist_last_active[l:cur_tab] = l:cur_win
     endif
 
-    " ── Build shared lines once for all tabs ──
     let l:lines = WinListBuildAllTabLines()
     let g:winlist_width = WinListCalcWidth(l:lines)
 
-    " ── Push same content to every tab that has a WinList panel ──
     for l:t in range(1, tabpagenr('$'))
         let l:wl_buf = WinListBufName(l:t)
         if !bufexists(l:wl_buf) | continue | endif
@@ -894,7 +939,6 @@ function! WinListRefreshAllTabs() abort
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endfor
 
-    " ── Return to original tab and window ──
     execute 'noautocmd tabnext ' . l:cur_tab
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
 endfunction
@@ -980,7 +1024,6 @@ function! WinListJump() abort
     if empty(l:m) | return | endif
     let l:display_idx = str2nr(l:m[1])
 
-    " ── Find which tab this entry belongs to ──
     let l:header_tab = 0
     for l:lnum in range(1, line('.'))
         let l:hdr = matchlist(getline(l:lnum), '^=== Tab \(\d\+\) ===$')
@@ -989,12 +1032,10 @@ function! WinListJump() abort
         endif
     endfor
 
-    " ── Switch to target tab if needed ──
     if l:header_tab > 0 && l:header_tab != tabpagenr()
         execute 'tabnext ' . l:header_tab
     endif
 
-    " ── Map display index → real window number (skip special wins) ──
     let l:count    = 0
     let l:real_win = -1
     for l:i in range(1, winnr('$'))
@@ -1044,6 +1085,11 @@ endfunction
 " ── Autocmds ────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
+    " ── Auto-close tab when only WinList remains ──────────────
+    " WinEnter fires after a window is closed and focus moves on,
+    " so winnr('$') already reflects the new window count.
+    autocmd WinEnter * call WinListCheckAutoCloseTab()
+
     autocmd WinEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd BufEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd BufDelete  * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
