@@ -377,6 +377,77 @@ inoremap <C-Left>    <C-o>b
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
+" │                       TAB NAVIGATION (CTRL UP/DOWN)                      │
+" └──────────────────────────────────────────────────────────────────────────┘
+nnoremap <C-Up>   :tabprevious<CR>
+nnoremap <C-Down> :tabnext<CR>
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                  SPLIT WINDOW NAVIGATION (ALT LEFT/RIGHT)                │
+" └──────────────────────────────────────────────────────────────────────────┘
+nnoremap <M-Left>  :call WinListNavLeft()<CR>
+nnoremap <M-Right> :call WinListNavRight()<CR>
+
+function! WinListNavLeft() abort
+    let l:cur = winnr()
+    wincmd h
+    if winnr() == l:cur
+        let l:rightmost = -1
+        for l:i in range(1, winnr('$'))
+            if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
+                let l:rightmost = l:i
+            endif
+        endfor
+        if l:rightmost != -1 && l:rightmost != l:cur
+            execute l:rightmost . 'wincmd w'
+        endif
+    endif
+    if WinListIsSpecial() || WinListIsNERDTree()
+        call WinListNavLeft()
+    endif
+endfunction
+
+function! WinListNavRight() abort
+    let l:cur = winnr()
+    wincmd l
+    if winnr() == l:cur
+        for l:i in range(1, winnr('$'))
+            if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
+                execute l:i . 'wincmd w'
+                break
+            endif
+        endfor
+    endif
+    if WinListIsSpecial() || WinListIsNERDTree()
+        call WinListNavRight()
+    endif
+endfunction
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                     NUMBER KEY TAB JUMP  (1–9, 0=10)                     │
+" └──────────────────────────────────────────────────────────────────────────┘
+function! GoToTab(n) abort
+    let l:target = a:n == 0 ? 10 : a:n
+    if l:target <= tabpagenr('$')
+        execute 'tabnext ' . l:target
+    endif
+endfunction
+
+nnoremap <silent> 1 :call GoToTab(1)<CR>
+nnoremap <silent> 2 :call GoToTab(2)<CR>
+nnoremap <silent> 3 :call GoToTab(3)<CR>
+nnoremap <silent> 4 :call GoToTab(4)<CR>
+nnoremap <silent> 5 :call GoToTab(5)<CR>
+nnoremap <silent> 6 :call GoToTab(6)<CR>
+nnoremap <silent> 7 :call GoToTab(7)<CR>
+nnoremap <silent> 8 :call GoToTab(8)<CR>
+nnoremap <silent> 9 :call GoToTab(9)<CR>
+nnoremap <silent> 0 :call GoToTab(0)<CR>
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          HOME KEY BEHAVIOR                               │
 " └──────────────────────────────────────────────────────────────────────────┘
 inoremap <Home> <C-o>^
@@ -558,7 +629,6 @@ function! OpenSmart(node)
 
     let g:winlist_file_opening = 1
 
-    " ── Count normal (non-special, non-NERDTree) windows ──────────────────
     let l:normal_wins = []
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
@@ -577,7 +647,6 @@ function! OpenSmart(node)
         execute 'rightbelow vertical split ' . fnameescape(l:path)
     endif
 
-    " ── Close NERDTree after opening file ─────────────────────────────────
     call timer_start(50,  {-> s:CloseNERDTreeIfOpen()})
     call timer_start(300, {-> s:ClearFileOpening()})
 endfunction
@@ -878,18 +947,45 @@ function! WinListCalcWidth(lines) abort
         let l:len = strdisplaywidth(l:line)
         if l:len > l:max | let l:max = l:len | endif
     endfor
-    let l:w = l:max + g:winlist_padding
-    return max([g:winlist_min_width, min([l:w, g:winlist_max_width])])
+    let l:w     = l:max + g:winlist_padding
+    let l:new_w = max([g:winlist_min_width, min([l:w, g:winlist_max_width])])
+
+    " ── Only update width if change is significant (> 2 cols) ─────────────
+    if abs(l:new_w - g:winlist_width) <= 2
+        return g:winlist_width
+    endif
+    return l:new_w
+endfunction
+
+function! WinListLockSplitWidths() abort
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call setwinvar(l:i, '&winfixwidth', 1)
+        endif
+    endfor
+endfunction
+
+function! WinListUnlockSplitWidths() abort
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call setwinvar(l:i, '&winfixwidth', 0)
+        endif
+    endfor
 endfunction
 
 function! WinListFixWidth() abort
     if !WinListIsOpen() | return | endif
     let l:wnr = bufwinnr(WinListBufName())
     if winwidth(l:wnr) == g:winlist_width | return | endif
+
     let l:cur = winnr()
+    call WinListLockSplitWidths()
     execute 'noautocmd ' . l:wnr . 'wincmd w'
     execute 'vertical resize ' . g:winlist_width
     execute 'noautocmd ' . l:cur . 'wincmd w'
+    call WinListUnlockSplitWidths()
 endfunction
 
 
@@ -962,7 +1058,13 @@ function! WinListRefresh() abort
     call setline(1, l:lines)
     setlocal nomodifiable nomodified
     call WinListApplySyntax()
-    execute 'vertical resize ' . g:winlist_width
+
+    call WinListLockSplitWidths()
+    if winwidth(winnr()) != g:winlist_width
+        execute 'vertical resize ' . g:winlist_width
+    endif
+    call WinListUnlockSplitWidths()
+
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
     call WinListFixWidth()
 endfunction
@@ -999,7 +1101,13 @@ function! WinListRefreshAllTabs() abort
         call setline(1, l:lines)
         setlocal nomodifiable nomodified
         call WinListApplySyntax()
-        execute 'vertical resize ' . g:winlist_width
+
+        call WinListLockSplitWidths()
+        if winwidth(winnr()) != g:winlist_width
+            execute 'vertical resize ' . g:winlist_width
+        endif
+        call WinListUnlockSplitWidths()
+
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endfor
 
@@ -1045,7 +1153,6 @@ function! WinListOpen() abort
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
 
-        " ── Buffer-local keymaps for WinList panel ───────────────────────
         nnoremap <silent> <buffer> <CR>          :call WinListJump()<CR>
         nnoremap <silent> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
         nnoremap <silent> <buffer> q             :call WinListClose()<CR>
@@ -1086,7 +1193,7 @@ function! WinListOpenInAllTabs() abort
 endfunction
 
 
-" ── Mouse Jump (double-click on filename line only) ───────────────────────
+" ── Mouse Jump ────────────────────────────────────────────────────────────
 function! WinListMouseJump() abort
     if v:mouse_lnum > 0
         call cursor(v:mouse_lnum, v:mouse_col)
