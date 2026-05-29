@@ -298,7 +298,7 @@ augroup END
 noremap <C-n> :tabnew<CR>
 noremap <C-w> :q<CR>
 noremap <C-\> :vs<CR><C-w>w
-noremap <C-o> :E<CR>
+noremap <C-o> :E<CR>:edit!<CR>
 
 nnoremap <F5>  :edit!<CR>
 nnoremap <F12> :let @+ = expand('%:p') <bar> echo "Copied full path: " . expand('%:p')<CR>
