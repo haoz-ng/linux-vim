@@ -490,7 +490,7 @@ runtime macros/matchit.vim
 " ============================================
 let NERDTreeShowHidden = 1
 let g:NERDTreeWinPos   = "left"
-let g:NERDTreeWinSize  = 50
+let g:NERDTreeWinSize  = 75
 
 autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 && exists('b:NERDTree') && b:NERDTree.isTabTree() | call feedkeys(":quit\<CR>:\<BS>") | endif
 
@@ -679,7 +679,7 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 " WINDOW LIST PANEL
 " ============================================
 let g:winlist_min_width  = 15
-let g:winlist_max_width  = 80
+let g:winlist_max_width  = 75
 let g:winlist_padding    = 2
 let g:winlist_width      = 20
 
