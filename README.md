@@ -371,12 +371,12 @@ The **WinList Panel** is a custom sidebar that shows all open windows **across a
 ```
 === Tab 1 ===
 > 1: main.v              ← active window (marked with >)
-     …/rtl/core/src
+     …/a/b/c
   2: config.sv [+]       ← modified file
-     …/rtl/core/include
+     …/a/b/d
 === Tab 2 ===
   1: testbench.sv
-     …/sim/tb
+     …/a/d
 ```
 
 - `>` marks the **currently active** window
