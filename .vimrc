@@ -1,6 +1,16 @@
-" ============================================
-" GVIM AUTO FULLSCREEN
-" ============================================
+
+" ╠══════════════════════════════════════════════════════════════════════════╣
+" ║  Author   : haoz.ng                                                      ║
+" ║  Version  : 6.36                                                         ║
+" ║  Modified : 2026-05-30                                                   ║
+" ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
+" ║             NERDTree integration, diff, folding, auto-save & more.       ║
+" ╚══════════════════════════════════════════════════════════════════════════╝
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                         GVIM AUTO FULLSCREEN                             │
+" └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     autocmd GUIEnter * call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
 endif
@@ -9,9 +19,10 @@ if has('gui_running')
     map <silent> <F11> :call system("wmctrl -ir " . v:windowid . " -b toggle,maximized_vert,maximized_horz")<CR>
 endif
 
-" ============================================
-" BASIC SETTINGS
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                           BASIC SETTINGS                                 │
+" └──────────────────────────────────────────────────────────────────────────┘
 set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
@@ -39,9 +50,10 @@ set foldlevel=99
 
 au CursorHold,CursorHoldI * silent! checktime
 
-" ============================================
-" THEME AND COLORS
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          THEME AND COLORS                                │
+" └──────────────────────────────────────────────────────────────────────────┘
 syntax enable
 syntax on
 set background=dark
@@ -65,9 +77,10 @@ highlight VertSplit  guifg=#00ffff guibg=#191E2A
 highlight SpecialKey ctermbg=17    guibg=#001933    guifg=#00ffff
 highlight TabLineSel ctermfg=159   ctermbg=0
 
-" ============================================
-" CURSOR SHAPE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                           CURSOR SHAPE                                   │
+" └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guicursor=n-v-c:ver25-blinkon0,i:ver25-blinkon500-blinkoff500,r:hor20-blinkon500-blinkoff500
 else
@@ -75,9 +88,10 @@ else
     let &t_EI = "\e[2 q"
 endif
 
-" ============================================
-" STATUS LINE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                            STATUS LINE                                   │
+" └──────────────────────────────────────────────────────────────────────────┘
 set statusline=%F
 set statusline+=%#LineNr#
 set statusline+=%=
@@ -121,9 +135,10 @@ augroup DynamicStatusLine
     autocmd FocusLost,QuitPre    * call StatuslineStopTimer()
 augroup END
 
-" ============================================
-" COMMENT SYSTEM
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                           COMMENT SYSTEM                                 │
+" └──────────────────────────────────────────────────────────────────────────┘
 autocmd FileType c,cpp,java,scala             let b:comment_leader = '\/\/'
 autocmd FileType sh,csh,ruby,python,tcsh      let b:comment_leader = '#'
 autocmd FileType conf,fstab                   let b:comment_leader = '#'
@@ -194,9 +209,10 @@ endfunction
 nnoremap <silent> cc :call ToggleCommentLine()<CR>
 vnoremap <silent> cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
 
-" ============================================
-" TOGGLE 'haoz' AT END OF LINE (hh)
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │               TOGGLE 'haoz' AT END OF LINE  ( hh )                      │
+" └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleCommentSyntaxHaoz()
     let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
     let l:comment = substitute(l:comment, '\\/\\/', '//', 'g')
@@ -212,9 +228,10 @@ endfunction
 nnoremap <silent> hh :call ToggleCommentSyntaxHaoz()<CR>
 vnoremap <silent> hh :call ToggleCommentSyntaxHaoz()<CR>
 
-" ============================================
-" TOGGLE 'haoz' AT BEGINNING OF LINE (ch)
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │             TOGGLE 'haoz' AT BEGINNING OF LINE  ( ch )                  │
+" └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleHaozCommentAtBeginning()
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
     let cl = substitute(cl, '\\/\\/', '//', 'g')
@@ -265,18 +282,20 @@ endfunction
 nnoremap <silent> ch :call ToggleHaozCommentAtBeginning()<CR>
 vnoremap <silent> ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>
 
-" ============================================
-" AUTO SAVE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                             AUTO SAVE                                    │
+" └──────────────────────────────────────────────────────────────────────────┘
 augroup autosave
     autocmd!
     autocmd BufRead * if &filetype == "" | setlocal ft=log | endif
     autocmd TextChanged,InsertLeave * if &readonly == 0 && &modified | silent write | endif
 augroup END
 
-" ============================================
-" BASIC KEYBINDINGS
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          BASIC KEYBINDINGS                               │
+" └──────────────────────────────────────────────────────────────────────────┘
 noremap <C-n> :tabnew<CR>
 noremap <C-w> :q<CR>
 noremap <C-\> :vs<CR><C-w>w
@@ -290,9 +309,10 @@ nnoremap <S-l> :nohlsearch<CR>
 nnoremap <C-l> V
 inoremap <C-l> <Esc>V
 
-" ============================================
-" COPY/PASTE/CUT
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          COPY / PASTE / CUT                              │
+" └──────────────────────────────────────────────────────────────────────────┘
 vnoremap <C-c> "+y
 nnoremap <C-c> "+yy
 nnoremap <C-v> "+p
@@ -302,9 +322,10 @@ cnoremap <C-v> <C-r>+
 vnoremap <C-x> "+d
 nnoremap <C-x> "+dd
 
-" ============================================
-" VISUAL MODE AND SELECTION
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                       VISUAL MODE AND SELECTION                          │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap V <C-v>
 
 nnoremap <C-d> :let @/='\<'.expand('<cword>').'\>'<CR>viw
@@ -313,9 +334,10 @@ inoremap <C-d> <Esc>viw
 nnoremap <C-f> :let @/ = '\<'.expand('<cword>').'\>'<CR>:set hlsearch<CR>
 vnoremap <C-f> "zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>
 
-" ============================================
-" SHIFT ARROW SELECTION
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                        SHIFT ARROW SELECTION                             │
+" └──────────────────────────────────────────────────────────────────────────┘
 inoremap <S-Left>    <Left><C-o>v
 inoremap <S-Right>   <C-o>v
 inoremap <S-Up>      <Left><C-o>v<Up><Right>
@@ -339,9 +361,10 @@ nnoremap <S-Down>  v<Down>
 nnoremap <S-Home>  v<Home>
 nnoremap <S-End>   v<End>
 
-" ============================================
-" CTRL ARROW WORD NAVIGATION
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                      CTRL ARROW WORD NAVIGATION                          │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-Right>   w
 nnoremap <C-Left>    b
 vnoremap <C-Right>   e
@@ -353,15 +376,17 @@ vnoremap <C-S-Left>  b
 inoremap <C-Right>   <C-o>w
 inoremap <C-Left>    <C-o>b
 
-" ============================================
-" HOME KEY BEHAVIOR
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          HOME KEY BEHAVIOR                               │
+" └──────────────────────────────────────────────────────────────────────────┘
 inoremap <Home> <C-o>^
 nnoremap <Home> ^
 
-" ============================================
-" TAB/SHIFT-TAB INDENTATION
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                       TAB / SHIFT-TAB INDENTATION                        │
+" └──────────────────────────────────────────────────────────────────────────┘
 function! NormalModeTab()
     let sw = &shiftwidth
     let line = getline('.')
@@ -432,21 +457,24 @@ nnoremap <silent> <S-Tab> :call NormalModeShiftTab()<CR>
 vnoremap <silent> <Tab>   :<C-u>call VisualModeTab()<CR>gv
 vnoremap <silent> <S-Tab> :<C-u>call VisualModeShiftTab()<CR>gv
 
-" ============================================
-" UNDO
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                                UNDO                                      │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-z> u
 inoremap <C-z> <C-o>u
 vnoremap <C-z> <Esc>u
 
-" ============================================
-" DELETE LINE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                            DELETE LINE                                   │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <S-Del> dd
 
-" ============================================
-" TOGGLE CASE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                            TOGGLE CASE                                   │
+" └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleCase()
     if mode() ==# 'v' || mode() ==# 'V' || mode() ==# "\<C-v>"
         normal! g~
@@ -458,26 +486,30 @@ endfunction
 vnoremap <C-U> :<C-u>call ToggleCase()<CR>
 nnoremap <C-U> :<C-u>call ToggleCase()<CR>
 
-" ============================================
-" SEARCH NAVIGATION
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                         SEARCH NAVIGATION                                │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap n nzz
 nnoremap N Nzz
 
-" ============================================
-" TOGGLE LINE WRAP
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          TOGGLE LINE WRAP                                │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <M-z> :set wrap!<CR>
 
-" ============================================
-" DISABLE PROBLEMATIC KEYS
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                        DISABLE PROBLEMATIC KEYS                          │
+" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap x     <Nop>
 nnoremap <Del> <Nop>
 
-" ============================================
-" FOLDING
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                              FOLDING                                     │
+" └──────────────────────────────────────────────────────────────────────────┘
 augroup filtype_verilog
     autocmd!
     autocmd FileType Verilog,verilog_systemverilog setlocal foldmethod=indent
@@ -485,9 +517,10 @@ augroup filtype_verilog
 augroup END
 runtime macros/matchit.vim
 
-" ============================================
-" NERDTREE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                             NERDTREE                                     │
+" └──────────────────────────────────────────────────────────────────────────┘
 let NERDTreeShowHidden = 1
 let g:NERDTreeWinPos   = "left"
 let g:NERDTreeWinSize  = 75
@@ -511,13 +544,13 @@ function! SmartNERDTreeToggle()
 endfunction
 
 autocmd VimEnter * call NERDTreeAddKeyMap({
-      \ 'key': '<2-LeftMouse>',
-      \ 'scope': 'FileNode',
+      \ 'key':      '<2-LeftMouse>',
+      \ 'scope':    'FileNode',
       \ 'callback': 'OpenSmart',
       \ 'override': 1 })
 autocmd VimEnter * call NERDTreeAddKeyMap({
-      \ 'key': '<CR>',
-      \ 'scope': 'FileNode',
+      \ 'key':      '<CR>',
+      \ 'scope':    'FileNode',
       \ 'callback': 'OpenSmart',
       \ 'override': 1 })
 
@@ -526,7 +559,7 @@ function! OpenSmart(node)
 
     let g:winlist_file_opening = 1
 
-    " ── Count normal (non-special, non-NERDTree) windows ──
+    " ── Count normal (non-special, non-NERDTree) windows ──────────────────
     let l:normal_wins = []
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
@@ -545,8 +578,8 @@ function! OpenSmart(node)
         execute 'rightbelow vertical split ' . fnameescape(l:path)
     endif
 
-    " ── Close NERDTree after opening file ──────────────────
-    call timer_start(50, {-> s:CloseNERDTreeIfOpen()})
+    " ── Close NERDTree after opening file ─────────────────────────────────
+    call timer_start(50,  {-> s:CloseNERDTreeIfOpen()})
     call timer_start(300, {-> s:ClearFileOpening()})
 endfunction
 
@@ -571,24 +604,27 @@ function! s:OpenWinListOnTab(tabnr) abort
     endif
 endfunction
 
-" ============================================
-" INDENT LINE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                            INDENT LINE                                   │
+" └──────────────────────────────────────────────────────────────────────────┘
 let g:indentLine_color_gui = '#0055aa'
 let g:indentLine_char      = '┆'
 
-" ============================================
-" VIM BOOKMARK
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                           VIM BOOKMARK                                   │
+" └──────────────────────────────────────────────────────────────────────────┘
 let g:bookmark_highlight_lines = 1
 highlight BookmarkLine ctermbg=17 guibg=#001933
 highlight BookmarkSign ctermbg=17 guibg=#001933 guifg=#00ffff
 let g:bookmark_sign   = '=='
 let g:bookmark_center = 1
 
-" ============================================
-" GVIM GUI SETTINGS
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          GVIM GUI SETTINGS                               │
+" └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guioptions-=mT
 endif
@@ -612,9 +648,10 @@ augroup auto_toggle_gvim_toolbar
     autocmd GUIEnter * call ToggleGvimMenuToolbar()
 augroup END
 
-" ============================================
-" DIFF MODE
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                             DIFF MODE                                    │
+" └──────────────────────────────────────────────────────────────────────────┘
 augroup diffcolors
     autocmd!
     autocmd ColorScheme * call s:DiffHighlights()
@@ -668,18 +705,20 @@ augroup Difffoldfix
     autocmd VimEnter * call UnfoldAllDiffWindows()
 augroup END
 
-" ============================================
-" MISCELLANEOUS
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                           MISCELLANEOUS                                  │
+" └──────────────────────────────────────────────────────────────────────────┘
 if has("autocmd")
     au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | exe "normal! g`\"" | endif
 endif
 
 autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
-" ============================================
-" WINDOW LIST PANEL
-" ============================================
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                          WINDOW LIST PANEL                               │
+" └──────────────────────────────────────────────────────────────────────────┘
 let g:winlist_min_width  = 15
 let g:winlist_max_width  = 75
 let g:winlist_padding    = 2
@@ -693,10 +732,11 @@ if !exists('g:winlist_last_active')
     let g:winlist_last_active = {}
 endif
 
-let g:winlist_opening = 0
-let g:winlist_file_opening = 0    " ← NEW guard flag
+let g:winlist_opening      = 0
+let g:winlist_file_opening = 0
 
-" ── Helpers ─────────────────────────────────────────────────
+
+" ── Helpers ───────────────────────────────────────────────────────────────
 function! WinListBufName(...) abort
     let l:tabnr = a:0 > 0 ? a:1 : tabpagenr()
     return '__WindowList_' . l:tabnr . '__'
@@ -736,11 +776,11 @@ function! WinListIsOpen() abort
     return bufwinnr(WinListBufName()) != -1
 endfunction
 
-" ── Auto-close tab when only WinList remains ─────────────────
+
+" ── Auto-close tab when only WinList remains ──────────────────────────────
 function! WinListCheckAutoCloseTab() abort
-    " ── Never close while WinList or NERDTree is opening a file ──
-    if g:winlist_opening   | return | endif
-    if g:winlist_file_opening | return | endif   " ← NEW
+    if g:winlist_opening      | return | endif
+    if g:winlist_file_opening | return | endif
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
@@ -753,16 +793,14 @@ function! WinListCheckAutoCloseTab() abort
         endif
     endfor
 
-    " ── Also count buffers loaded but not yet in a window ──────
-    " Give a short grace period via timer instead of killing immediately
     if l:real == 0
-        call timer_start(200, {-> s:DelayedAutoClose()})   " ← CHANGED
+        call timer_start(200, {-> s:DelayedAutoClose()})
     endif
 endfunction
 
 function! s:DelayedAutoClose() abort
     if g:winlist_opening      | return | endif
-    if g:winlist_file_opening | return | endif   " ← NEW
+    if g:winlist_file_opening | return | endif
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
@@ -784,7 +822,8 @@ function! s:DelayedAutoClose() abort
     endif
 endfunction
 
-" ── Short path: last 5 directory components + filename ──────
+
+" ── Short path: last 5 directory components + filename ────────────────────
 function! WinListShortPath(fullpath) abort
     if a:fullpath ==# '' | return '[No Name]' | endif
     let l:parts = split(a:fullpath, '/')
@@ -799,7 +838,8 @@ function! WinListShortPath(fullpath) abort
     endif
 endfunction
 
-" ── Highlights ──────────────────────────────────────────────
+
+" ── Highlights ────────────────────────────────────────────────────────────
 function! WinListSetupHighlight() abort
     highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold   cterm=bold
     highlight default WinListNumber     guifg=#E5C07B ctermfg=180 gui=bold   cterm=bold
@@ -816,7 +856,8 @@ augroup WinListHighlight
     autocmd ColorScheme * call WinListSetupHighlight()
 augroup END
 
-" ── Syntax ──────────────────────────────────────────────────
+
+" ── Syntax ────────────────────────────────────────────────────────────────
 function! WinListApplySyntax() abort
     syntax clear
     syntax match WinListHeader     /^===.*===$/
@@ -830,7 +871,8 @@ function! WinListApplySyntax() abort
     syntax match WinListPath       /^\s\+[…\/].*/
 endfunction
 
-" ── Width ───────────────────────────────────────────────────
+
+" ── Width ─────────────────────────────────────────────────────────────────
 function! WinListCalcWidth(lines) abort
     let l:max = 0
     for l:line in a:lines
@@ -851,7 +893,8 @@ function! WinListFixWidth() abort
     execute 'noautocmd ' . l:cur . 'wincmd w'
 endfunction
 
-" ── Build shared lines across ALL tabs ──────────────────────
+
+" ── Build shared lines across ALL tabs ────────────────────────────────────
 function! WinListBuildAllTabLines() abort
     let l:cur_tab = tabpagenr()
     let l:lines   = []
@@ -896,7 +939,8 @@ function! WinListBuildAllTabLines() abort
     return l:lines
 endfunction
 
-" ── Refresh (current tab panel only) ────────────────────────
+
+" ── Refresh (current tab panel only) ──────────────────────────────────────
 function! WinListRefresh() abort
     if g:winlist_opening | return | endif
     if !WinListIsOpen()  | return | endif
@@ -924,7 +968,8 @@ function! WinListRefresh() abort
     call WinListFixWidth()
 endfunction
 
-" ── Refresh ALL tabs' panels ────────────────────────────────
+
+" ── Refresh ALL tabs' panels ──────────────────────────────────────────────
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
     let l:cur_tab = tabpagenr()
@@ -963,7 +1008,8 @@ function! WinListRefreshAllTabs() abort
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
 endfunction
 
-" ── Open ────────────────────────────────────────────────────
+
+" ── Open ──────────────────────────────────────────────────────────────────
 function! WinListOpen() abort
     let l:tabnr   = tabpagenr()
     let l:bufname = WinListBufName(l:tabnr)
@@ -1000,7 +1046,7 @@ function! WinListOpen() abort
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
 
-        " ── Buffer-local keymaps for WinList panel ──────────────
+        " ── Buffer-local keymaps for WinList panel ───────────────────────
         nnoremap <silent> <buffer> <CR>          :call WinListJump()<CR>
         nnoremap <silent> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
         nnoremap <silent> <buffer> q             :call WinListClose()<CR>
@@ -1020,7 +1066,8 @@ function! WinListOpen() abort
     call WinListRefreshAllTabs()
 endfunction
 
-" ── Close / Toggle ──────────────────────────────────────────
+
+" ── Close / Toggle ────────────────────────────────────────────────────────
 function! WinListClose() abort
     if !WinListIsOpen() | return | endif
     execute 'noautocmd ' . bufwinnr(WinListBufName()) . 'wincmd c'
@@ -1039,22 +1086,20 @@ function! WinListOpenInAllTabs() abort
     execute 'tabnext ' . l:cur
 endfunction
 
-" ── Mouse Jump (double-click on filename line only) ─────────
+
+" ── Mouse Jump (double-click on filename line only) ───────────────────────
 function! WinListMouseJump() abort
-    " Warp cursor to the clicked position
     if v:mouse_lnum > 0
         call cursor(v:mouse_lnum, v:mouse_col)
     endif
-
-    " Only act on filename lines:  "  1: foo.v"  or  "> 2: bar.sv [+]"
-    " Path lines (5 spaces + path) and header lines (===) are ignored
     let l:line = getline('.')
     if l:line =~# '^[> ]*\d\+:'
         call WinListJump()
     endif
 endfunction
 
-" ── Jump ────────────────────────────────────────────────────
+
+" ── Jump ──────────────────────────────────────────────────────────────────
 function! WinListJump() abort
     let l:line = getline('.')
     let l:m    = matchlist(l:line, '^[> ]*\(\d\+\):')
@@ -1092,7 +1137,8 @@ function! WinListJump() abort
     endif
 endfunction
 
-" ── Tab handlers ────────────────────────────────────────────
+
+" ── Tab handlers ──────────────────────────────────────────────────────────
 function! WinListOnTabLeave() abort
     let g:winlist_tab_open[tabpagenr()] = WinListIsOpen() ? 1 : 0
 endfunction
@@ -1119,10 +1165,11 @@ function! WinListOnTabNew() abort
     call timer_start(150, {-> s:RestorePanel(l:tabnr)})
 endfunction
 
-" ── Autocmds ────────────────────────────────────────────────
+
+" ── Autocmds ──────────────────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
-    autocmd WinEnter * call WinListCheckAutoCloseTab()
+    autocmd WinEnter   * call WinListCheckAutoCloseTab()
     autocmd WinEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd BufEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
     autocmd BufDelete  * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
@@ -1136,7 +1183,8 @@ augroup WinListAuto
     autocmd TextChanged,TextChangedI,BufWritePost * call WinListRefreshAllTabs()
 augroup END
 
-" ── Keymaps + Commands ──────────────────────────────────────
+
+" ── Keymaps + Commands ────────────────────────────────────────────────────
 nnoremap <silent> <leader>w  :call WinListToggle()<CR>
 nnoremap <silent> <leader>W  :call WinListFixWidth()<CR>
 nnoremap <silent> <leader>wa :call WinListOpenInAllTabs()<CR>
