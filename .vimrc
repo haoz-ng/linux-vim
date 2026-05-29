@@ -524,6 +524,8 @@ autocmd VimEnter * call NERDTreeAddKeyMap({
 function! OpenSmart(node)
     let l:path = a:node.path.str()
 
+    let g:winlist_file_opening = 1
+
     " ── Count normal (non-special, non-NERDTree) windows ──
     let l:normal_wins = []
     for l:i in range(1, winnr('$'))
@@ -534,30 +536,28 @@ function! OpenSmart(node)
     endfor
 
     if len(l:normal_wins) == 0
-        " ── No normal window exists yet ──
-        " Find the rightmost non-NERDTree window (WinList) as anchor
-        let l:anchor = -1
-        for l:i in range(winnr('$'), 1, -1)
-            if !WinListIsNERDTree(winbufnr(l:i))
-                let l:anchor = l:i
-                break
-            endif
-        endfor
-
-        if l:anchor == -1
-            wincmd l
-            let l:anchor = winnr()
-        endif
-
+        let l:anchor = winnr('$')
         execute 'noautocmd ' . l:anchor . 'wincmd w'
         execute 'rightbelow vertical split ' . fnameescape(l:path)
-
     else
-        " ── Normal window(s) exist → always split right of the rightmost one ──
         let l:rightmost = l:normal_wins[-1]
         execute 'noautocmd ' . l:rightmost . 'wincmd w'
         execute 'rightbelow vertical split ' . fnameescape(l:path)
     endif
+
+    " ── Close NERDTree after opening file ──────────────────
+    call timer_start(50, {-> s:CloseNERDTreeIfOpen()})
+    call timer_start(300, {-> s:ClearFileOpening()})
+endfunction
+
+function! s:CloseNERDTreeIfOpen() abort
+    if g:NERDTree.IsOpen()
+        NERDTreeClose
+    endif
+endfunction
+
+function! s:ClearFileOpening() abort
+    let g:winlist_file_opening = 0
 endfunction
 
 function! s:OpenWinListOnTab(tabnr) abort
@@ -694,6 +694,7 @@ if !exists('g:winlist_last_active')
 endif
 
 let g:winlist_opening = 0
+let g:winlist_file_opening = 0    " ← NEW guard flag
 
 " ── Helpers ─────────────────────────────────────────────────
 function! WinListBufName(...) abort
@@ -737,7 +738,31 @@ endfunction
 
 " ── Auto-close tab when only WinList remains ─────────────────
 function! WinListCheckAutoCloseTab() abort
-    if g:winlist_opening | return | endif
+    " ── Never close while WinList or NERDTree is opening a file ──
+    if g:winlist_opening   | return | endif
+    if g:winlist_file_opening | return | endif   " ← NEW
+
+    let l:real = 0
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsWinList(l:bn) && !WinListIsNERDTree(l:bn)
+            let l:bt = getbufvar(l:bn, '&buftype')
+            if l:bt ==# '' || l:bt ==# 'acwrite'
+                let l:real += 1
+            endif
+        endif
+    endfor
+
+    " ── Also count buffers loaded but not yet in a window ──────
+    " Give a short grace period via timer instead of killing immediately
+    if l:real == 0
+        call timer_start(200, {-> s:DelayedAutoClose()})   " ← CHANGED
+    endif
+endfunction
+
+function! s:DelayedAutoClose() abort
+    if g:winlist_opening      | return | endif
+    if g:winlist_file_opening | return | endif   " ← NEW
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
