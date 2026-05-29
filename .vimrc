@@ -11,11 +11,11 @@
 " │                         GVIM AUTO FULLSCREEN                             │
 " └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
-    autocmd GUIEnter * call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
+    autocmd GUIEnter * silent! call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
 endif
 
 if has('gui_running')
-    map <silent> <F11> :call system("wmctrl -ir " . v:windowid . " -b toggle,maximized_vert,maximized_horz")<CR>
+    map <silent> <F11> :silent! call system("wmctrl -ir " . v:windowid . " -b toggle,maximized_vert,maximized_horz")<CR>
 endif
 
 
@@ -105,11 +105,11 @@ highlight StatusLineNC guifg=#888888 guibg=#001933
 function! StatusLineColorMonitor()
     let m = mode()
     if m ==# 'i'
-        highlight StatusLine guifg=#00ffff guibg=#661900
+        silent! highlight StatusLine guifg=#00ffff guibg=#661900
     elseif m ==# 'R'
-        highlight StatusLine guifg=#00ffff guibg=#006619
+        silent! highlight StatusLine guifg=#00ffff guibg=#006619
     else
-        highlight StatusLine guifg=#00ffff guibg=#001933
+        silent! highlight StatusLine guifg=#00ffff guibg=#001933
     endif
 endfunction
 
@@ -117,21 +117,21 @@ let g:statusline_timer = 0
 
 function! StatuslineStartTimer()
     if g:statusline_timer == 0
-        let g:statusline_timer = timer_start(500, {-> StatusLineColorMonitor()}, {'repeat': -1})
+        let g:statusline_timer = timer_start(500, {-> silent! StatusLineColorMonitor()}, {'repeat': -1})
     endif
 endfunction
 
 function! StatuslineStopTimer()
     if g:statusline_timer != 0
-        call timer_stop(g:statusline_timer)
+        silent! call timer_stop(g:statusline_timer)
         let g:statusline_timer = 0
     endif
 endfunction
 
 augroup DynamicStatusLine
     autocmd!
-    autocmd VimEnter,FocusGained * call StatuslineStartTimer()
-    autocmd FocusLost,QuitPre    * call StatuslineStopTimer()
+    autocmd VimEnter,FocusGained * silent! call StatuslineStartTimer()
+    autocmd FocusLost,QuitPre    * silent! call StatuslineStopTimer()
 augroup END
 
 
@@ -151,7 +151,7 @@ autocmd BufReadPre,FileReadPre *.csh,*.txt    let b:comment_leader = '#'
 function! CommentLine()
     let line = getline('.')
     if line =~ '\S'
-        call setline('.', substitute(line, '^\(\s*\)\(.*\)', '\1' . b:comment_leader . ' \2', ''))
+        silent! call setline('.', substitute(line, '^\(\s*\)\(.*\)', '\1' . b:comment_leader . ' \2', ''))
     endif
 endfunction
 
@@ -165,7 +165,7 @@ function! CommentRange(start, end)
     for lnum in range(a:start, a:end)
         let line = getline(lnum)
         if line =~ '\S'
-            call setline(lnum, substitute(line, '^\(\s*\)\(.*\)', '\1' . b:comment_leader . ' \2', ''))
+            silent! call setline(lnum, substitute(line, '^\(\s*\)\(.*\)', '\1' . b:comment_leader . ' \2', ''))
         endif
     endfor
 endfunction
@@ -174,7 +174,7 @@ function! UncommentRange(start, end)
     for lnum in range(a:start, a:end)
         let line = getline(lnum)
         if line =~? '^\s*' . b:comment_leader
-            call setline(lnum, substitute(line, '^\(\s*\)' . b:comment_leader . ' \?', '\1', ''))
+            silent! call setline(lnum, substitute(line, '^\(\s*\)' . b:comment_leader . ' \?', '\1', ''))
         endif
     endfor
 endfunction
@@ -183,9 +183,9 @@ function! ToggleCommentLine()
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
     let line = getline('.')
     if line =~ '^\s*' . cl
-        call UncommentLine()
+        silent! call UncommentLine()
     else
-        call CommentLine()
+        silent! call CommentLine()
     endif
 endfunction
 
@@ -199,9 +199,9 @@ function! ToggleCommentRange(start, end)
         endif
     endfor
     if all_commented
-        call UncommentRange(a:start, a:end)
+        silent! call UncommentRange(a:start, a:end)
     else
-        call CommentRange(a:start, a:end)
+        silent! call CommentRange(a:start, a:end)
     endif
 endfunction
 
@@ -218,9 +218,9 @@ function! ToggleCommentSyntaxHaoz()
     let l:pattern = '\s*' . escape(l:comment, '/\.*$^~[]') . '\s* haoz\s*$'
     let l:current_line = getline('.')
     if l:current_line =~ l:pattern
-        call setline('.', substitute(l:current_line, l:pattern, '', ''))
+        silent! call setline('.', substitute(l:current_line, l:pattern, '', ''))
     else
-        call setline('.', l:current_line . ' ' . l:comment . ' haoz')
+        silent! call setline('.', l:current_line . ' ' . l:comment . ' haoz')
     endif
 endfunction
 
@@ -240,10 +240,10 @@ function! ToggleHaozCommentAtBeginning()
     let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
     if content =~ pattern
         let new_content = substitute(content, pattern, '', '')
-        call setline('.', indent . new_content)
+        silent! call setline('.', indent . new_content)
     else
         if content != ''
-            call setline('.', indent . cl . ' haoz ' . content)
+            silent! call setline('.', indent . cl . ' haoz ' . content)
         endif
     endif
 endfunction
@@ -268,10 +268,10 @@ function! ToggleHaozCommentRangeAtBeginning(start, end)
         if content != ''
             if all_have_haoz
                 let new_content = substitute(content, '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+', '', '')
-                call setline(lnum, indent . new_content)
+                silent! call setline(lnum, indent . new_content)
             else
                 if content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
-                    call setline(lnum, indent . cl . ' haoz ' . content)
+                    silent! call setline(lnum, indent . cl . ' haoz ' . content)
                 endif
             endif
         endif
@@ -386,8 +386,8 @@ nnoremap <C-Down> :tabnext<CR>
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                  SPLIT WINDOW NAVIGATION (ALT LEFT/RIGHT)                │
 " └──────────────────────────────────────────────────────────────────────────┘
-nnoremap <M-Left>  :call WinListNavLeft()<CR>
-nnoremap <M-Right> :call WinListNavRight()<CR>
+nnoremap <silent> <M-Left>  :call WinListNavLeft()<CR>
+nnoremap <silent> <M-Right> :call WinListNavRight()<CR>
 
 function! WinListNavLeft() abort
     let l:cur = winnr()
@@ -404,7 +404,7 @@ function! WinListNavLeft() abort
         endif
     endif
     if WinListIsSpecial() || WinListIsNERDTree()
-        call WinListNavLeft()
+        silent! call WinListNavLeft()
     endif
 endfunction
 
@@ -420,7 +420,7 @@ function! WinListNavRight() abort
         endfor
     endif
     if WinListIsSpecial() || WinListIsNERDTree()
-        call WinListNavRight()
+        silent! call WinListNavRight()
     endif
 endfunction
 
@@ -466,8 +466,8 @@ function! NormalModeTab()
     if col <= leadlen
         let next = ((col / sw) + 1) * sw
         let newline = repeat(' ', next) . substitute(line, '^\s*', '', '')
-        call setline('.', newline)
-        call cursor(line('.'), next + 1)
+        silent! call setline('.', newline)
+        silent! call cursor(line('.'), next + 1)
     else
         execute "normal! i" . repeat(" ", sw) . "\<Esc>"
     endif
@@ -482,8 +482,8 @@ function! NormalModeShiftTab()
     if col <= leadlen && leadlen > 0
         let n = min([sw, leadlen])
         let newline = repeat(' ', leadlen - n) . substitute(line, '^\s*', '', '')
-        call setline('.', newline)
-        call cursor(line('.'), col - n + 1 > 0 ? col - n + 1 : 1)
+        silent! call setline('.', newline)
+        silent! call cursor(line('.'), col - n + 1 > 0 ? col - n + 1 : 1)
     else
         let before = matchstr(line[:col-1], '\s*$')
         let n = min([sw, strlen(before)])
@@ -503,7 +503,7 @@ function! VisualModeTab()
         let leadlen = strlen(lead)
         let next = ((leadlen / sw) + 1) * sw
         let newline = repeat(' ', next) . substitute(line, '^\s*', '', '')
-        call setline(i, newline)
+        silent! call setline(i, newline)
     endfor
 endfunction
 
@@ -518,7 +518,7 @@ function! VisualModeShiftTab()
         let last = ((leadlen - 1) / sw) * sw
         if last < 0 | let last = 0 | endif
         let newline = repeat(' ', last) . substitute(line, '^\s*', '', '')
-        call setline(i, newline)
+        silent! call setline(i, newline)
     endfor
 endfunction
 
@@ -613,12 +613,12 @@ function! SmartNERDTreeToggle()
     endif
 endfunction
 
-autocmd VimEnter * call NERDTreeAddKeyMap({
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'key':      '<2-LeftMouse>',
       \ 'scope':    'FileNode',
       \ 'callback': 'OpenSmart',
       \ 'override': 1 })
-autocmd VimEnter * call NERDTreeAddKeyMap({
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'key':      '<CR>',
       \ 'scope':    'FileNode',
       \ 'callback': 'OpenSmart',
@@ -633,7 +633,7 @@ function! OpenSmart(node)
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
         if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call add(l:normal_wins, l:i)
+            silent! call add(l:normal_wins, l:i)
         endif
     endfor
 
@@ -653,7 +653,7 @@ endfunction
 
 function! s:CloseNERDTreeIfOpen() abort
     if g:NERDTree.IsOpen()
-        NERDTreeClose
+        silent! NERDTreeClose
     endif
 endfunction
 
@@ -665,7 +665,7 @@ function! s:OpenWinListOnTab(tabnr) abort
     let l:cur = tabpagenr()
     execute 'noautocmd tabnext ' . a:tabnr
     if tabpagenr() == a:tabnr && !WinListIsOpen()
-        call WinListOpen()
+        silent! call WinListOpen()
     endif
     if l:cur != a:tabnr
         execute 'noautocmd tabnext ' . l:cur
@@ -713,7 +713,7 @@ nnoremap <F10> :call ToggleGvimMenuToolbar()<CR>
 
 augroup auto_toggle_gvim_toolbar
     autocmd!
-    autocmd GUIEnter * call ToggleGvimMenuToolbar()
+    autocmd GUIEnter * silent! call ToggleGvimMenuToolbar()
 augroup END
 
 
@@ -722,30 +722,30 @@ augroup END
 " └──────────────────────────────────────────────────────────────────────────┘
 augroup diffcolors
     autocmd!
-    autocmd ColorScheme * call s:DiffHighlights()
+    autocmd ColorScheme * silent! call s:DiffHighlights()
 augroup END
 
 function! s:DiffHighlights()
     if &background ==# 'dark'
-        highlight DiffAdd     guibg=#29762e guifg=NONE gui=NONE
-        highlight DiffChange  guibg=#304e75 guifg=NONE gui=NONE
-        highlight DiffDelete  guibg=#772e2e guifg=NONE gui=NONE
-        highlight DiffText    guibg=#aa3a3a guifg=NONE gui=NONE
-        highlight DiffRemoved guibg=#772e2e guifg=NONE gui=NONE
-        highlight DiffFile    guibg=#304e75 guifg=NONE gui=NONE
-        highlight DiffNewFile guibg=#29762e guifg=NONE gui=NONE
+        silent! highlight DiffAdd     guibg=#29762e guifg=NONE gui=NONE
+        silent! highlight DiffChange  guibg=#304e75 guifg=NONE gui=NONE
+        silent! highlight DiffDelete  guibg=#772e2e guifg=NONE gui=NONE
+        silent! highlight DiffText    guibg=#aa3a3a guifg=NONE gui=NONE
+        silent! highlight DiffRemoved guibg=#772e2e guifg=NONE gui=NONE
+        silent! highlight DiffFile    guibg=#304e75 guifg=NONE gui=NONE
+        silent! highlight DiffNewFile guibg=#29762e guifg=NONE gui=NONE
     else
-        highlight DiffAdd     guibg=#cce8cc guifg=NONE gui=NONE
-        highlight DiffChange  guibg=#cce0fa guifg=NONE gui=NONE
-        highlight DiffDelete  guibg=#facccc guifg=NONE gui=NONE
-        highlight DiffText    guibg=#ffbaba guifg=NONE gui=NONE
-        highlight DiffRemoved guibg=#facccc guifg=NONE gui=NONE
-        highlight DiffFile    guibg=#cce0fa guifg=NONE gui=NONE
-        highlight DiffNewFile guibg=#cce8cc guifg=NONE gui=NONE
+        silent! highlight DiffAdd     guibg=#cce8cc guifg=NONE gui=NONE
+        silent! highlight DiffChange  guibg=#cce0fa guifg=NONE gui=NONE
+        silent! highlight DiffDelete  guibg=#facccc guifg=NONE gui=NONE
+        silent! highlight DiffText    guibg=#ffbaba guifg=NONE gui=NONE
+        silent! highlight DiffRemoved guibg=#facccc guifg=NONE gui=NONE
+        silent! highlight DiffFile    guibg=#cce0fa guifg=NONE gui=NONE
+        silent! highlight DiffNewFile guibg=#cce8cc guifg=NONE gui=NONE
     endif
 endfunction
 
-autocmd VimEnter * call s:DiffHighlights()
+autocmd VimEnter * silent! call s:DiffHighlights()
 
 if &diff
     nnoremap dn ]c
@@ -765,12 +765,12 @@ function! UnfoldAllDiffWindows()
             silent! normal! zR
         endif
     endfor
-    call win_gotoid(curr_win)
+    silent! call win_gotoid(curr_win)
 endfunction
 
 augroup Difffoldfix
     autocmd!
-    autocmd VimEnter * call UnfoldAllDiffWindows()
+    autocmd VimEnter * silent! call UnfoldAllDiffWindows()
 augroup END
 
 
@@ -909,25 +909,25 @@ endfunction
 
 " ── Highlights ────────────────────────────────────────────────────────────
 function! WinListSetupHighlight() abort
-    highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold   cterm=bold
-    highlight default WinListNumber     guifg=#E5C07B ctermfg=180 gui=bold   cterm=bold
-    highlight default WinListActive     guifg=#98C379 ctermfg=114 gui=bold   cterm=bold
-    highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
-    highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
-    highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic cterm=NONE
-    highlight default WinListPath       guifg=#7a8a9a ctermfg=66  gui=NONE   cterm=NONE
+    silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold   cterm=bold
+    silent! highlight default WinListNumber     guifg=#E5C07B ctermfg=180 gui=bold   cterm=bold
+    silent! highlight default WinListActive     guifg=#98C379 ctermfg=114 gui=bold   cterm=bold
+    silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
+    silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
+    silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic cterm=NONE
+    silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66  gui=NONE   cterm=NONE
 endfunction
-call WinListSetupHighlight()
+silent! call WinListSetupHighlight()
 
 augroup WinListHighlight
     autocmd!
-    autocmd ColorScheme * call WinListSetupHighlight()
+    autocmd ColorScheme * silent! call WinListSetupHighlight()
 augroup END
 
 
 " ── Syntax ────────────────────────────────────────────────────────────────
 function! WinListApplySyntax() abort
-    syntax clear
+    silent! syntax clear
     syntax match WinListHeader     /^===.*===$/
     syntax match WinListActive     /^>.*$/
         \ contains=WinListActiveMark,WinListNumber,WinListModified,WinListSpecial,WinListPath
@@ -950,7 +950,6 @@ function! WinListCalcWidth(lines) abort
     let l:w     = l:max + g:winlist_padding
     let l:new_w = max([g:winlist_min_width, min([l:w, g:winlist_max_width])])
 
-    " ── Only update width if change is significant (> 2 cols) ─────────────
     if abs(l:new_w - g:winlist_width) <= 2
         return g:winlist_width
     endif
@@ -961,7 +960,7 @@ function! WinListLockSplitWidths() abort
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
         if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call setwinvar(l:i, '&winfixwidth', 1)
+            silent! call setwinvar(l:i, '&winfixwidth', 1)
         endif
     endfor
 endfunction
@@ -970,7 +969,7 @@ function! WinListUnlockSplitWidths() abort
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
         if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call setwinvar(l:i, '&winfixwidth', 0)
+            silent! call setwinvar(l:i, '&winfixwidth', 0)
         endif
     endfor
 endfunction
@@ -981,11 +980,11 @@ function! WinListFixWidth() abort
     if winwidth(l:wnr) == g:winlist_width | return | endif
 
     let l:cur = winnr()
-    call WinListLockSplitWidths()
+    silent! call WinListLockSplitWidths()
     execute 'noautocmd ' . l:wnr . 'wincmd w'
     execute 'vertical resize ' . g:winlist_width
     execute 'noautocmd ' . l:cur . 'wincmd w'
-    call WinListUnlockSplitWidths()
+    silent! call WinListUnlockSplitWidths()
 endfunction
 
 
@@ -995,7 +994,7 @@ function! WinListBuildAllTabLines() abort
     let l:lines   = []
 
     for l:t in range(1, tabpagenr('$'))
-        call add(l:lines, '=== Tab ' . l:t . ' ===')
+        silent! call add(l:lines, '=== Tab ' . l:t . ' ===')
 
         let l:wins_in_tab = tabpagebuflist(l:t)
         let l:active_win  = get(g:winlist_last_active, l:t, 1)
@@ -1018,15 +1017,15 @@ function! WinListBuildAllTabLines() abort
 
             let l:prefix = (l:t == l:cur_tab && l:raw_idx == l:active_win) ? '> ' : '  '
 
-            call add(l:lines, printf('%s%d: %s%s', l:prefix, l:display_idx, l:fname, l:mod))
+            silent! call add(l:lines, printf('%s%d: %s%s', l:prefix, l:display_idx, l:fname, l:mod))
 
             if l:fullpath !=# ''
                 let l:abspath = fnamemodify(l:fullpath, ':p')
                 let l:dirpath = fnamemodify(l:abspath, ':h')
                 let l:short   = WinListShortPath(l:dirpath)
-                call add(l:lines, '     ' . l:short)
+                silent! call add(l:lines, '     ' . l:short)
             else
-                call add(l:lines, '     -')
+                silent! call add(l:lines, '     -')
             endif
         endfor
     endfor
@@ -1055,18 +1054,18 @@ function! WinListRefresh() abort
     execute 'noautocmd ' . l:wl_winnr . 'wincmd w'
     setlocal modifiable
     silent! %delete _
-    call setline(1, l:lines)
+    silent! call setline(1, l:lines)
     setlocal nomodifiable nomodified
-    call WinListApplySyntax()
+    silent! call WinListApplySyntax()
 
-    call WinListLockSplitWidths()
+    silent! call WinListLockSplitWidths()
     if winwidth(winnr()) != g:winlist_width
         execute 'vertical resize ' . g:winlist_width
     endif
-    call WinListUnlockSplitWidths()
+    silent! call WinListUnlockSplitWidths()
 
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
-    call WinListFixWidth()
+    silent! call WinListFixWidth()
 endfunction
 
 
@@ -1098,15 +1097,15 @@ function! WinListRefreshAllTabs() abort
         execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
         setlocal modifiable
         silent! %delete _
-        call setline(1, l:lines)
+        silent! call setline(1, l:lines)
         setlocal nomodifiable nomodified
-        call WinListApplySyntax()
+        silent! call WinListApplySyntax()
 
-        call WinListLockSplitWidths()
+        silent! call WinListLockSplitWidths()
         if winwidth(winnr()) != g:winlist_width
             execute 'vertical resize ' . g:winlist_width
         endif
-        call WinListUnlockSplitWidths()
+        silent! call WinListUnlockSplitWidths()
 
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endfor
@@ -1122,7 +1121,7 @@ function! WinListOpen() abort
     let l:bufname = WinListBufName(l:tabnr)
 
     if WinListIsOpen()
-        call WinListRefresh()
+        silent! call WinListRefresh()
         return
     endif
 
@@ -1169,7 +1168,7 @@ function! WinListOpen() abort
         let g:winlist_opening = 0
     endtry
 
-    call WinListRefreshAllTabs()
+    silent! call WinListRefreshAllTabs()
 endfunction
 
 
@@ -1181,14 +1180,14 @@ function! WinListClose() abort
 endfunction
 
 function! WinListToggle() abort
-    if WinListIsOpen() | call WinListClose()
-    else               | call WinListOpen()
+    if WinListIsOpen() | silent! call WinListClose()
+    else               | silent! call WinListOpen()
     endif
 endfunction
 
 function! WinListOpenInAllTabs() abort
     let l:cur = tabpagenr()
-    tabdo call WinListOpen()
+    tabdo silent! call WinListOpen()
     execute 'tabnext ' . l:cur
 endfunction
 
@@ -1196,11 +1195,11 @@ endfunction
 " ── Mouse Jump ────────────────────────────────────────────────────────────
 function! WinListMouseJump() abort
     if v:mouse_lnum > 0
-        call cursor(v:mouse_lnum, v:mouse_col)
+        silent! call cursor(v:mouse_lnum, v:mouse_col)
     endif
     let l:line = getline('.')
     if l:line =~# '^[> ]*\d\+:'
-        call WinListJump()
+        silent! call WinListJump()
     endif
 endfunction
 
@@ -1259,9 +1258,9 @@ endfunction
 function! s:RestorePanel(tabnr) abort
     if tabpagenr() != a:tabnr | return | endif
     if !WinListIsOpen()
-        call WinListOpen()
+        silent! call WinListOpen()
     else
-        call WinListRefreshAllTabs()
+        silent! call WinListRefreshAllTabs()
     endif
 endfunction
 
@@ -1275,18 +1274,18 @@ endfunction
 " ── Autocmds ──────────────────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
-    autocmd WinEnter   * call WinListCheckAutoCloseTab()
-    autocmd WinEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
-    autocmd BufEnter   * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
-    autocmd BufDelete  * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
-    autocmd BufWipeout * if !g:winlist_opening | call WinListRefreshAllTabs() | endif
-    autocmd VimResized * call WinListFixWidth()
-    autocmd WinLeave   * call WinListFixWidth()
-    autocmd TabLeave   * call WinListOnTabLeave()
-    autocmd TabEnter   * call WinListOnTabEnter()
-    autocmd TabNew     * call WinListOnTabNew()
-    autocmd VimEnter   * call WinListOpen()
-    autocmd TextChanged,TextChangedI,BufWritePost * call WinListRefreshAllTabs()
+    autocmd WinEnter   * silent! call WinListCheckAutoCloseTab()
+    autocmd WinEnter   * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufEnter   * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufDelete  * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufWipeout * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd VimResized * silent! call WinListFixWidth()
+    autocmd WinLeave   * silent! call WinListFixWidth()
+    autocmd TabLeave   * silent! call WinListOnTabLeave()
+    autocmd TabEnter   * silent! call WinListOnTabEnter()
+    autocmd TabNew     * silent! call WinListOnTabNew()
+    autocmd VimEnter   * silent! call WinListOpen()
+    autocmd TextChanged,TextChangedI,BufWritePost * silent! call WinListRefreshAllTabs()
 augroup END
 
 
