@@ -1271,6 +1271,24 @@ function! WinListOnTabNew() abort
 endfunction
 
 
+" ── Debounced Refresh ─────────────────────────────────────────────────────
+let g:winlist_refresh_timer = 0
+
+function! WinListDebouncedRefresh() abort
+    if g:winlist_opening | return | endif
+    if g:winlist_refresh_timer != 0
+        silent! call timer_stop(g:winlist_refresh_timer)
+        let g:winlist_refresh_timer = 0
+    endif
+    let g:winlist_refresh_timer = timer_start(300, {-> s:WinListTimedRefresh()})
+endfunction
+
+function! s:WinListTimedRefresh() abort
+    let g:winlist_refresh_timer = 0
+    silent! call WinListRefreshAllTabs()
+endfunction
+
+
 " ── Autocmds ──────────────────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
@@ -1285,8 +1303,9 @@ augroup WinListAuto
     autocmd TabEnter   * silent! call WinListOnTabEnter()
     autocmd TabNew     * silent! call WinListOnTabNew()
     autocmd VimEnter   * silent! call WinListOpen()
-    autocmd TextChanged,TextChangedI,BufWritePost * silent! call WinListRefreshAllTabs()
+    autocmd TextChanged,TextChangedI,BufWritePost * silent! call WinListDebouncedRefresh()
 augroup END
+
 
 
 " ── Keymaps + Commands ────────────────────────────────────────────────────
