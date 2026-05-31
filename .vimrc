@@ -1299,3 +1299,150 @@ command! WinListClose   call WinListClose()
 command! WinListFix     call WinListFixWidth()
 command! WinListRefresh call WinListRefreshAllTabs()
 command! WinListAllTabs call WinListOpenInAllTabs()
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                    DOUBLE-ENTER SPLIT EXPAND / RESTORE                   │
+" └──────────────────────────────────────────────────────────────────────────┘
+let g:splitexpand_active  = 0
+let g:splitexpand_timer   = 0
+let g:splitexpand_pending = 0
+
+function! SplitExpandCurrentWin() abort
+    let l:total       = winnr('$')
+    let l:cur         = winnr()
+    let l:avail_width = &columns
+
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        let l:avail_width -= winwidth(l:wl_wnr) + 1
+    endif
+
+    for l:i in range(1, l:total)
+        if WinListIsNERDTree(winbufnr(l:i))
+            let l:avail_width -= winwidth(l:i) + 1
+        endif
+    endfor
+
+    let l:normal_wins = []
+    for l:i in range(1, l:total)
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            silent! call add(l:normal_wins, l:i)
+        endif
+    endfor
+
+    if len(l:normal_wins) <= 1
+        return
+    endif
+
+    if l:wl_wnr != -1
+        call setwinvar(l:wl_wnr, '&winfixwidth', 1)
+    endif
+    for l:i in range(1, l:total)
+        if WinListIsNERDTree(winbufnr(l:i))
+            call setwinvar(l:i, '&winfixwidth', 1)
+        endif
+    endfor
+
+    let l:min_w  = 1
+    let l:main_w = l:avail_width - (len(l:normal_wins) - 1) * (l:min_w + 1)
+    if l:main_w < 1 | let l:main_w = 1 | endif
+
+    for l:i in l:normal_wins
+        call setwinvar(l:i, '&winfixwidth', 0)
+        if l:i == l:cur
+            execute l:i . 'wincmd w'
+            execute 'vertical resize ' . l:main_w
+        else
+            execute l:i . 'wincmd w'
+            execute 'vertical resize ' . l:min_w
+        endif
+    endfor
+
+    execute l:cur . 'wincmd w'
+    let g:splitexpand_active = 1
+endfunction
+
+
+function! SplitExpandRestore() abort
+    let l:total   = winnr('$')
+    let l:cur     = winnr()
+    let l:wl_wnr  = bufwinnr(WinListBufName())
+
+    let l:normal_wins = []
+    for l:i in range(1, l:total)
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            silent! call add(l:normal_wins, l:i)
+        endif
+    endfor
+
+    for l:i in l:normal_wins
+        call setwinvar(l:i, '&winfixwidth', 0)
+    endfor
+
+    if l:wl_wnr != -1
+        execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
+        execute 'vertical resize ' . g:winlist_width
+        call setwinvar(l:wl_wnr, '&winfixwidth', 1)
+    endif
+
+    execute l:cur . 'wincmd w'
+    execute 'wincmd ='
+
+    if l:wl_wnr != -1
+        silent! call WinListFixWidth()
+    endif
+
+    let g:splitexpand_active = 0
+endfunction
+
+
+function! SplitExpandHandleEnter() abort
+    if g:splitexpand_pending
+        if g:splitexpand_timer != 0
+            silent! call timer_stop(g:splitexpand_timer)
+            let g:splitexpand_timer = 0
+        endif
+        let g:splitexpand_pending = 0
+
+        if g:splitexpand_active
+            silent! call SplitExpandRestore()
+        else
+            silent! call SplitExpandCurrentWin()
+        endif
+    else
+        let g:splitexpand_pending = 1
+        let g:splitexpand_timer = timer_start(350, {-> s:SplitExpandTimeout()})
+    endif
+endfunction
+
+
+function! s:SplitExpandTimeout() abort
+    let g:splitexpand_pending = 0
+    let g:splitexpand_timer   = 0
+endfunction
+
+
+function! s:SplitExpandCheckStillValid() abort
+    let l:normal_wins = 0
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            let l:normal_wins += 1
+        endif
+    endfor
+    if l:normal_wins <= 1
+        let g:splitexpand_active = 0
+    endif
+endfunction
+
+
+augroup SplitExpandReset
+    autocmd!
+    autocmd WinEnter    * if g:splitexpand_active | call s:SplitExpandCheckStillValid() | endif
+    autocmd BufWinLeave * let g:splitexpand_active = 0
+augroup END
+
+nnoremap <silent> <CR> :call SplitExpandHandleEnter()<CR>
