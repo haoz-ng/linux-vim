@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.36                                                         ║
-" ║  Modified : 2026-05-30                                                   ║
+" ║  Version  : 6.38                                                         ║
+" ║  Modified : 2026-06-01                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -46,6 +46,8 @@ set laststatus=2
 set cursorcolumn
 set cursorline
 set foldlevel=99
+set lazyredraw
+set updatetime=1000
 
 au CursorHold,CursorHoldI * silent! checktime
 
@@ -117,7 +119,7 @@ let g:statusline_timer = 0
 
 function! StatuslineStartTimer()
     if g:statusline_timer == 0
-        let g:statusline_timer = timer_start(500, {-> silent! StatusLineColorMonitor()}, {'repeat': -1})
+        let g:statusline_timer = timer_start(1000, {-> silent! StatusLineColorMonitor()}, {'repeat': -1})
     endif
 endfunction
 
@@ -1072,6 +1074,10 @@ endfunction
 " ── Refresh ALL tabs' panels ──────────────────────────────────────────────
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
+
+    let l:save_lz = &lazyredraw
+    set lazyredraw
+
     let l:cur_tab = tabpagenr()
     let l:cur_win = winnr()
 
@@ -1112,6 +1118,8 @@ function! WinListRefreshAllTabs() abort
 
     execute 'noautocmd tabnext ' . l:cur_tab
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
+
+    let &lazyredraw = l:save_lz
 endfunction
 
 
@@ -1271,41 +1279,51 @@ function! WinListOnTabNew() abort
 endfunction
 
 
-" ── Debounced Refresh ─────────────────────────────────────────────────────
-let g:winlist_refresh_timer = 0
-
-function! WinListDebouncedRefresh() abort
-    if g:winlist_opening | return | endif
-    if g:winlist_refresh_timer != 0
-        silent! call timer_stop(g:winlist_refresh_timer)
-        let g:winlist_refresh_timer = 0
-    endif
-    let g:winlist_refresh_timer = timer_start(300, {-> s:WinListTimedRefresh()})
-endfunction
-
-function! s:WinListTimedRefresh() abort
-    let g:winlist_refresh_timer = 0
-    silent! call WinListRefreshAllTabs()
-endfunction
-
-
-" ── Autocmds ──────────────────────────────────────────────────────────────
+" ── Autocmds — pure event-driven, NO periodic refresh timers ──────────────
+"
+"   Refresh is triggered ONLY by real buffer/window/tab lifecycle events:
+"     • BufWritePost  — file was saved
+"     • BufReadPost   — file was (re)loaded / opened
+"     • BufAdd        — new buffer added to the list
+"     • BufDelete     — buffer removed from list
+"     • BufWipeout    — buffer fully destroyed
+"     • WinEnter      — cursor moved into a window  (active-entry highlight)
+"     • BufEnter      — cursor entered a buffer      (active-entry highlight)
+"     • TabLeave/Enter/New — tab lifecycle
+"     • VimResized    — terminal/GUI was resized
+"     • WinLeave      — fix width before leaving
+"
+"   TextChanged / TextChangedI / InsertLeave are intentionally OMITTED —
+"   the panel only needs to update when a file name or [+] flag changes,
+"   which happens at write/read time, not on every keystroke.
+" ──────────────────────────────────────────────────────────────────────────
 augroup WinListAuto
     autocmd!
-    autocmd WinEnter   * silent! call WinListCheckAutoCloseTab()
-    autocmd WinEnter   * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufEnter   * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufDelete  * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufWipeout * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+
+    " ── structural changes that require a full refresh ─────────────────
+    autocmd BufWritePost * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufReadPost  * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufAdd       * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufDelete    * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufWipeout   * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+
+    " ── active-window highlight update (cheap — only redraws panel text) ─
+    autocmd WinEnter * silent! call WinListCheckAutoCloseTab()
+    autocmd WinEnter * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufEnter * if !g:winlist_opening | silent! call WinListRefreshAllTabs() | endif
+
+    " ── layout / size ─────────────────────────────────────────────────
     autocmd VimResized * silent! call WinListFixWidth()
     autocmd WinLeave   * silent! call WinListFixWidth()
-    autocmd TabLeave   * silent! call WinListOnTabLeave()
-    autocmd TabEnter   * silent! call WinListOnTabEnter()
-    autocmd TabNew     * silent! call WinListOnTabNew()
-    autocmd VimEnter   * silent! call WinListOpen()
-    autocmd TextChanged,TextChangedI,BufWritePost * silent! call WinListDebouncedRefresh()
-augroup END
 
+    " ── tab lifecycle ─────────────────────────────────────────────────
+    autocmd TabLeave * silent! call WinListOnTabLeave()
+    autocmd TabEnter * silent! call WinListOnTabEnter()
+    autocmd TabNew   * silent! call WinListOnTabNew()
+
+    " ── startup ───────────────────────────────────────────────────────
+    autocmd VimEnter * silent! call WinListOpen()
+augroup END
 
 
 " ── Keymaps + Commands ────────────────────────────────────────────────────
