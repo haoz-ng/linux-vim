@@ -913,7 +913,7 @@ endfunction
 function! WinListSetupHighlight() abort
     silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold   cterm=bold
     silent! highlight default WinListNumber     guifg=#E5C07B ctermfg=180 gui=bold   cterm=bold
-    silent! highlight default WinListActive     guifg=#98C379 ctermfg=114 gui=bold   cterm=bold
+    silent! highlight default WinListActive     guifg=#00FFFF ctermfg=114 gui=bold   cterm=bold
     silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold   cterm=bold
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic cterm=NONE
