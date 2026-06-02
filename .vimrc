@@ -1409,9 +1409,9 @@ endfunction
 
 
 function! SplitExpandRestore() abort
-    let l:total   = winnr('$')
-    let l:cur     = winnr()
-    let l:wl_wnr  = bufwinnr(WinListBufName())
+    let l:total  = winnr('$')
+    let l:cur    = winnr()
+    let l:wl_wnr = bufwinnr(WinListBufName())
 
     let l:normal_wins = []
     for l:i in range(1, l:total)
@@ -1442,6 +1442,7 @@ function! SplitExpandRestore() abort
 endfunction
 
 
+" ── Double-<CR>: always restore splits to equal width ────────────────────
 function! SplitExpandHandleEnter() abort
     if g:splitexpand_pending
         if g:splitexpand_timer != 0
@@ -1450,14 +1451,10 @@ function! SplitExpandHandleEnter() abort
         endif
         let g:splitexpand_pending = 0
 
-        if g:splitexpand_active
-            silent! call SplitExpandRestore()
-        else
-            silent! call SplitExpandCurrentWin()
-        endif
+        silent! call SplitExpandRestore()
     else
         let g:splitexpand_pending = 1
-        let g:splitexpand_timer = timer_start(350, {-> s:SplitExpandTimeout()})
+        let g:splitexpand_timer   = timer_start(350, {-> s:SplitExpandTimeout()})
     endif
 endfunction
 
@@ -1465,6 +1462,22 @@ endfunction
 function! s:SplitExpandTimeout() abort
     let g:splitexpand_pending = 0
     let g:splitexpand_timer   = 0
+endfunction
+
+
+" ── Ctrl+Enter: expand current win (others → width 1), WinList stays ─────
+function! SplitExpandCtrlEnter() abort
+    if g:splitexpand_active
+        silent! call SplitExpandRestore()
+    endif
+
+    if g:splitexpand_timer != 0
+        silent! call timer_stop(g:splitexpand_timer)
+        let g:splitexpand_timer = 0
+    endif
+    let g:splitexpand_pending = 0
+
+    silent! call SplitExpandCurrentWin()
 endfunction
 
 
@@ -1488,4 +1501,8 @@ augroup SplitExpandReset
     autocmd BufWinLeave * let g:splitexpand_active = 0
 augroup END
 
-nnoremap <silent> <CR> :call SplitExpandHandleEnter()<CR>
+" Single <CR>  → nothing (timeout discards)
+" Double <CR>  → always restore equal widths
+" <C-CR>       → expand current split, others → width 1
+nnoremap <silent> <CR>   :call SplitExpandHandleEnter()<CR>
+nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
