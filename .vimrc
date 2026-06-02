@@ -1506,3 +1506,77 @@ augroup END
 " <C-CR>       → expand current split, others → width 1
 nnoremap <silent> <CR>   :call SplitExpandHandleEnter()<CR>
 nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                     REOPEN LAST CLOSED FILE (CTRL+SHIFT+T)              │
+" └──────────────────────────────────────────────────────────────────────────┘
+if !exists('g:closed_file_stack')
+    let g:closed_file_stack = []
+endif
+
+let g:closed_file_stack_max = 20
+
+function! ClosedFileStackPush() abort
+    let l:name = expand('%:p')
+    let l:bt   = &buftype
+
+    " Skip special / unnamed / non-file buffers
+    if l:name ==# ''             | return | endif
+    if l:bt   !=# ''             | return | endif
+    if l:name =~# 'NERD_tree'   | return | endif
+    if l:name =~# '__WindowList_\d\+__' | return | endif
+    if !filereadable(l:name)     | return | endif
+
+    " Remove duplicate if already in stack (bubble to top)
+    call filter(g:closed_file_stack, 'v:val !=# l:name')
+
+    " Push to top
+    call insert(g:closed_file_stack, l:name, 0)
+
+    " Cap the stack size
+    if len(g:closed_file_stack) > g:closed_file_stack_max
+        let g:closed_file_stack = g:closed_file_stack[:g:closed_file_stack_max - 1]
+    endif
+endfunction
+
+function! ReopenLastClosedFile() abort
+    if empty(g:closed_file_stack)
+        echo "No recently closed files."
+        return
+    endif
+
+    let l:path = remove(g:closed_file_stack, 0)
+
+    if !filereadable(l:path)
+        echo "File no longer readable: " . l:path
+        return
+    endif
+
+    " Save current window
+    let l:cur_win = winnr()
+
+    " Go to the rightmost window
+    wincmd l
+
+    " If we didn't move (already at rightmost) → open a new split to the right
+    if winnr() == l:cur_win
+        execute 'rightbelow vsplit ' . fnameescape(l:path)
+    else
+        " We are now in the rightmost window → open file here directly
+        execute 'edit ' . fnameescape(l:path)
+    endif
+endfunction
+
+
+" ── Override <C-w> to capture path BEFORE closing ─────────────────────────
+function! SmartClose() abort
+    silent! call ClosedFileStackPush()
+    quit
+endfunction
+
+noremap <silent> <C-w> :call SmartClose()<CR>
+
+
+nnoremap <silent> <C-S-t> :call ReopenLastClosedFile()<CR>
+inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosedFile()<CR>
