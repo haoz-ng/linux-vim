@@ -140,15 +140,15 @@ augroup END
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           COMMENT SYSTEM                                 │
 " └──────────────────────────────────────────────────────────────────────────┘
-autocmd FileType c,cpp,java,scala             let b:comment_leader = '\/\/'
-autocmd FileType sh,csh,ruby,python,tcsh      let b:comment_leader = '#'
-autocmd FileType conf,fstab                   let b:comment_leader = '#'
-autocmd FileType tex                          let b:comment_leader = '%'
-autocmd FileType mail                         let b:comment_leader = '>'
-autocmd FileType vim                          let b:comment_leader = '"'
-autocmd FileType nasm                         let b:comment_leader = ';'
-autocmd BufReadPre,FileReadPre *.v,*.sv,*.svh let b:comment_leader = '\/\/'
-autocmd BufReadPre,FileReadPre *.csh,*.txt    let b:comment_leader = '#'
+autocmd FileType c,cpp,java,scala                   let b:comment_leader = '\/\/'
+autocmd FileType sh,csh,ruby,python,tcsh            let b:comment_leader = '#'
+autocmd FileType conf,fstab                         let b:comment_leader = '#'
+autocmd FileType tex                                let b:comment_leader = '%'
+autocmd FileType mail                               let b:comment_leader = '>'
+autocmd FileType vim                                let b:comment_leader = '"'
+autocmd FileType nasm                               let b:comment_leader = ';'
+autocmd BufReadPre,FileReadPre *.v,*.sv,*.svh,*.svt let b:comment_leader = '\/\/'
+autocmd BufReadPre,FileReadPre *.csh,*.txt          let b:comment_leader = '#'
 
 function! CommentLine()
     let line = getline('.')
@@ -584,8 +584,8 @@ nnoremap <Del> <Nop>
 " └──────────────────────────────────────────────────────────────────────────┘
 augroup filtype_verilog
     autocmd!
-    autocmd FileType Verilog,verilog_systemverilog setlocal foldmethod=indent
-    autocmd BufNewFile,BufRead *.v,*.sv,*.svh      setlocal foldmethod=indent
+    autocmd FileType Verilog,verilog_systemverilog       setlocal foldmethod=indent
+    autocmd BufNewFile,BufRead *.v,*.sv,*.svh,*.svt      setlocal foldmethod=indent
 augroup END
 runtime macros/matchit.vim
 
