@@ -924,6 +924,12 @@ silent! call WinListSetupHighlight()
 augroup WinListHighlight
     autocmd!
     autocmd ColorScheme * silent! call WinListSetupHighlight()
+    augroup WinListBufSettings
+        autocmd!
+        autocmd FileType winlist setlocal wrap nonumber norelativenumber
+                               \ cursorline buftype=nofile noswapfile nobuflisted
+                               \ winfixwidth winfixheight signcolumn=no
+    augroup END
 augroup END
 
 
