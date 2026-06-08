@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.43                                                         ║
+" ║  Version  : 6.45                                                         ║
 " ║  Modified : 2026-06-08                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
@@ -77,6 +77,72 @@ highlight Search     ctermfg=blue  ctermbg=grey     guifg=#0000ff guibg=#888888
 highlight VertSplit  guifg=#00ffff guibg=#191E2A
 highlight SpecialKey ctermbg=17    guibg=#001933    guifg=#00ffff
 highlight TabLineSel ctermfg=159   ctermbg=0
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                         NETRW ( :E ) STYLING                            │
+" └──────────────────────────────────────────────────────────────────────────┘
+
+" ── Netrw behavior ────────────────────────────────────────────────────────
+let g:netrw_liststyle    = 1      " wide list (similar feel to NERDTree)
+let g:netrw_banner       = 1      " keep the 'Press ? for help' banner
+let g:netrw_browse_split = 0      " open files in same window
+let g:netrw_sizestyle    = "H"    " human-readable file sizes
+
+" ── Netrw highlight function — matches NERDTree dark palette ──────────────
+function! s:NetrwHighlights() abort
+    " Directories — bright blue (same as NERDTree folders)
+    silent! highlight netrwDir       guifg=#00aaff  guibg=#000000 gui=bold    ctermfg=39  ctermbg=0
+    silent! highlight netrwClassify  guifg=#00aaff  guibg=#000000 gui=NONE    ctermfg=39  ctermbg=0
+
+    " Symlinks — cyan
+    silent! highlight netrwLink      guifg=#00ffcc  guibg=#000000 gui=italic  ctermfg=43  ctermbg=0
+    silent! highlight netrwSymLink   guifg=#00ffcc  guibg=#000000 gui=italic  ctermfg=43  ctermbg=0
+
+    " Executables — green
+    silent! highlight netrwExe       guifg=#98c379  guibg=#000000 gui=bold    ctermfg=114 ctermbg=0
+
+    " Dates / sizes — dim grey
+    silent! highlight netrwDateSep   guifg=#555555  guibg=#000000 gui=NONE    ctermfg=240 ctermbg=0
+    silent! highlight netrwSizeDate  guifg=#666666  guibg=#000000 gui=NONE    ctermfg=241 ctermbg=0
+
+    " Hidden / dot-files — soft red
+    silent! highlight netrwHidFile   guifg=#e06c75  guibg=#000000 gui=italic  ctermfg=204 ctermbg=0
+
+    " Comments / separators — dark grey
+    silent! highlight netrwGray      guifg=#5c6370  guibg=#000000 gui=NONE    ctermfg=59  ctermbg=0
+    silent! highlight netrwComment   guifg=#5c6370  guibg=#000000 gui=italic  ctermfg=59  ctermbg=0
+    silent! highlight netrwCmdSep    guifg=#555555  guibg=#000000 gui=NONE    ctermfg=240 ctermbg=0
+    silent! highlight netrwVersion   guifg=#555555  guibg=#000000 gui=NONE    ctermfg=240 ctermbg=0
+
+    " List markers / numbers — gold
+    silent! highlight netrwList      guifg=#e5c07b  guibg=#000000 gui=NONE    ctermfg=180 ctermbg=0
+
+    " Help / header banner — light blue  (matches WinList header)
+    silent! highlight netrwHelpCmd   guifg=#61afef  guibg=#000000 gui=bold    ctermfg=75  ctermbg=0
+    silent! highlight netrwBanner    guifg=#61afef  guibg=#000000 gui=bold    ctermfg=75  ctermbg=0
+
+    " Plain files — light grey/white
+    silent! highlight netrwPlain     guifg=#abb2bf  guibg=#000000 gui=NONE    ctermfg=145 ctermbg=0
+    silent! highlight netrwNormal    guifg=#abb2bf  guibg=#000000 gui=NONE    ctermfg=145 ctermbg=0
+
+    " Special files — purple
+    silent! highlight netrwSpecial   guifg=#c678dd  guibg=#000000 gui=NONE    ctermfg=176 ctermbg=0
+
+    " Marked files — gold background
+    silent! highlight netrwMarkFile  guifg=#000000  guibg=#e5c07b gui=bold    ctermfg=0   ctermbg=180
+
+    " Cursor line inherits global CursorLine
+    silent! highlight link netrwCursorLine CursorLine
+endfunction
+
+augroup NetrwColors
+    autocmd!
+    autocmd FileType netrw call s:NetrwHighlights()
+    autocmd FileType netrw setlocal signcolumn=no
+    autocmd FileType netrw setlocal statusline=\ 【netrw】\ %{getcwd()}
+    autocmd ColorScheme *  call s:NetrwHighlights()
+augroup END
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -1194,11 +1260,22 @@ function! CombinedPanelClose() abort
 endfunction
 
 
+" ── Toggle: open panel then focus WinList; close if already open ──────────
 function! CombinedPanelToggle() abort
     if CombinedPanelIsOpen()
         silent! call CombinedPanelClose()
     else
         silent! call CombinedPanelOpen()
+        " Move cursor into the WinList panel after it has been drawn
+        call timer_start(80, {-> s:FocusWinListPanel()})
+    endif
+endfunction
+
+" Focus the WinList buffer window
+function! s:FocusWinListPanel() abort
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        execute l:wl_wnr . 'wincmd w'
     endif
 endfunction
 
@@ -1237,18 +1314,35 @@ function! OpenSmart(node)
     endfor
 
     if len(l:normal_wins) == 0
-        " No editor window yet — split to the right of the panel
-        let l:anchor = winnr('$')
-        execute 'noautocmd ' . l:anchor . 'wincmd w'
+        " ── No editor window open yet ──
+        "    Open file in a new split to the right of the panel,
+        "    then close NERDTree (keep WinList panel intact)
+        let l:last_win = winnr('$')
+        execute 'noautocmd ' . l:last_win . 'wincmd w'
         execute 'rightbelow vertical split ' . fnameescape(l:path)
+        call timer_start(50, {-> s:CloseNERDTreeAfterOpen()})
     else
-        " Always split RIGHT of the rightmost editor window
+        " ── Editor windows exist: split RIGHT of the rightmost one ──
         let l:rightmost = l:normal_wins[-1]
         execute 'noautocmd ' . l:rightmost . 'wincmd w'
         execute 'rightbelow vertical split ' . fnameescape(l:path)
     endif
 
     call timer_start(300, {-> s:ClearFileOpening()})
+endfunction
+
+" Close NERDTree after opening a file into an empty tab
+function! s:CloseNERDTreeAfterOpen() abort
+    for l:i in range(1, winnr('$'))
+        if WinListIsNERDTree(winbufnr(l:i))
+            execute 'noautocmd ' . l:i . 'wincmd w'
+            silent! close
+            break
+        endif
+    endfor
+    let g:panel_nerdtree_open = 0
+    silent! call WinListRefreshAllTabs()
+    silent! call WinListFixWidth()
 endfunction
 
 function! s:ClearFileOpening() abort
@@ -1354,15 +1448,10 @@ function! s:RestorePanel(tabnr) abort
     endif
 endfunction
 
+" ── New tab: always start WITHOUT the combined panel ──────────────────────
 function! WinListOnTabNew() abort
-    let l:tabnr    = tabpagenr()
-    let l:prev_tab = l:tabnr > 1 ? l:tabnr - 1 : tabpagenr('$')
-    if get(g:winlist_tab_open, l:prev_tab, 0) == 1
-        let g:winlist_tab_open[l:tabnr] = 1
-        call timer_start(150, {-> s:RestorePanel(l:tabnr)})
-    else
-        let g:winlist_tab_open[l:tabnr] = 0
-    endif
+    let l:tabnr = tabpagenr()
+    let g:winlist_tab_open[l:tabnr] = 0
 endfunction
 
 
