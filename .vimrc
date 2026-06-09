@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.48                                                         ║
+" ║  Version  : 6.49                                                         ║
 " ║  Modified : 2026-06-09                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
@@ -740,7 +740,7 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                    COMBINED PANEL (WinList + NERDTree)                   │
-" │                    WinList on TOP — NERDTree on BOTTOM                   │
+" │          WinList TOP half ── NERDTree BOTTOM half  (50/50 split)         │
 " └──────────────────────────────────────────────────────────────────────────┘
 
 " ── Panel dimensions ──────────────────────────────────────────────────────
@@ -753,7 +753,9 @@ let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
 let g:NERDTreeWinSize      = 75
 
-let g:panel_nerdtree_lines = 20
+" g:panel_nerdtree_lines is computed dynamically as half screen height
+" (set to 0 here; recalculated in CombinedPanelOpen every time)
+let g:panel_nerdtree_lines = 0
 let g:panel_nerdtree_open  = 0
 
 if !exists('g:winlist_tab_open')
@@ -766,6 +768,14 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
+
+
+" ── Helper: compute half-screen height for WinList panel ──────────────────
+" Subtracts 2 for the tabline + statusline so the split is visually equal.
+function! WinListHalfHeight() abort
+    let l:total = &lines - 2          " subtract tabline + statusline rows
+    return max([5, l:total / 2])      " at least 5 lines
+endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
@@ -964,6 +974,34 @@ function! WinListFixWidth() abort
 endfunction
 
 
+" ── Enforce 50/50 height split between WinList (top) and NERDTree (bottom)
+function! WinListFixPanelHeights() abort
+    if !WinListIsOpen() | return | endif
+
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    let l:nt_wnr = -1
+    for l:i in range(1, winnr('$'))
+        if WinListIsNERDTree(winbufnr(l:i))
+            let l:nt_wnr = l:i
+            break
+        endif
+    endfor
+
+    if l:wl_wnr == -1 || l:nt_wnr == -1 | return | endif
+
+    let l:half    = WinListHalfHeight()
+    let l:cur     = winnr()
+
+    execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
+    execute 'resize ' . l:half
+
+    execute 'noautocmd ' . l:nt_wnr . 'wincmd w'
+    execute 'resize ' . l:half
+
+    execute 'noautocmd ' . l:cur . 'wincmd w'
+endfunction
+
+
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST CONTENT
 " ══════════════════════════════════════════════════════════════════════════
@@ -987,7 +1025,6 @@ function! WinListBuildAllTabLines() abort
         call WinListEnsureTabID(l:t)
         let l:tid = gettabvar(l:t, 'winlist_tab_id', string(l:t))
 
-        " Header: visible === Tab N === plus concealed §<tid>
         call add(l:lines, printf('=== Tab %d ===§%s', l:t, l:tid))
 
         let l:wins_in_tab = tabpagebuflist(l:t)
@@ -1163,6 +1200,7 @@ function! CombinedPanelOpen() abort
     if WinListIsOpen() && NERDTreeIsOpen()
         silent! call WinListRefreshAllTabs()
         silent! call SyncNERDTreeWidth()
+        silent! call WinListFixPanelHeights()
         return
     endif
 
@@ -1177,20 +1215,28 @@ function! CombinedPanelOpen() abort
     let l:cur      = winnr()
     let l:cur_file = expand('%:p')
 
+    " ── Compute 50/50 height split at open time ────────────────────────────
+    let l:half = WinListHalfHeight()
+
     try
         execute 'noautocmd ' . l:safe . 'wincmd w'
 
+        " 1. Open NERDTree — it takes the full left column
         if filereadable(l:cur_file)
             execute 'NERDTree ' . fnameescape(fnamemodify(l:cur_file, ':h'))
         else
             execute 'NERDTree ' . fnameescape(getcwd())
         endif
 
-        let g:panel_nerdtree_open = 1
+        let g:panel_nerdtree_open  = 1
+        let g:panel_nerdtree_lines = l:half
+
         execute 'vertical resize ' . g:winlist_width
         setlocal winfixwidth
 
-        execute 'noautocmd leftabove ' . g:panel_nerdtree_lines . 'split ' . l:bufname
+        " 2. Split WinList above NERDTree, sized to exactly half screen
+        "    'leftabove Nsplit' creates a window of N lines ABOVE current
+        execute 'noautocmd leftabove ' . l:half . 'split ' . l:bufname
 
         setlocal winfixwidth winfixheight
         setlocal buftype=nofile bufhidden=hide
@@ -1199,19 +1245,16 @@ function! CombinedPanelOpen() abort
         setlocal cursorline filetype=winlist signcolumn=no
         setlocal statusline=\ 
 
-        " ── Buffer-local mouse mappings (THE KEY FIX) ─────────────────────
-        " Stage 1: single click  → move cursor normally (default behaviour)
-        " Stage 2: double click  → timer delay so cursor is settled, then jump
-        nnoremap <silent> <nowait> <buffer> <LeftMouse>
-            \ <LeftMouse>
-        nnoremap <silent> <nowait> <buffer> <2-LeftMouse>
-            \ :call WinListMouseJump()<CR>
-
-        nnoremap <silent> <nowait> <buffer> <CR> :call WinListJump()<CR>
-        nnoremap <silent> <nowait> <buffer> q    :call CombinedPanelClose()<CR>
-        nnoremap <silent> <nowait> <buffer> r    :call WinListRefreshAllTabs()<CR>
+        " ── Buffer-local mappings ──────────────────────────────────────────
+        nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
+        nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
+        nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
+        nnoremap <silent> <nowait> <buffer> q             :call CombinedPanelClose()<CR>
+        nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
 
         let g:winlist_tab_open[l:tabnr] = 1
+
+        " 3. Fix widths of both panel halves
         execute 'vertical resize ' . g:winlist_width
 
         for l:i in range(1, winnr('$'))
@@ -1219,10 +1262,13 @@ function! CombinedPanelOpen() abort
                 execute 'noautocmd ' . l:i . 'wincmd w'
                 setlocal winfixwidth
                 execute 'vertical resize ' . g:winlist_width
+                " Also enforce NERDTree height = half screen
+                execute 'resize ' . l:half
                 break
             endif
         endfor
 
+        " 4. Return focus to original file window
         let l:return_nr = l:cur + 2
         let l:return_nr = min([l:return_nr, winnr('$')])
         while l:return_nr <= winnr('$')
@@ -1350,38 +1396,24 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  WINLIST MOUSE JUMP — two-stage: click moves cursor, then jump executes
+"  WINLIST MOUSE JUMP
 " ══════════════════════════════════════════════════════════════════════════
 
-" Global to remember which window+line the first click landed on
-let g:winlist_mouse_winid = -1
-let g:winlist_mouse_lnum  = -1
-
 function! WinListMouseJump() abort
-    " ── Step 1: get the position from getmousepos() if available ──────────
-    " In GVIM the <2-LeftMouse> fires AFTER the cursor has already been
-    " placed by the implicit first click, so getmousepos() / line('.') is
-    " already correct.  We just need to make sure we read it NOW (not via
-    " a timer) so nothing has a chance to move the cursor again.
-
     let l:lnum = 0
 
     if exists('*getmousepos')
         let l:mpos = getmousepos()
-        " Only act when the click is inside the WinList window
         if l:mpos.winid == win_getid()
             let l:lnum = l:mpos.line
-            " Move cursor to exact clicked row/col
             call cursor(l:lnum, max([1, l:mpos.column]))
         endif
     endif
 
-    " Fallback: cursor already moved by the first click of the double-click
     if l:lnum == 0
         let l:lnum = line('.')
     endif
 
-    " ── Step 2: jump if the line is an entry line ─────────────────────────
     if l:lnum > 0 && getline(l:lnum) =~# '^[> ]*\d\+:'
         call WinListJump()
     endif
@@ -1398,7 +1430,6 @@ function! WinListJump() abort
     if empty(l:m) | return | endif
     let l:display_idx = str2nr(l:m[1])
 
-    " ── Scan upward for nearest header; extract the stable §<tid> suffix ──
     let l:header_tid = ''
     for l:lnum in range(1, line('.'))
         let l:hdr = matchlist(getline(l:lnum), '^=== Tab \d\+ ===§\(.\+\)$')
@@ -1407,7 +1438,6 @@ function! WinListJump() abort
         endif
     endfor
 
-    " ── Resolve stable ID → current real tab number ───────────────────────
     let l:real_tab = -1
     if l:header_tid !=# ''
         let l:real_tab = WinListFindTabByID(l:header_tid)
@@ -1422,7 +1452,6 @@ function! WinListJump() abort
         execute 'tabnext ' . l:real_tab
     endif
 
-    " ── Find the Nth normal window in that tab ────────────────────────────
     let l:count    = 0
     let l:real_win = -1
     for l:i in range(1, winnr('$'))
@@ -1509,11 +1538,13 @@ augroup WinListAuto
     autocmd BufDelete    * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
     autocmd BufWipeout   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
 
-    autocmd WinEnter * silent! call WinListCheckAutoCloseTab()
-    autocmd WinEnter * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufEnter * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd WinEnter   * silent! call WinListCheckAutoCloseTab()
+    autocmd WinEnter   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufEnter   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
 
+    " Re-enforce 50/50 split whenever window layout changes
     autocmd VimResized * silent! call WinListFixWidth()
+    autocmd VimResized * silent! call WinListFixPanelHeights()
     autocmd WinLeave   * silent! call WinListFixWidth()
 
     autocmd TabLeave * silent! call WinListOnTabLeave()
@@ -1532,11 +1563,15 @@ nnoremap <silent> <leader>w  :call WinListToggle()<CR>
 nnoremap <silent> <leader>W  :call WinListFixWidth()<CR>
 nnoremap <silent> <leader>wa :call WinListOpenInAllTabs()<CR>
 
+" Fix panel heights manually if they drift
+nnoremap <silent> <leader>wh :call WinListFixPanelHeights()<CR>
+
 command! WinList        call WinListOpen()
 command! WinListClose   call WinListClose()
 command! WinListFix     call WinListFixWidth()
 command! WinListRefresh call WinListRefreshAllTabs()
 command! WinListAllTabs call WinListOpenInAllTabs()
+command! WinListFixH    call WinListFixPanelHeights()
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
