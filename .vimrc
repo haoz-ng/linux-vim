@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.47                                                         ║
+" ║  Version  : 6.48                                                         ║
 " ║  Modified : 2026-06-09                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
@@ -82,14 +82,11 @@ highlight TabLineSel ctermfg=159   ctermbg=0
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                         NETRW ( :E ) STYLING                            │
 " └──────────────────────────────────────────────────────────────────────────┘
-
-" ── Netrw behavior ────────────────────────────────────────────────────────
 let g:netrw_liststyle    = 1
 let g:netrw_banner       = 1
 let g:netrw_browse_split = 0
 let g:netrw_sizestyle    = "H"
 
-" ── Netrw highlight function ──────────────────────────────────────────────
 function! s:NetrwHighlights() abort
     silent! highlight netrwDir       guifg=#00aaff  guibg=#000000 gui=bold    ctermfg=39  ctermbg=0
     silent! highlight netrwClassify  guifg=#00aaff  guibg=#000000 gui=NONE    ctermfg=39  ctermbg=0
@@ -341,7 +338,6 @@ augroup END
 " └──────────────────────────────────────────────────────────────────────────┘
 noremap <C-n> :tabnew<CR>
 noremap <C-\> :vs<CR><C-w>w
-noremap <C-o> :E<CR>
 
 nnoremap <F5>  :edit!<CR>
 nnoremap <F12> :let @+ = expand('%:p') <bar> echo "Copied full path: " . expand('%:p')<CR>
@@ -776,7 +772,6 @@ let g:panel_opening        = 0
 "  TAB ID SYSTEM — stable IDs that survive drag-reorder
 " ══════════════════════════════════════════════════════════════════════════
 
-" Assign a unique ID to a single tab (call with tab number)
 function! WinListEnsureTabID(...) abort
     let l:t = a:0 > 0 ? a:1 : tabpagenr()
     if gettabvar(l:t, 'winlist_tab_id', '') ==# ''
@@ -785,13 +780,11 @@ function! WinListEnsureTabID(...) abort
     endif
 endfunction
 
-" Get the stable ID of a tab (default: current tab)
 function! WinListGetTabID(...) abort
     let l:t = a:0 > 0 ? a:1 : tabpagenr()
     return gettabvar(l:t, 'winlist_tab_id', '')
 endfunction
 
-" Find the CURRENT real tab number by its stable ID
 function! WinListFindTabByID(tid) abort
     for l:t in range(1, tabpagenr('$'))
         if gettabvar(l:t, 'winlist_tab_id', '') ==# a:tid
@@ -801,7 +794,6 @@ function! WinListFindTabByID(tid) abort
     return -1
 endfunction
 
-" Assign IDs to ALL existing tabs at startup
 function! s:AssignAllTabIDs() abort
     for l:t in range(1, tabpagenr('$'))
         call WinListEnsureTabID(l:t)
@@ -820,7 +812,6 @@ augroup END
 "  HELPER FUNCTIONS
 " ══════════════════════════════════════════════════════════════════════════
 
-" ── Single global WinList buffer name (no per-tab number) ─────────────────
 function! WinListBufName(...) abort
     return '__WindowList__'
 endfunction
@@ -974,7 +965,7 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  WINLIST CONTENT  — header embeds §<tab_id> for stable jump after reorder
+"  WINLIST CONTENT
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListShortPath(fullpath) abort
@@ -993,18 +984,16 @@ function! WinListBuildAllTabLines() abort
     let l:lines   = []
 
     for l:t in range(1, tabpagenr('$'))
-        " ── Ensure stable tab ID exists ───────────────────────────────────
         call WinListEnsureTabID(l:t)
         let l:tid = gettabvar(l:t, 'winlist_tab_id', string(l:t))
 
-        " ── Header: visible part + §<tid> suffix (concealed in display) ───
-        " Format:  === Tab N ===§<tid>
+        " Header: visible === Tab N === plus concealed §<tid>
         call add(l:lines, printf('=== Tab %d ===§%s', l:t, l:tid))
 
         let l:wins_in_tab = tabpagebuflist(l:t)
         let l:active_win  = get(g:winlist_last_active, l:t, 1)
         let l:raw_idx     = 0
-        let l:display_idx = 0          " ← reset per tab (bug fix)
+        let l:display_idx = 0
 
         for l:bn in l:wins_in_tab
             let l:raw_idx += 1
@@ -1067,8 +1056,6 @@ augroup END
 
 function! WinListApplySyntax() abort
     silent! syntax clear
-
-    " ── Header: show '=== Tab N ===' brightly; CONCEAL the §<tid> suffix ──
     syntax match WinListHeader   /^=== Tab \d\+ ===/
     syntax match WinListHeaderID /§[^ ]*$/           conceal
     setlocal conceallevel=2 concealcursor=nvic
@@ -1123,7 +1110,6 @@ function! WinListRefresh() abort
     silent! call WinListFixWidth()
 endfunction
 
-" ── Simplified refresh: builds all-tab content, writes to current-tab panel
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
     if g:panel_opening   | return | endif
@@ -1138,30 +1124,24 @@ function! WinListRefreshAllTabs() abort
         let g:winlist_last_active[l:cur_tab] = l:cur_win
     endif
 
-    " Build content covering ALL tabs
-    let l:lines = WinListBuildAllTabLines()
-
-    " Write into the WinList window on the current tab only
+    let l:lines  = WinListBuildAllTabLines()
     let l:wl_buf = WinListBufName()
     let l:wl_wnr = bufwinnr(l:wl_buf)
 
     if l:wl_wnr != -1
         let l:restore_win = winnr()
         execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
-
         setlocal modifiable
         silent! %delete _
         silent! call setline(1, l:lines)
         setlocal nomodifiable nomodified
         setlocal statusline=\ 
         silent! call WinListApplySyntax()
-
         silent! call WinListLockSplitWidths()
         if winwidth(winnr()) != g:winlist_width
             execute 'vertical resize ' . g:winlist_width
         endif
         silent! call WinListUnlockSplitWidths()
-
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endif
 
@@ -1207,7 +1187,6 @@ function! CombinedPanelOpen() abort
         endif
 
         let g:panel_nerdtree_open = 1
-
         execute 'vertical resize ' . g:winlist_width
         setlocal winfixwidth
 
@@ -1220,15 +1199,19 @@ function! CombinedPanelOpen() abort
         setlocal cursorline filetype=winlist signcolumn=no
         setlocal statusline=\ 
 
-        " ── Buffer-local mappings ──────────────────────────────────────────
-        nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
-        nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
-        nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
-        nnoremap <silent> <nowait> <buffer> q             :call CombinedPanelClose()<CR>
-        nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
+        " ── Buffer-local mouse mappings (THE KEY FIX) ─────────────────────
+        " Stage 1: single click  → move cursor normally (default behaviour)
+        " Stage 2: double click  → timer delay so cursor is settled, then jump
+        nnoremap <silent> <nowait> <buffer> <LeftMouse>
+            \ <LeftMouse>
+        nnoremap <silent> <nowait> <buffer> <2-LeftMouse>
+            \ :call WinListMouseJump()<CR>
+
+        nnoremap <silent> <nowait> <buffer> <CR> :call WinListJump()<CR>
+        nnoremap <silent> <nowait> <buffer> q    :call CombinedPanelClose()<CR>
+        nnoremap <silent> <nowait> <buffer> r    :call WinListRefreshAllTabs()<CR>
 
         let g:winlist_tab_open[l:tabnr] = 1
-
         execute 'vertical resize ' . g:winlist_width
 
         for l:i in range(1, winnr('$'))
@@ -1240,10 +1223,8 @@ function! CombinedPanelOpen() abort
             endif
         endfor
 
-        let l:wl_wnr    = bufwinnr(l:bufname)
         let l:return_nr = l:cur + 2
         let l:return_nr = min([l:return_nr, winnr('$')])
-
         while l:return_nr <= winnr('$')
             if !WinListIsSpecial(winbufnr(l:return_nr)) && !WinListIsNERDTree(winbufnr(l:return_nr))
                 break
@@ -1369,29 +1350,47 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  WINLIST JUMP — uses stable Tab ID to survive drag-reorder
+"  WINLIST MOUSE JUMP — two-stage: click moves cursor, then jump executes
 " ══════════════════════════════════════════════════════════════════════════
 
+" Global to remember which window+line the first click landed on
+let g:winlist_mouse_winid = -1
+let g:winlist_mouse_lnum  = -1
+
 function! WinListMouseJump() abort
+    " ── Step 1: get the position from getmousepos() if available ──────────
+    " In GVIM the <2-LeftMouse> fires AFTER the cursor has already been
+    " placed by the implicit first click, so getmousepos() / line('.') is
+    " already correct.  We just need to make sure we read it NOW (not via
+    " a timer) so nothing has a chance to move the cursor again.
+
     let l:lnum = 0
 
     if exists('*getmousepos')
         let l:mpos = getmousepos()
+        " Only act when the click is inside the WinList window
         if l:mpos.winid == win_getid()
             let l:lnum = l:mpos.line
-            silent! call cursor(l:lnum, l:mpos.column)
+            " Move cursor to exact clicked row/col
+            call cursor(l:lnum, max([1, l:mpos.column]))
         endif
-    elseif v:mouse_lnum > 0
-        let l:lnum = v:mouse_lnum
-        silent! call cursor(l:lnum, v:mouse_col)
-    else
+    endif
+
+    " Fallback: cursor already moved by the first click of the double-click
+    if l:lnum == 0
         let l:lnum = line('.')
     endif
 
+    " ── Step 2: jump if the line is an entry line ─────────────────────────
     if l:lnum > 0 && getline(l:lnum) =~# '^[> ]*\d\+:'
-        silent! call WinListJump()
+        call WinListJump()
     endif
 endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  WINLIST JUMP — uses stable Tab ID to survive drag-reorder
+" ══════════════════════════════════════════════════════════════════════════
 
 function! WinListJump() abort
     let l:line = getline('.')
@@ -1402,7 +1401,6 @@ function! WinListJump() abort
     " ── Scan upward for nearest header; extract the stable §<tid> suffix ──
     let l:header_tid = ''
     for l:lnum in range(1, line('.'))
-        " Header format: === Tab N ===§<tid>
         let l:hdr = matchlist(getline(l:lnum), '^=== Tab \d\+ ===§\(.\+\)$')
         if !empty(l:hdr)
             let l:header_tid = l:hdr[1]
@@ -1420,7 +1418,6 @@ function! WinListJump() abort
         return
     endif
 
-    " Switch to the correct tab (resolves drag-reorder correctly)
     if l:real_tab != tabpagenr()
         execute 'tabnext ' . l:real_tab
     endif
@@ -1506,7 +1503,6 @@ endfunction
 
 augroup WinListAuto
     autocmd!
-
     autocmd BufWritePost * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
     autocmd BufReadPost  * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
     autocmd BufAdd       * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
@@ -1523,7 +1519,6 @@ augroup WinListAuto
     autocmd TabLeave * silent! call WinListOnTabLeave()
     autocmd TabEnter * silent! call WinListOnTabEnter()
     autocmd TabNew   * silent! call WinListOnTabNew()
-
 augroup END
 
 
@@ -1575,9 +1570,7 @@ function! SplitExpandCurrentWin() abort
         endif
     endfor
 
-    if len(l:normal_wins) <= 1
-        return
-    endif
+    if len(l:normal_wins) <= 1 | return | endif
 
     if l:wl_wnr != -1
         call setwinvar(l:wl_wnr, '&winfixwidth', 1)
@@ -1665,13 +1658,11 @@ function! SplitExpandCtrlEnter() abort
     if g:splitexpand_active
         silent! call SplitExpandRestore()
     endif
-
     if g:splitexpand_timer != 0
         silent! call timer_stop(g:splitexpand_timer)
         let g:splitexpand_timer = 0
     endif
     let g:splitexpand_pending = 0
-
     silent! call SplitExpandCurrentWin()
 endfunction
 
@@ -1762,7 +1753,6 @@ function! SmartCtrlO() abort
     execute 'E'
 endfunction
 
-
 function! SmartCtrlORestore() abort
     if empty(g:netrw_pre_expand_layout) | return | endif
 
@@ -1773,7 +1763,6 @@ function! SmartCtrlORestore() abort
         endif
     endfor
 
-    let l:cur = winnr()
     execute 'wincmd ='
 
     let l:wl_wnr = bufwinnr(WinListBufName())
@@ -1783,7 +1772,6 @@ function! SmartCtrlORestore() abort
 
     let g:netrw_pre_expand_layout = {}
 endfunction
-
 
 augroup NetrwExpandRestore
     autocmd!
@@ -1807,11 +1795,11 @@ function! ClosedFileStackPush() abort
     let l:name = expand('%:p')
     let l:bt   = &buftype
 
-    if l:name ==# ''                    | return | endif
-    if l:bt   !=# ''                    | return | endif
-    if l:name =~# 'NERD_tree'           | return | endif
-    if l:name =~# '__WindowList__'      | return | endif
-    if !filereadable(l:name)            | return | endif
+    if l:name ==# ''               | return | endif
+    if l:bt   !=# ''               | return | endif
+    if l:name =~# 'NERD_tree'      | return | endif
+    if l:name =~# '__WindowList__' | return | endif
+    if !filereadable(l:name)       | return | endif
 
     call filter(g:closed_file_stack, 'v:val !=# l:name')
     call insert(g:closed_file_stack, l:name, 0)
