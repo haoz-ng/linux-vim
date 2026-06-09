@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.45                                                         ║
-" ║  Modified : 2026-06-08                                                   ║
+" ║  Version  : 6.46                                                         ║
+" ║  Modified : 2026-06-09                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -163,7 +163,6 @@ set statusline=%F
 set statusline+=%#LineNr#
 set statusline+=%=
 set statusline+=%#CursorColumn#
-set statusline+=%y
 set statusline+=\[%l/%L]
 set statusline+=\[%{&shiftwidth}\%{&expandtab?'spaces':'tabs'}]
 
@@ -1194,10 +1193,12 @@ function! CombinedPanelOpen() abort
         setlocal cursorline filetype=winlist signcolumn=no
         setlocal statusline=\ 
 
-        nnoremap <silent> <buffer> <CR>          :call WinListJump()<CR>
-        nnoremap <silent> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
-        nnoremap <silent> <buffer> q             :call CombinedPanelClose()<CR>
-        nnoremap <silent> <buffer> r             :call WinListRefreshAllTabs()<CR>
+        " ── Buffer-local mappings (with <nowait> to avoid ambiguity) ──────
+        nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
+        nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
+        nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
+        nnoremap <silent> <nowait> <buffer> q             :call CombinedPanelClose()<CR>
+        nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
 
         let g:winlist_tab_open[l:tabnr] = 1
 
@@ -1351,14 +1352,28 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  WINLIST JUMP
+"  WINLIST JUMP  (fixed: reliable mouse position + refresh after jump)
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListMouseJump() abort
-    if v:mouse_lnum > 0
-        silent! call cursor(v:mouse_lnum, v:mouse_col)
+    let l:lnum = 0
+
+    if exists('*getmousepos')
+        " Vim 8.2.1738+ — most reliable
+        let l:mpos = getmousepos()
+        if l:mpos.winid == win_getid()
+            let l:lnum = l:mpos.line
+            silent! call cursor(l:lnum, l:mpos.column)
+        endif
+    elseif v:mouse_lnum > 0
+        let l:lnum = v:mouse_lnum
+        silent! call cursor(l:lnum, v:mouse_col)
+    else
+        " Fallback: single-click already moved the cursor
+        let l:lnum = line('.')
     endif
-    if getline('.') =~# '^[> ]*\d\+:'
+
+    if l:lnum > 0 && getline(l:lnum) =~# '^[> ]*\d\+:'
         silent! call WinListJump()
     endif
 endfunction
@@ -1369,6 +1384,7 @@ function! WinListJump() abort
     if empty(l:m) | return | endif
     let l:display_idx = str2nr(l:m[1])
 
+    " Find nearest Tab header above cursor
     let l:header_tab = 0
     for l:lnum in range(1, line('.'))
         let l:hdr = matchlist(getline(l:lnum), '^=== Tab \(\d\+\) ===$')
@@ -1397,6 +1413,8 @@ function! WinListJump() abort
 
     if l:real_win != -1
         execute l:real_win . 'wincmd w'
+        " Refresh WinList so the active-window highlight updates
+        silent! call WinListRefresh()
     endif
 endfunction
 
