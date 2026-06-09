@@ -159,7 +159,7 @@ endif
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            STATUS LINE                                   │
 " └──────────────────────────────────────────────────────────────────────────┘
-set statusline=%f
+set statusline=%t
 set statusline+=%#LineNr#
 set statusline+=%=
 set statusline+=%#CursorColumn#
