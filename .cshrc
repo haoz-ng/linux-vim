@@ -11,7 +11,7 @@ alias cwdcmd ' \
   endif'
 cwdcmd
 
-alias gf "grep -rn"
+alias gf 'grep -rn --color=never \!* | sh -c '\''perl -pe "s|^([^:]+):([^:]+):(.*)$|\033[38;5;51m\$1\033[0m:\033[38;5;180m\$2\033[0m:\033[38;5;145m\$3\033[0m|"'\'''
 
 alias gvim     'gvim \!* &'
 alias g        'gvim \!* &'
