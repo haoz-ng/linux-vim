@@ -1518,6 +1518,112 @@ command! WinListAllTabs call WinListOpenInAllTabs()
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
+" │           CTRL+O — Open netrw expanded, restore on leave                 │
+" └──────────────────────────────────────────────────────────────────────────┘
+let g:netrw_pre_expand_layout = {}   " lưu layout trước khi expand
+
+function! SmartCtrlO() abort
+    " ── Lưu lại width của tất cả normal windows ──────────────────────────
+    let g:netrw_pre_expand_layout = {}
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            let g:netrw_pre_expand_layout[l:i] = winwidth(l:i)
+        endif
+    endfor
+
+    " ── Lock panel widths ─────────────────────────────────────────────────
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        call setwinvar(l:wl_wnr, '&winfixwidth', 1)
+    endif
+    for l:i in range(1, winnr('$'))
+        if WinListIsNERDTree(winbufnr(l:i))
+            call setwinvar(l:i, '&winfixwidth', 1)
+        endif
+    endfor
+
+    " ── Expand current window trước khi mở netrw ─────────────────────────
+    let l:normal_wins = []
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call add(l:normal_wins, l:i)
+        endif
+    endfor
+
+    let l:cur = winnr()
+
+    if len(l:normal_wins) >= 2
+        " Tính available width (trừ panel)
+        let l:avail = &columns
+        if l:wl_wnr != -1
+            let l:avail -= winwidth(l:wl_wnr) + 1
+        endif
+        for l:i in range(1, winnr('$'))
+            if WinListIsNERDTree(winbufnr(l:i))
+                let l:avail -= winwidth(l:i) + 1
+            endif
+        endfor
+
+        let l:min_w  = 1
+        let l:main_w = l:avail - (len(l:normal_wins) - 1) * (l:min_w + 1)
+        if l:main_w < 1 | let l:main_w = 1 | endif
+
+        for l:i in l:normal_wins
+            call setwinvar(l:i, '&winfixwidth', 0)
+            execute l:i . 'wincmd w'
+            if l:i == l:cur
+                execute 'vertical resize ' . l:main_w
+            else
+                execute 'vertical resize ' . l:min_w
+            endif
+        endfor
+        execute l:cur . 'wincmd w'
+    endif
+
+    " ── Mở netrw ─────────────────────────────────────────────────────────
+    execute 'E'
+endfunction
+
+
+function! SmartCtrlORestore() abort
+    if empty(g:netrw_pre_expand_layout) | return | endif
+
+    " Unlock tất cả normal windows
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call setwinvar(l:i, '&winfixwidth', 0)
+        endif
+    endfor
+
+    let l:cur = winnr()
+
+    " Restore về equal
+    execute 'wincmd ='
+
+    " Fix panel width
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        silent! call WinListFixWidth()
+    endif
+
+    let g:netrw_pre_expand_layout = {}
+endfunction
+
+
+augroup NetrwExpandRestore
+    autocmd!
+    " Khi rời khỏi netrw window → restore layout
+    autocmd BufLeave * if &filetype ==# 'netrw' | call SmartCtrlORestore() | endif
+    autocmd BufWinLeave * if &filetype ==# 'netrw' | call SmartCtrlORestore() | endif
+augroup END
+
+noremap <silent> <C-o> :call SmartCtrlO()<CR>
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
 " │                    DOUBLE-ENTER SPLIT EXPAND / RESTORE                   │
 " └──────────────────────────────────────────────────────────────────────────┘
 let g:splitexpand_active  = 0
