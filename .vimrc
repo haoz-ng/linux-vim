@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.49                                                         ║
-" ║  Modified : 2026-06-09                                                   ║
+" ║  Version  : 6.51                                                         ║
+" ║  Modified : 2026-06-10                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -753,8 +753,6 @@ let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
 let g:NERDTreeWinSize      = 75
 
-" g:panel_nerdtree_lines is computed dynamically as half screen height
-" (set to 0 here; recalculated in CombinedPanelOpen every time)
 let g:panel_nerdtree_lines = 0
 let g:panel_nerdtree_open  = 0
 
@@ -771,10 +769,9 @@ let g:panel_opening        = 0
 
 
 " ── Helper: compute half-screen height for WinList panel ──────────────────
-" Subtracts 2 for the tabline + statusline so the split is visually equal.
 function! WinListHalfHeight() abort
-    let l:total = &lines - 2          " subtract tabline + statusline rows
-    return max([5, l:total / 2])      " at least 5 lines
+    let l:total = &lines - 2
+    return max([5, l:total / 2])
 endfunction
 
 
@@ -973,8 +970,6 @@ function! WinListFixWidth() abort
     silent! call SyncNERDTreeWidth()
 endfunction
 
-
-" ── Enforce 50/50 height split between WinList (top) and NERDTree (bottom)
 function! WinListFixPanelHeights() abort
     if !WinListIsOpen() | return | endif
 
@@ -989,8 +984,8 @@ function! WinListFixPanelHeights() abort
 
     if l:wl_wnr == -1 || l:nt_wnr == -1 | return | endif
 
-    let l:half    = WinListHalfHeight()
-    let l:cur     = winnr()
+    let l:half = WinListHalfHeight()
+    let l:cur  = winnr()
 
     execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
     execute 'resize ' . l:half
@@ -1025,9 +1020,25 @@ function! WinListBuildAllTabLines() abort
         call WinListEnsureTabID(l:t)
         let l:tid = gettabvar(l:t, 'winlist_tab_id', string(l:t))
 
-        call add(l:lines, printf('=== Tab %d ===§%s', l:t, l:tid))
-
         let l:wins_in_tab = tabpagebuflist(l:t)
+        let l:split_count = 0
+        for l:bn in l:wins_in_tab
+            if !WinListIsWinList(l:bn) && !WinListIsNERDTree(l:bn)
+                let l:bt = getbufvar(l:bn, '&buftype')
+                if l:bt ==# '' || l:bt ==# 'acwrite'
+                    let l:split_count += 1
+                endif
+            endif
+        endfor
+
+        let l:split_label = l:split_count == 1
+            \ ? '[1 split]'
+            \ : '[' . l:split_count . ' splits]'
+        let l:active_mark = (l:t == l:cur_tab) ? ' ◀' : ''
+        call add(l:lines,
+            \ printf('=== Tab %d  %s%s ===§%s',
+            \        l:t, l:split_label, l:active_mark, l:tid))
+
         let l:active_win  = get(g:winlist_last_active, l:t, 1)
         let l:raw_idx     = 0
         let l:display_idx = 0
@@ -1064,18 +1075,74 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
+"  WINLIST STATUSLINE
+" ══════════════════════════════════════════════════════════════════════════
+
+" Builds a dynamic statusline showing all GVIM tab numbers.
+" Active tab is highlighted in green [N], others in dim grey.
+function! WinListStatusLine() abort
+    let l:cur   = tabpagenr()
+    let l:total = tabpagenr('$')
+
+    " ── Left side: label ──────────────────────────────────────────────────
+    let l:out = '%#WinListSLLabel# Tabs '
+
+    " ── One badge per tab ─────────────────────────────────────────────────
+    for l:t in range(1, l:total)
+        if l:t == l:cur
+            " Active tab: bright green, bold brackets
+            let l:out .= '%#WinListSLActive#[' . l:t . ']'
+        else
+            " Inactive tab: dim grey number, no brackets
+            let l:out .= '%#WinListSLInactive# ' . l:t . ' '
+        endif
+    endfor
+
+    " ── Right side: current / total counter ───────────────────────────────
+    let l:out .= '%=%#WinListSLCounter# ' . l:cur . '/' . l:total . ' '
+
+    return l:out
+endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
 "  HIGHLIGHTS & SYNTAX
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListSetupHighlight() abort
+    " ── WinList panel content ─────────────────────────────────────────────
+    " Header base — blue, matches netrwBanner / netrwHelpCmd
     silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold
+    " Concealed tab ID suffix
     silent! highlight default WinListHeaderID   guifg=bg      ctermfg=0   gui=NONE
-    silent! highlight default WinListNumber     guifg=#E5C07B ctermfg=180 gui=bold
+    " Tab number digit(s) inside header — green (#98c379 = netrwExe)
+    silent! highlight default WinListHeaderNum  guifg=#98c379 ctermfg=114 gui=bold
+    " Split count badge — yellow, matches netrwList
+    silent! highlight default WinListSplitCnt   guifg=#e5c07b ctermfg=180 gui=bold
+    " Active tab ◀ marker — pink, matches netrwHidFile
+    silent! highlight default WinListActivTab   guifg=#e06c75 ctermfg=204 gui=bold
+    " Window number N: — green (same as tab number, consistent)
+    silent! highlight default WinListNumber     guifg=#98c379 ctermfg=114 gui=bold
+    " Active window line
     silent! highlight default WinListActive     guifg=#00FFFF ctermfg=114 gui=bold
+    " > marker on active window line
     silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold
+    " [+] modified flag
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold
+    " Special buffers
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic
+    " Path line below filename
     silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66
+
+    " ── WinList statusline ────────────────────────────────────────────────
+    " 'Tabs' label — cyan text on dark navy, matching StatusLine bg
+    silent! highlight default WinListSLLabel    guifg=#00ffff guibg=#001933 gui=bold   ctermfg=51  ctermbg=17
+    " Active tab badge — green text on dark navy
+    silent! highlight default WinListSLActive   guifg=#98c379 guibg=#001933 gui=bold   ctermfg=114 ctermbg=17
+    " Inactive tab numbers — dim grey on dark navy
+    silent! highlight default WinListSLInactive guifg=#5c6370 guibg=#001933 gui=NONE   ctermfg=59  ctermbg=17
+    " Right-side counter — yellow on dark navy
+    silent! highlight default WinListSLCounter  guifg=#e5c07b guibg=#001933 gui=NONE   ctermfg=180 ctermbg=17
 endfunction
 silent! call WinListSetupHighlight()
 
@@ -1087,14 +1154,21 @@ augroup WinListHighlight
         autocmd FileType winlist setlocal wrap nonumber norelativenumber
                                \ cursorline buftype=nofile noswapfile nobuflisted
                                \ winfixwidth winfixheight signcolumn=no
-                               \ statusline=\ 
     augroup END
 augroup END
 
 function! WinListApplySyntax() abort
     silent! syntax clear
-    syntax match WinListHeader   /^=== Tab \d\+ ===/
-    syntax match WinListHeaderID /§[^ ]*$/           conceal
+
+    syntax match WinListHeader   /^=== Tab \d\+.*===/
+    syntax match WinListHeaderID /§[^ ]*$/                         conceal
+    syntax match WinListHeaderNum /\d\+/
+        \ contained containedin=WinListHeader
+    syntax match WinListSplitCnt  /\[\d\+ splits\?\]/
+        \ contained containedin=WinListHeader
+    syntax match WinListActivTab  /◀/
+        \ contained containedin=WinListHeader
+
     setlocal conceallevel=2 concealcursor=nvic
 
     syntax match WinListActive     /^>.*$/
@@ -1106,6 +1180,16 @@ function! WinListApplySyntax() abort
     syntax match WinListModified   /\[+\]/
     syntax match WinListSpecial    /\[[^\]+]\+\]/
     syntax match WinListPath       /^\s\+[…\/].*/
+endfunction
+
+" ── Apply the dynamic statusline to the WinList buffer ────────────────────
+function! WinListApplyStatusLine() abort
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    if l:wl_wnr == -1 | return | endif
+    let l:cur = winnr()
+    execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
+    setlocal statusline=%!WinListStatusLine()
+    execute 'noautocmd ' . l:cur . 'wincmd w'
 endfunction
 
 
@@ -1134,7 +1218,7 @@ function! WinListRefresh() abort
     silent! %delete _
     silent! call setline(1, l:lines)
     setlocal nomodifiable nomodified
-    setlocal statusline=\ 
+    setlocal statusline=%!WinListStatusLine()
     silent! call WinListApplySyntax()
 
     silent! call WinListLockSplitWidths()
@@ -1172,7 +1256,7 @@ function! WinListRefreshAllTabs() abort
         silent! %delete _
         silent! call setline(1, l:lines)
         setlocal nomodifiable nomodified
-        setlocal statusline=\ 
+        setlocal statusline=%!WinListStatusLine()
         silent! call WinListApplySyntax()
         silent! call WinListLockSplitWidths()
         if winwidth(winnr()) != g:winlist_width
@@ -1215,13 +1299,11 @@ function! CombinedPanelOpen() abort
     let l:cur      = winnr()
     let l:cur_file = expand('%:p')
 
-    " ── Compute 50/50 height split at open time ────────────────────────────
     let l:half = WinListHalfHeight()
 
     try
         execute 'noautocmd ' . l:safe . 'wincmd w'
 
-        " 1. Open NERDTree — it takes the full left column
         if filereadable(l:cur_file)
             execute 'NERDTree ' . fnameescape(fnamemodify(l:cur_file, ':h'))
         else
@@ -1234,8 +1316,6 @@ function! CombinedPanelOpen() abort
         execute 'vertical resize ' . g:winlist_width
         setlocal winfixwidth
 
-        " 2. Split WinList above NERDTree, sized to exactly half screen
-        "    'leftabove Nsplit' creates a window of N lines ABOVE current
         execute 'noautocmd leftabove ' . l:half . 'split ' . l:bufname
 
         setlocal winfixwidth winfixheight
@@ -1243,9 +1323,9 @@ function! CombinedPanelOpen() abort
         setlocal noswapfile nobuflisted
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
-        setlocal statusline=\ 
+        " ── Set dynamic statusline immediately on open ─────────────────────
+        setlocal statusline=%!WinListStatusLine()
 
-        " ── Buffer-local mappings ──────────────────────────────────────────
         nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
         nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
         nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
@@ -1254,7 +1334,6 @@ function! CombinedPanelOpen() abort
 
         let g:winlist_tab_open[l:tabnr] = 1
 
-        " 3. Fix widths of both panel halves
         execute 'vertical resize ' . g:winlist_width
 
         for l:i in range(1, winnr('$'))
@@ -1262,13 +1341,11 @@ function! CombinedPanelOpen() abort
                 execute 'noautocmd ' . l:i . 'wincmd w'
                 setlocal winfixwidth
                 execute 'vertical resize ' . g:winlist_width
-                " Also enforce NERDTree height = half screen
                 execute 'resize ' . l:half
                 break
             endif
         endfor
 
-        " 4. Return focus to original file window
         let l:return_nr = l:cur + 2
         let l:return_nr = min([l:return_nr, winnr('$')])
         while l:return_nr <= winnr('$')
@@ -1432,7 +1509,7 @@ function! WinListJump() abort
 
     let l:header_tid = ''
     for l:lnum in range(1, line('.'))
-        let l:hdr = matchlist(getline(l:lnum), '^=== Tab \d\+ ===§\(.\+\)$')
+        let l:hdr = matchlist(getline(l:lnum), '^=== Tab \d\+ .*===§\(.\+\)$')
         if !empty(l:hdr)
             let l:header_tid = l:hdr[1]
         endif
@@ -1542,10 +1619,12 @@ augroup WinListAuto
     autocmd WinEnter   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
     autocmd BufEnter   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
 
-    " Re-enforce 50/50 split whenever window layout changes
     autocmd VimResized * silent! call WinListFixWidth()
     autocmd VimResized * silent! call WinListFixPanelHeights()
     autocmd WinLeave   * silent! call WinListFixWidth()
+
+    " ── Re-render statusline on every tab switch ───────────────────────────
+    autocmd TabEnter   * silent! call WinListApplyStatusLine()
 
     autocmd TabLeave * silent! call WinListOnTabLeave()
     autocmd TabEnter * silent! call WinListOnTabEnter()
@@ -1563,7 +1642,6 @@ nnoremap <silent> <leader>w  :call WinListToggle()<CR>
 nnoremap <silent> <leader>W  :call WinListFixWidth()<CR>
 nnoremap <silent> <leader>wa :call WinListOpenInAllTabs()<CR>
 
-" Fix panel heights manually if they drift
 nnoremap <silent> <leader>wh :call WinListFixPanelHeights()<CR>
 
 command! WinList        call WinListOpen()
