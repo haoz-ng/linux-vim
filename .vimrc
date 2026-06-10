@@ -137,8 +137,6 @@ set statusline=%t
 set statusline+=%#LineNr#
 set statusline+=%=
 set statusline+=%#CursorColumn#
-set statusline+=\[%l/%L]
-set statusline+=\[%{&shiftwidth}\%{&expandtab?'spaces':'tabs'}]
 
 highlight StatusLine   guifg=#00ffff guibg=#001933
 highlight StatusLineNC guifg=#888888 guibg=#001933
