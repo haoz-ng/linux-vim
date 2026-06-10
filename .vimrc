@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.51                                                         ║
+" ║  Version  : 6.52                                                         ║
 " ║  Modified : 2026-06-10                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
@@ -764,6 +764,7 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
+let g:netrw_expanding      = 0    " guard: block WinList refresh while netrw is open
 
 
 " ── Helper: compute half-screen height for WinList panel ──────────────────
@@ -955,7 +956,8 @@ function! SyncNERDTreeWidth() abort
 endfunction
 
 function! WinListFixWidth() abort
-    if !WinListIsOpen() | return | endif
+    if g:netrw_expanding  | return | endif    " skip while netrw is open
+    if !WinListIsOpen()   | return | endif
     let l:wnr = bufwinnr(WinListBufName())
     if winwidth(l:wnr) == g:winlist_width | return | endif
 
@@ -1232,6 +1234,7 @@ endfunction
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
     if g:panel_opening   | return | endif
+    if g:netrw_expanding | return | endif    " skip refresh while netrw is open
 
     let l:save_lz = &lazyredraw
     set lazyredraw
@@ -1806,6 +1809,7 @@ nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
 let g:netrw_pre_expand_layout = {}
 
 function! SmartCtrlO() abort
+    let g:netrw_expanding         = 1    " block WinList refresh/fix while netrw open
     let g:netrw_pre_expand_layout = {}
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
@@ -1882,6 +1886,7 @@ function! SmartCtrlORestore() abort
     endif
 
     let g:netrw_pre_expand_layout = {}
+    let g:netrw_expanding         = 0    " re-enable WinList refresh/fix
 endfunction
 
 augroup NetrwExpandRestore
