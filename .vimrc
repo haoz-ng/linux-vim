@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.52                                                         ║
-" ║  Modified : 2026-06-10                                                   ║
+" ║  Version  : 6.55                                                         ║
+" ║  Modified : 2026-06-11                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -764,7 +764,7 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
-let g:netrw_expanding      = 0    " guard: block WinList refresh while netrw is open
+let g:netrw_expanding      = 0
 
 
 " ── Helper: compute half-screen height for WinList panel ──────────────────
@@ -956,7 +956,7 @@ function! SyncNERDTreeWidth() abort
 endfunction
 
 function! WinListFixWidth() abort
-    if g:netrw_expanding  | return | endif    " skip while netrw is open
+    if g:netrw_expanding  | return | endif
     if !WinListIsOpen()   | return | endif
     let l:wnr = bufwinnr(WinListBufName())
     if winwidth(l:wnr) == g:winlist_width | return | endif
@@ -1078,27 +1078,20 @@ endfunction
 "  WINLIST STATUSLINE
 " ══════════════════════════════════════════════════════════════════════════
 
-" Builds a dynamic statusline showing all GVIM tab numbers.
-" Active tab is highlighted in green [N], others in dim grey.
 function! WinListStatusLine() abort
     let l:cur   = tabpagenr()
     let l:total = tabpagenr('$')
 
-    " ── Left side: label ──────────────────────────────────────────────────
     let l:out = '%#WinListSLLabel# Tabs '
 
-    " ── One badge per tab ─────────────────────────────────────────────────
     for l:t in range(1, l:total)
         if l:t == l:cur
-            " Active tab: bright green, bold brackets
             let l:out .= '%#WinListSLActive#[' . l:t . ']'
         else
-            " Inactive tab: dim grey number, no brackets
             let l:out .= '%#WinListSLInactive# ' . l:t . ' '
         endif
     endfor
 
-    " ── Right side: current / total counter ───────────────────────────────
     let l:out .= '%=%#WinListSLCounter# ' . l:cur . '/' . l:total . ' '
 
     return l:out
@@ -1110,38 +1103,21 @@ endfunction
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListSetupHighlight() abort
-    " ── WinList panel content ─────────────────────────────────────────────
-    " Header base — blue, matches netrwBanner / netrwHelpCmd
     silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold
-    " Concealed tab ID suffix
     silent! highlight default WinListHeaderID   guifg=bg      ctermfg=0   gui=NONE
-    " Tab number digit(s) inside header — green (#98c379 = netrwExe)
     silent! highlight default WinListHeaderNum  guifg=#98c379 ctermfg=114 gui=bold
-    " Split count badge — yellow, matches netrwList
     silent! highlight default WinListSplitCnt   guifg=#e5c07b ctermfg=180 gui=bold
-    " Active tab ◀ marker — pink, matches netrwHidFile
     silent! highlight default WinListActivTab   guifg=#e06c75 ctermfg=204 gui=bold
-    " Window number N: — green (same as tab number, consistent)
     silent! highlight default WinListNumber     guifg=#98c379 ctermfg=114 gui=bold
-    " Active window line
     silent! highlight default WinListActive     guifg=#00FFFF ctermfg=114 gui=bold
-    " > marker on active window line
     silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold
-    " [+] modified flag
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold
-    " Special buffers
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic
-    " Path line below filename
     silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66
 
-    " ── WinList statusline ────────────────────────────────────────────────
-    " 'Tabs' label — cyan text on dark navy, matching StatusLine bg
     silent! highlight default WinListSLLabel    guifg=#00ffff guibg=#001933 gui=bold   ctermfg=51  ctermbg=17
-    " Active tab badge — green text on dark navy
     silent! highlight default WinListSLActive   guifg=#98c379 guibg=#001933 gui=bold   ctermfg=114 ctermbg=17
-    " Inactive tab numbers — dim grey on dark navy
     silent! highlight default WinListSLInactive guifg=#5c6370 guibg=#001933 gui=NONE   ctermfg=59  ctermbg=17
-    " Right-side counter — yellow on dark navy
     silent! highlight default WinListSLCounter  guifg=#e5c07b guibg=#001933 gui=NONE   ctermfg=180 ctermbg=17
 endfunction
 silent! call WinListSetupHighlight()
@@ -1182,7 +1158,6 @@ function! WinListApplySyntax() abort
     syntax match WinListPath       /^\s\+[…\/].*/
 endfunction
 
-" ── Apply the dynamic statusline to the WinList buffer ────────────────────
 function! WinListApplyStatusLine() abort
     let l:wl_wnr = bufwinnr(WinListBufName())
     if l:wl_wnr == -1 | return | endif
@@ -1234,7 +1209,7 @@ endfunction
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
     if g:panel_opening   | return | endif
-    if g:netrw_expanding | return | endif    " skip refresh while netrw is open
+    if g:netrw_expanding | return | endif
 
     let l:save_lz = &lazyredraw
     set lazyredraw
@@ -1324,7 +1299,6 @@ function! CombinedPanelOpen() abort
         setlocal noswapfile nobuflisted
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
-        " ── Set dynamic statusline immediately on open ─────────────────────
         setlocal statusline=%!WinListStatusLine()
 
         nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
@@ -1418,6 +1392,7 @@ autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1
     \ && exists('b:NERDTree') && b:NERDTree.isTabTree()
     \ | call feedkeys(":quit\<CR>:\<BS>") | endif
 
+" ── NERDTree key mappings ─────────────────────────────────────────────────
 autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'key':      '<2-LeftMouse>',
       \ 'scope':    'FileNode',
@@ -1429,6 +1404,22 @@ autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'callback': 'OpenSmart',
       \ 'override': 1 })
 
+" ── Ctrl+Enter: open file in new tab (foreground), panel closed on new tab ─
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
+      \ 'key':      '<C-CR>',
+      \ 'scope':    'FileNode',
+      \ 'callback': 'OpenInNewTab',
+      \ 'override': 1 })
+
+" ── Ctrl+DoubleClick: open in new tab background, panel closed on new tab ──
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
+      \ 'key':      '<C-2-LeftMouse>',
+      \ 'scope':    'FileNode',
+      \ 'callback': 'OpenInNewTabBackground',
+      \ 'override': 1 })
+
+
+" ── OpenSmart: open file as right split ───────────────────────────────────
 function! OpenSmart(node)
     let l:path = a:node.path.str()
     let g:winlist_file_opening = 1
@@ -1471,6 +1462,177 @@ endfunction
 function! s:ClearFileOpening() abort
     let g:winlist_file_opening = 0
 endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  SHARED: close panel on a given tab number (deferred helper)
+" ══════════════════════════════════════════════════════════════════════════
+
+" Close the combined panel on tab a:tabnr, then return to a:return_tab.
+" Called via timer so the tab has fully initialised before we act on it.
+function! s:ClosePanelOnTab(tabnr, return_tab) abort
+    let l:cur = tabpagenr()
+
+    " ── Switch to the target tab silently ─────────────────────────────────
+    execute 'noautocmd tabnext ' . a:tabnr
+
+    " ── Close panel if present ────────────────────────────────────────────
+    if CombinedPanelIsOpen()
+        silent! call CombinedPanelClose()
+        let g:winlist_tab_open[a:tabnr] = 0
+    endif
+
+    " ── Focus the first real window on that tab ───────────────────────────
+    let l:fw = WinListFindNormalWin()
+    if l:fw != -1
+        execute 'noautocmd ' . l:fw . 'wincmd w'
+    endif
+
+    " ── Return to origin tab ──────────────────────────────────────────────
+    execute 'noautocmd tabnext ' . a:return_tab
+endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  NERDTREE — open file in NEW TAB foreground  (Ctrl+Enter)
+"  → switches to new tab, panel is CLOSED on the new tab
+" ══════════════════════════════════════════════════════════════════════════
+
+function! OpenInNewTab(node) abort
+    let l:path = a:node.path.str()
+    if !filereadable(l:path) | return | endif
+
+    let g:winlist_file_opening = 1
+    let l:origin_tab = tabpagenr()
+
+    " ── Open file in new tab and switch to it ─────────────────────────────
+    execute 'tabnew ' . fnameescape(l:path)
+    let l:new_tab = tabpagenr()
+    call WinListEnsureTabID()
+
+    " ── Close the panel on this new tab (we are already here) ─────────────
+    if CombinedPanelIsOpen()
+        silent! call CombinedPanelClose()
+        let g:winlist_tab_open[l:new_tab] = 0
+    endif
+
+    " ── Focus the file window ─────────────────────────────────────────────
+    let l:fw = WinListFindNormalWin()
+    if l:fw != -1
+        execute 'noautocmd ' . l:fw . 'wincmd w'
+    endif
+
+    call timer_start(300, {-> s:ClearFileOpening()})
+    call timer_start(320, {-> WinListRefreshAllTabs()})
+endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  NERDTREE — open file in NEW TAB background  (Ctrl+DoubleClick)
+"  → stays on origin tab, panel is CLOSED on the new background tab
+" ══════════════════════════════════════════════════════════════════════════
+
+function! OpenInNewTabBackground(node) abort
+    let l:path = a:node.path.str()
+    if !filereadable(l:path) | return | endif
+
+    let g:winlist_file_opening = 1
+    let l:origin_tab   = tabpagenr()
+    let l:origin_winid = win_getid()
+
+    " ── Open file in new tab (now active) ─────────────────────────────────
+    execute 'tabnew ' . fnameescape(l:path)
+    let l:new_tab = tabpagenr()
+    call WinListEnsureTabID()
+
+    " ── Close panel on the new tab immediately (we are here right now) ────
+    if CombinedPanelIsOpen()
+        silent! call CombinedPanelClose()
+        let g:winlist_tab_open[l:new_tab] = 0
+    endif
+
+    " ── Return focus to origin tab + exact window (NERDTree) ──────────────
+    execute 'noautocmd tabnext ' . l:origin_tab
+    silent! call win_gotoid(l:origin_winid)
+
+    call timer_start(300, {-> s:ClearFileOpening()})
+    call timer_start(320, {-> WinListRefreshAllTabs()})
+endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  CTRL+O — open netrw in background tab, panel closed on new tab
+" ══════════════════════════════════════════════════════════════════════════
+
+let g:netrw_pre_expand_layout = {}
+
+function! SmartCtrlO() abort
+    " ── Snapshot origin location ──────────────────────────────────────────
+    let l:origin_tab   = tabpagenr()
+    let l:origin_winid = win_getid()
+    let l:cur_file     = expand('%:p')
+
+    " ── Determine directory to browse ─────────────────────────────────────
+    let l:browse_dir = filereadable(l:cur_file)
+        \ ? fnamemodify(l:cur_file, ':h')
+        \ : getcwd()
+
+    let g:winlist_file_opening = 1
+    let g:netrw_expanding      = 1
+
+    " ── Open a new background tab with netrw ──────────────────────────────
+    execute 'tabnew'
+    let l:new_tab = tabpagenr()
+    call WinListEnsureTabID()
+
+    " ── Close panel on this new tab (no panel in a browse tab) ────────────
+    if CombinedPanelIsOpen()
+        silent! call CombinedPanelClose()
+        let g:winlist_tab_open[l:new_tab] = 0
+    endif
+
+    " ── Open netrw in the new tab ─────────────────────────────────────────
+    execute 'edit ' . fnameescape(l:browse_dir)
+
+    " ── Return focus to origin tab + window ───────────────────────────────
+    execute 'noautocmd tabnext ' . l:origin_tab
+    silent! call win_gotoid(l:origin_winid)
+
+    let g:netrw_expanding = 0
+
+    call timer_start(300, {-> s:ClearFileOpening()})
+    call timer_start(320, {-> WinListRefreshAllTabs()})
+endfunction
+
+" ── SmartCtrlORestore kept for BufLeave / BufWinLeave netrw cleanup ───────
+function! SmartCtrlORestore() abort
+    if empty(g:netrw_pre_expand_layout) | return | endif
+
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call setwinvar(l:i, '&winfixwidth', 0)
+        endif
+    endfor
+
+    execute 'wincmd ='
+
+    let l:wl_wnr = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        silent! call WinListFixWidth()
+    endif
+
+    let g:netrw_pre_expand_layout = {}
+    let g:netrw_expanding         = 0
+endfunction
+
+augroup NetrwExpandRestore
+    autocmd!
+    autocmd BufLeave    * if &filetype ==# 'netrw' | call SmartCtrlORestore() | endif
+    autocmd BufWinLeave * if &filetype ==# 'netrw' | call SmartCtrlORestore() | endif
+augroup END
+
+noremap <silent> <C-o> :call SmartCtrlO()<CR>
 
 
 " ══════════════════════════════════════════════════════════════════════════
@@ -1624,7 +1786,6 @@ augroup WinListAuto
     autocmd VimResized * silent! call WinListFixPanelHeights()
     autocmd WinLeave   * silent! call WinListFixWidth()
 
-    " ── Re-render statusline on every tab switch ───────────────────────────
     autocmd TabEnter   * silent! call WinListApplyStatusLine()
 
     autocmd TabLeave * silent! call WinListOnTabLeave()
@@ -1801,101 +1962,6 @@ augroup END
 
 nnoremap <silent> <CR>   :call SplitExpandHandleEnter()<CR>
 nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
-
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │           CTRL+O — Open netrw expanded, restore on leave                 │
-" └──────────────────────────────────────────────────────────────────────────┘
-let g:netrw_pre_expand_layout = {}
-
-function! SmartCtrlO() abort
-    let g:netrw_expanding         = 1    " block WinList refresh/fix while netrw open
-    let g:netrw_pre_expand_layout = {}
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            let g:netrw_pre_expand_layout[l:i] = winwidth(l:i)
-        endif
-    endfor
-
-    let l:wl_wnr = bufwinnr(WinListBufName())
-    if l:wl_wnr != -1
-        call setwinvar(l:wl_wnr, '&winfixwidth', 1)
-    endif
-    for l:i in range(1, winnr('$'))
-        if WinListIsNERDTree(winbufnr(l:i))
-            call setwinvar(l:i, '&winfixwidth', 1)
-        endif
-    endfor
-
-    let l:normal_wins = []
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call add(l:normal_wins, l:i)
-        endif
-    endfor
-
-    let l:cur = winnr()
-
-    if len(l:normal_wins) >= 2
-        let l:avail = &columns
-        if l:wl_wnr != -1
-            let l:avail -= winwidth(l:wl_wnr) + 1
-        endif
-        for l:i in range(1, winnr('$'))
-            if WinListIsNERDTree(winbufnr(l:i))
-                let l:avail -= winwidth(l:i) + 1
-            endif
-        endfor
-
-        let l:min_w  = 1
-        let l:main_w = l:avail - (len(l:normal_wins) - 1) * (l:min_w + 1)
-        if l:main_w < 1 | let l:main_w = 1 | endif
-
-        for l:i in l:normal_wins
-            call setwinvar(l:i, '&winfixwidth', 0)
-            execute l:i . 'wincmd w'
-            if l:i == l:cur
-                execute 'vertical resize ' . l:main_w
-            else
-                execute 'vertical resize ' . l:min_w
-            endif
-        endfor
-        execute l:cur . 'wincmd w'
-    endif
-
-    execute 'E'
-endfunction
-
-function! SmartCtrlORestore() abort
-    if empty(g:netrw_pre_expand_layout) | return | endif
-
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call setwinvar(l:i, '&winfixwidth', 0)
-        endif
-    endfor
-
-    execute 'wincmd ='
-
-    let l:wl_wnr = bufwinnr(WinListBufName())
-    if l:wl_wnr != -1
-        silent! call WinListFixWidth()
-    endif
-
-    let g:netrw_pre_expand_layout = {}
-    let g:netrw_expanding         = 0    " re-enable WinList refresh/fix
-endfunction
-
-augroup NetrwExpandRestore
-    autocmd!
-    autocmd BufLeave    * if &filetype ==# 'netrw' | call SmartCtrlORestore() | endif
-    autocmd BufWinLeave * if &filetype ==# 'netrw' | call SmartCtrlORestore() | endif
-augroup END
-
-noremap <silent> <C-o> :call SmartCtrlO()<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
