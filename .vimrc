@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.52                                                         ║
-" ║  Modified : 2026-06-11                                                   ║
+" ║  Version  : 6.54                                                         ║
+" ║  Modified : 2026-06-12                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -764,7 +764,7 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
-let g:netrw_expanding      = 0    " guard: block WinList refresh while netrw is open
+let g:netrw_expanding      = 0
 
 
 " ── Helper: compute half-screen height for WinList panel ──────────────────
@@ -922,7 +922,7 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  WIDTH MANAGEMENT
+"  WIDTH MANAGEMENT  (panel-open time + manual only)
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListLockSplitWidths() abort
@@ -955,8 +955,9 @@ function! SyncNERDTreeWidth() abort
     endfor
 endfunction
 
+" ── Manual-only: <leader>W or :WinListFix ─────────────────────────────────
 function! WinListFixWidth() abort
-    if g:netrw_expanding  | return | endif    " skip while netrw is open
+    if g:netrw_expanding  | return | endif
     if !WinListIsOpen()   | return | endif
     let l:wnr = bufwinnr(WinListBufName())
     if winwidth(l:wnr) == g:winlist_width | return | endif
@@ -970,6 +971,7 @@ function! WinListFixWidth() abort
     silent! call SyncNERDTreeWidth()
 endfunction
 
+" ── Manual-only: <leader>wh or :WinListFixH ───────────────────────────────
 function! WinListFixPanelHeights() abort
     if !WinListIsOpen() | return | endif
 
@@ -1078,27 +1080,20 @@ endfunction
 "  WINLIST STATUSLINE
 " ══════════════════════════════════════════════════════════════════════════
 
-" Builds a dynamic statusline showing all GVIM tab numbers.
-" Active tab is highlighted in green [N], others in dim grey.
 function! WinListStatusLine() abort
     let l:cur   = tabpagenr()
     let l:total = tabpagenr('$')
 
-    " ── Left side: label ──────────────────────────────────────────────────
     let l:out = '%#WinListSLLabel# Tabs '
 
-    " ── One badge per tab ─────────────────────────────────────────────────
     for l:t in range(1, l:total)
         if l:t == l:cur
-            " Active tab: bright green, bold brackets
             let l:out .= '%#WinListSLActive#[' . l:t . ']'
         else
-            " Inactive tab: dim grey number, no brackets
             let l:out .= '%#WinListSLInactive# ' . l:t . ' '
         endif
     endfor
 
-    " ── Right side: current / total counter ───────────────────────────────
     let l:out .= '%=%#WinListSLCounter# ' . l:cur . '/' . l:total . ' '
 
     return l:out
@@ -1110,38 +1105,21 @@ endfunction
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListSetupHighlight() abort
-    " ── WinList panel content ─────────────────────────────────────────────
-    " Header base — blue, matches netrwBanner / netrwHelpCmd
     silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold
-    " Concealed tab ID suffix
     silent! highlight default WinListHeaderID   guifg=bg      ctermfg=0   gui=NONE
-    " Tab number digit(s) inside header — green (#98c379 = netrwExe)
     silent! highlight default WinListHeaderNum  guifg=#98c379 ctermfg=114 gui=bold
-    " Split count badge — yellow, matches netrwList
     silent! highlight default WinListSplitCnt   guifg=#e5c07b ctermfg=180 gui=bold
-    " Active tab ◀ marker — pink, matches netrwHidFile
     silent! highlight default WinListActivTab   guifg=#e06c75 ctermfg=204 gui=bold
-    " Window number N: — green (same as tab number, consistent)
     silent! highlight default WinListNumber     guifg=#98c379 ctermfg=114 gui=bold
-    " Active window line
     silent! highlight default WinListActive     guifg=#00FFFF ctermfg=114 gui=bold
-    " > marker on active window line
     silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold
-    " [+] modified flag
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold
-    " Special buffers
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic
-    " Path line below filename
     silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66
 
-    " ── WinList statusline ────────────────────────────────────────────────
-    " 'Tabs' label — cyan text on dark navy, matching StatusLine bg
     silent! highlight default WinListSLLabel    guifg=#00ffff guibg=#001933 gui=bold   ctermfg=51  ctermbg=17
-    " Active tab badge — green text on dark navy
     silent! highlight default WinListSLActive   guifg=#98c379 guibg=#001933 gui=bold   ctermfg=114 ctermbg=17
-    " Inactive tab numbers — dim grey on dark navy
     silent! highlight default WinListSLInactive guifg=#5c6370 guibg=#001933 gui=NONE   ctermfg=59  ctermbg=17
-    " Right-side counter — yellow on dark navy
     silent! highlight default WinListSLCounter  guifg=#e5c07b guibg=#001933 gui=NONE   ctermfg=180 ctermbg=17
 endfunction
 silent! call WinListSetupHighlight()
@@ -1182,7 +1160,6 @@ function! WinListApplySyntax() abort
     syntax match WinListPath       /^\s\+[…\/].*/
 endfunction
 
-" ── Apply the dynamic statusline to the WinList buffer ────────────────────
 function! WinListApplyStatusLine() abort
     let l:wl_wnr = bufwinnr(WinListBufName())
     if l:wl_wnr == -1 | return | endif
@@ -1194,7 +1171,7 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  WINLIST REFRESH
+"  WINLIST REFRESH  — content only, NO resize
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListRefresh() abort
@@ -1220,21 +1197,15 @@ function! WinListRefresh() abort
     setlocal nomodifiable nomodified
     setlocal statusline=%!WinListStatusLine()
     silent! call WinListApplySyntax()
-
-    silent! call WinListLockSplitWidths()
-    if winwidth(winnr()) != g:winlist_width
-        execute 'vertical resize ' . g:winlist_width
-    endif
-    silent! call WinListUnlockSplitWidths()
+    " ── NO resize here — editing splits are left untouched ────────────────
 
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
-    silent! call WinListFixWidth()
 endfunction
 
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
     if g:panel_opening   | return | endif
-    if g:netrw_expanding | return | endif    " skip refresh while netrw is open
+    if g:netrw_expanding | return | endif
 
     let l:save_lz = &lazyredraw
     set lazyredraw
@@ -1259,11 +1230,7 @@ function! WinListRefreshAllTabs() abort
         setlocal nomodifiable nomodified
         setlocal statusline=%!WinListStatusLine()
         silent! call WinListApplySyntax()
-        silent! call WinListLockSplitWidths()
-        if winwidth(winnr()) != g:winlist_width
-            execute 'vertical resize ' . g:winlist_width
-        endif
-        silent! call WinListUnlockSplitWidths()
+        " ── NO resize here — editing splits are left untouched ────────────
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endif
 
@@ -1324,7 +1291,6 @@ function! CombinedPanelOpen() abort
         setlocal noswapfile nobuflisted
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
-        " ── Set dynamic statusline immediately on open ─────────────────────
         setlocal statusline=%!WinListStatusLine()
 
         nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
@@ -1465,7 +1431,6 @@ function! s:CloseNERDTreeAfterOpen() abort
     endfor
     let g:panel_nerdtree_open = 0
     silent! call WinListRefreshAllTabs()
-    silent! call WinListFixWidth()
 endfunction
 
 function! s:ClearFileOpening() abort
@@ -1605,7 +1570,7 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  AUTOCMDS
+"  AUTOCMDS  — content refresh only, editing splits never auto-resized
 " ══════════════════════════════════════════════════════════════════════════
 
 augroup WinListAuto
@@ -1616,16 +1581,11 @@ augroup WinListAuto
     autocmd BufDelete    * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
     autocmd BufWipeout   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
 
-    autocmd WinEnter   * silent! call WinListCheckAutoCloseTab()
-    autocmd WinEnter   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufEnter   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd WinEnter * silent! call WinListCheckAutoCloseTab()
+    autocmd WinEnter * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd BufEnter * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
 
-    autocmd VimResized * silent! call WinListFixWidth()
-    autocmd VimResized * silent! call WinListFixPanelHeights()
-    autocmd WinLeave   * silent! call WinListFixWidth()
-
-    " ── Re-render statusline on every tab switch ───────────────────────────
-    autocmd TabEnter   * silent! call WinListApplyStatusLine()
+    autocmd TabEnter * silent! call WinListApplyStatusLine()
 
     autocmd TabLeave * silent! call WinListOnTabLeave()
     autocmd TabEnter * silent! call WinListOnTabEnter()
@@ -1642,7 +1602,6 @@ noremap <silent> <C-b> :call CombinedPanelToggle()<CR>
 nnoremap <silent> <leader>w  :call WinListToggle()<CR>
 nnoremap <silent> <leader>W  :call WinListFixWidth()<CR>
 nnoremap <silent> <leader>wa :call WinListOpenInAllTabs()<CR>
-
 nnoremap <silent> <leader>wh :call WinListFixPanelHeights()<CR>
 
 command! WinList        call WinListOpen()
@@ -1809,7 +1768,7 @@ nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
 let g:netrw_pre_expand_layout = {}
 
 function! SmartCtrlO() abort
-    let g:netrw_expanding         = 1    " block WinList refresh/fix while netrw open
+    let g:netrw_expanding         = 1
     let g:netrw_pre_expand_layout = {}
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
@@ -1886,7 +1845,7 @@ function! SmartCtrlORestore() abort
     endif
 
     let g:netrw_pre_expand_layout = {}
-    let g:netrw_expanding         = 0    " re-enable WinList refresh/fix
+    let g:netrw_expanding         = 0
 endfunction
 
 augroup NetrwExpandRestore
