@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.52                                                         ║
-" ║  Modified : 2026-06-11                                                   ║
+" ║  Version  : 6.53                                                         ║
+" ║  Modified : 2026-06-12                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -764,7 +764,7 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
-let g:netrw_expanding      = 0    " guard: block WinList refresh while netrw is open
+let g:netrw_expanding      = 0
 
 
 " ── Helper: compute half-screen height for WinList panel ──────────────────
@@ -956,7 +956,7 @@ function! SyncNERDTreeWidth() abort
 endfunction
 
 function! WinListFixWidth() abort
-    if g:netrw_expanding  | return | endif    " skip while netrw is open
+    if g:netrw_expanding  | return | endif
     if !WinListIsOpen()   | return | endif
     let l:wnr = bufwinnr(WinListBufName())
     if winwidth(l:wnr) == g:winlist_width | return | endif
@@ -1078,27 +1078,20 @@ endfunction
 "  WINLIST STATUSLINE
 " ══════════════════════════════════════════════════════════════════════════
 
-" Builds a dynamic statusline showing all GVIM tab numbers.
-" Active tab is highlighted in green [N], others in dim grey.
 function! WinListStatusLine() abort
     let l:cur   = tabpagenr()
     let l:total = tabpagenr('$')
 
-    " ── Left side: label ──────────────────────────────────────────────────
     let l:out = '%#WinListSLLabel# Tabs '
 
-    " ── One badge per tab ─────────────────────────────────────────────────
     for l:t in range(1, l:total)
         if l:t == l:cur
-            " Active tab: bright green, bold brackets
             let l:out .= '%#WinListSLActive#[' . l:t . ']'
         else
-            " Inactive tab: dim grey number, no brackets
             let l:out .= '%#WinListSLInactive# ' . l:t . ' '
         endif
     endfor
 
-    " ── Right side: current / total counter ───────────────────────────────
     let l:out .= '%=%#WinListSLCounter# ' . l:cur . '/' . l:total . ' '
 
     return l:out
@@ -1110,38 +1103,21 @@ endfunction
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListSetupHighlight() abort
-    " ── WinList panel content ─────────────────────────────────────────────
-    " Header base — blue, matches netrwBanner / netrwHelpCmd
     silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold
-    " Concealed tab ID suffix
     silent! highlight default WinListHeaderID   guifg=bg      ctermfg=0   gui=NONE
-    " Tab number digit(s) inside header — green (#98c379 = netrwExe)
     silent! highlight default WinListHeaderNum  guifg=#98c379 ctermfg=114 gui=bold
-    " Split count badge — yellow, matches netrwList
     silent! highlight default WinListSplitCnt   guifg=#e5c07b ctermfg=180 gui=bold
-    " Active tab ◀ marker — pink, matches netrwHidFile
     silent! highlight default WinListActivTab   guifg=#e06c75 ctermfg=204 gui=bold
-    " Window number N: — green (same as tab number, consistent)
     silent! highlight default WinListNumber     guifg=#98c379 ctermfg=114 gui=bold
-    " Active window line
     silent! highlight default WinListActive     guifg=#00FFFF ctermfg=114 gui=bold
-    " > marker on active window line
     silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold
-    " [+] modified flag
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold
-    " Special buffers
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic
-    " Path line below filename
     silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66
 
-    " ── WinList statusline ────────────────────────────────────────────────
-    " 'Tabs' label — cyan text on dark navy, matching StatusLine bg
     silent! highlight default WinListSLLabel    guifg=#00ffff guibg=#001933 gui=bold   ctermfg=51  ctermbg=17
-    " Active tab badge — green text on dark navy
     silent! highlight default WinListSLActive   guifg=#98c379 guibg=#001933 gui=bold   ctermfg=114 ctermbg=17
-    " Inactive tab numbers — dim grey on dark navy
     silent! highlight default WinListSLInactive guifg=#5c6370 guibg=#001933 gui=NONE   ctermfg=59  ctermbg=17
-    " Right-side counter — yellow on dark navy
     silent! highlight default WinListSLCounter  guifg=#e5c07b guibg=#001933 gui=NONE   ctermfg=180 ctermbg=17
 endfunction
 silent! call WinListSetupHighlight()
@@ -1182,7 +1158,6 @@ function! WinListApplySyntax() abort
     syntax match WinListPath       /^\s\+[…\/].*/
 endfunction
 
-" ── Apply the dynamic statusline to the WinList buffer ────────────────────
 function! WinListApplyStatusLine() abort
     let l:wl_wnr = bufwinnr(WinListBufName())
     if l:wl_wnr == -1 | return | endif
@@ -1234,7 +1209,7 @@ endfunction
 function! WinListRefreshAllTabs() abort
     if g:winlist_opening | return | endif
     if g:panel_opening   | return | endif
-    if g:netrw_expanding | return | endif    " skip refresh while netrw is open
+    if g:netrw_expanding | return | endif
 
     let l:save_lz = &lazyredraw
     set lazyredraw
@@ -1324,7 +1299,6 @@ function! CombinedPanelOpen() abort
         setlocal noswapfile nobuflisted
         setlocal nowrap nonumber norelativenumber
         setlocal cursorline filetype=winlist signcolumn=no
-        " ── Set dynamic statusline immediately on open ─────────────────────
         setlocal statusline=%!WinListStatusLine()
 
         nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
@@ -1624,7 +1598,6 @@ augroup WinListAuto
     autocmd VimResized * silent! call WinListFixPanelHeights()
     autocmd WinLeave   * silent! call WinListFixWidth()
 
-    " ── Re-render statusline on every tab switch ───────────────────────────
     autocmd TabEnter   * silent! call WinListApplyStatusLine()
 
     autocmd TabLeave * silent! call WinListOnTabLeave()
@@ -1809,7 +1782,7 @@ nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
 let g:netrw_pre_expand_layout = {}
 
 function! SmartCtrlO() abort
-    let g:netrw_expanding         = 1    " block WinList refresh/fix while netrw open
+    let g:netrw_expanding         = 1
     let g:netrw_pre_expand_layout = {}
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
@@ -1886,7 +1859,7 @@ function! SmartCtrlORestore() abort
     endif
 
     let g:netrw_pre_expand_layout = {}
-    let g:netrw_expanding         = 0    " re-enable WinList refresh/fix
+    let g:netrw_expanding         = 0
 endfunction
 
 augroup NetrwExpandRestore
@@ -1948,9 +1921,134 @@ function! ReopenLastClosedFile() abort
     endif
 endfunction
 
+
+" ── Snapshot + Restore layout (preserve split widths on close) ────────────
+
+function! s:SnapshotNormalWinWidths() abort
+    " Calculate panel width to exclude it from available space
+    let l:panel_w = 0
+    let l:wl_wnr  = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        let l:panel_w += winwidth(l:wl_wnr) + 1
+    endif
+    for l:i in range(1, winnr('$'))
+        if WinListIsNERDTree(winbufnr(l:i))
+            let l:panel_w += winwidth(l:i) + 1
+        endif
+    endfor
+
+    let l:avail = &columns - l:panel_w
+    if l:avail <= 0 | return {} | endif
+
+    " Store ratio (0.0–1.0) of each normal window vs total available width
+    let l:snap = {}
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            let l:snap[l:i] = winwidth(l:i) * 1.0 / l:avail
+        endif
+    endfor
+    return l:snap
+endfunction
+
+function! s:RestoreNormalWinWidths(snap) abort
+    if empty(a:snap) | return | endif
+
+    " Collect current normal windows after the close
+    let l:cur_wins = []
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call add(l:cur_wins, l:i)
+        endif
+    endfor
+
+    " Nothing to do if only 1 or 0 normal splits remain
+    if len(l:cur_wins) <= 1 | return | endif
+
+    " Recalculate available width
+    let l:panel_w = 0
+    let l:wl_wnr  = bufwinnr(WinListBufName())
+    if l:wl_wnr != -1
+        let l:panel_w += winwidth(l:wl_wnr) + 1
+    endif
+    for l:i in range(1, winnr('$'))
+        if WinListIsNERDTree(winbufnr(l:i))
+            let l:panel_w += winwidth(l:i) + 1
+        endif
+    endfor
+
+    " Subtract separators between normal windows
+    let l:avail = &columns - l:panel_w - (len(l:cur_wins) - 1)
+    if l:avail <= 0 | return | endif
+
+    " Collect old ratios in sorted order, skipping the closed window's slot.
+    " Since window indices shift down after a close, we map by position order.
+    let l:old_keys = sort(keys(a:snap), 'N')
+    let l:ratios   = []
+    for l:k in l:old_keys
+        call add(l:ratios, a:snap[str2nr(l:k)])
+    endfor
+
+    " If snapshot had more windows than current (one was closed),
+    " merge the closed window's ratio into its neighbour proportionally.
+    " Simple approach: just normalize the remaining ratios to fill 100%.
+    let l:n = min([len(l:ratios), len(l:cur_wins)])
+    if l:n == 0 | return | endif
+
+    " Sum only the ratios we'll actually use
+    let l:total_ratio = 0.0
+    for l:j in range(l:n)
+        let l:total_ratio += l:ratios[l:j]
+    endfor
+    if l:total_ratio <= 0.0 | return | endif
+
+    " Apply widths
+    let l:cur_win  = winnr()
+    let l:assigned = 0
+    for l:j in range(l:n)
+        let l:win_nr = l:cur_wins[l:j]
+        call setwinvar(l:win_nr, '&winfixwidth', 0)
+        if l:j == l:n - 1
+            " Last window gets the remainder to avoid rounding gaps
+            let l:w = l:avail - l:assigned
+        else
+            let l:w = float2nr(round(l:ratios[l:j] / l:total_ratio * l:avail))
+        endif
+        let l:w = max([1, l:w])
+        execute 'noautocmd ' . l:win_nr . 'wincmd w'
+        execute 'vertical resize ' . l:w
+        let l:assigned += l:w
+    endfor
+
+    execute 'noautocmd ' . l:cur_win . 'wincmd w'
+
+    " Re-pin the panel width after restoring splits
+    silent! call WinListFixWidth()
+endfunction
+
+
 function! SmartClose() abort
     silent! call ClosedFileStackPush()
-    quit
+
+    " Count normal splits before closing
+    let l:normal_wins = []
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
+            call add(l:normal_wins, l:i)
+        endif
+    endfor
+
+    " Only snapshot/restore when 2+ normal splits exist
+    if len(l:normal_wins) >= 2
+        let l:snap = s:SnapshotNormalWinWidths()
+        quit
+        " Defer restore so Vim finishes updating the layout first
+        call timer_start(10, {-> s:RestoreNormalWinWidths(l:snap)})
+    else
+        quit
+    endif
 endfunction
 
 noremap <silent> <C-w> :call SmartClose()<CR>
