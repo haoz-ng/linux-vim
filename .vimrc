@@ -1916,3 +1916,54 @@ noremap <silent> <C-w> :call SmartClose()<CR>
 
 nnoremap <silent> <C-S-t> :call ReopenLastClosedFile()<CR>
 inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosedFile()<CR>
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │               QUICK REPLACE  :R <old> <new>                              │
+" │    Replace all exact occurrences of <old> with <new> (case-sensitive)    │
+" └──────────────────────────────────────────────────────────────────────────┘
+function! QuickReplace(old, new) abort
+    if a:old ==# ''
+        echo "Usage: :r <old_word> <new_word>"
+        return
+    endif
+    if a:new ==# ''
+        echo "Usage: :r <old_word> <new_word>"
+        return
+    endif
+
+    " Escape special regex / substitution characters
+    let l:escaped_old = escape(a:old, '/\.*$^~[]')
+    let l:escaped_new = escape(a:new, '/\&~')
+
+    " Count matches before replacing
+    let l:count = 0
+    let l:lnum  = 1
+    while l:lnum <= line('$')
+        let l:line = getline(l:lnum)
+        let l:pos  = 0
+        while 1
+            let l:idx = stridx(l:line, a:old, l:pos)
+            if l:idx == -1 | break | endif
+            let l:count += 1
+            let l:pos    = l:idx + len(a:old)
+        endwhile
+        let l:lnum += 1
+    endwhile
+
+    if l:count == 0
+        echo "No match found for: " . a:old
+        return
+    endif
+
+    " Perform case-sensitive replacement across entire file
+    execute 'silent! %substitute/\C' . l:escaped_old . '/' . l:escaped_new . '/g'
+
+    echo printf("Replaced %d occurrence%s: [%s] → [%s]",
+        \ l:count,
+        \ l:count == 1 ? '' : 's',
+        \ a:old,
+        \ a:new)
+endfunction
+
+command! -nargs=+ R call QuickReplace(<f-args>)
