@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.55                                                         ║
-" ║  Modified : 2026-07-02                                                   ║
+" ║  Version  : 6.54                                                         ║
+" ║  Modified : 2026-06-12                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -1197,6 +1197,7 @@ function! WinListRefresh() abort
     setlocal nomodifiable nomodified
     setlocal statusline=%!WinListStatusLine()
     silent! call WinListApplySyntax()
+    " ── NO resize here — editing splits are left untouched ────────────────
 
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
 endfunction
@@ -1229,6 +1230,7 @@ function! WinListRefreshAllTabs() abort
         setlocal nomodifiable nomodified
         setlocal statusline=%!WinListStatusLine()
         silent! call WinListApplySyntax()
+        " ── NO resize here — editing splits are left untouched ────────────
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endif
 
@@ -1542,18 +1544,23 @@ endfunction
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListOnTabLeave() abort
-    " Remember open state before closing
     let g:winlist_tab_open[tabpagenr()] = WinListIsOpen() ? 1 : 0
-
-    " Auto-close combined panel (WinList + NERDTree) when switching tabs
-    if CombinedPanelIsOpen()
-        silent! call CombinedPanelClose()
-    endif
 endfunction
 
 function! WinListOnTabEnter() abort
-    " Panel is intentionally NOT auto-restored on tab enter.
-    " User re-opens manually with <C-b> or <leader>w
+    let l:tabnr = tabpagenr()
+    if get(g:winlist_tab_open, l:tabnr, 0) == 1
+        call timer_start(20, {-> s:RestorePanel(l:tabnr)})
+    endif
+endfunction
+
+function! s:RestorePanel(tabnr) abort
+    if tabpagenr() != a:tabnr | return | endif
+    if !WinListIsOpen()
+        silent! call CombinedPanelOpen()
+    else
+        silent! call WinListRefreshAllTabs()
+    endif
 endfunction
 
 function! WinListOnTabNew() abort
