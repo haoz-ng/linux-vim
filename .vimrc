@@ -1919,22 +1919,30 @@ inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosedFile()<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │               QUICK REPLACE  :R <old> <new>                              │
+" │               QUICK REPLACE  :R <old> - <new>                            │
 " │    Replace all exact occurrences of <old> with <new> (case-sensitive)    │
+" │    Use  -  as delimiter between old and new (surround with spaces)       │
+" │    After replace: new word is highlighted                                │
+" │    Press <S-l> to clear highlight                                        │
 " └──────────────────────────────────────────────────────────────────────────┘
-function! QuickReplace(old, new) abort
-    if a:old ==# ''
-        echo "Usage: :r <old_word> <new_word>"
-        return
-    endif
-    if a:new ==# ''
-        echo "Usage: :r <old_word> <new_word>"
+function! QuickReplace(args) abort
+    " ── Parse: split on ' - ' delimiter ────────────────────────────────────
+    let l:parts = split(a:args, ' - ')
+
+    if len(l:parts) != 2 || trim(l:parts[0]) ==# '' || trim(l:parts[1]) ==# ''
+        echo "Usage: :R <old word(s)> - <new word(s)>"
+        echo "  e.g. :R i am haoz - haoz"
+        echo "  e.g. :R some word - new some word"
+        echo "  e.g. :R foo - bar"
         return
     endif
 
+    let l:old = trim(l:parts[0])
+    let l:new = trim(l:parts[1])
+
     " Escape special regex / substitution characters
-    let l:escaped_old = escape(a:old, '/\.*$^~[]')
-    let l:escaped_new = escape(a:new, '/\&~')
+    let l:escaped_old = escape(l:old, '/\.*$^~[]')
+    let l:escaped_new = escape(l:new, '/\&~')
 
     " Count matches before replacing
     let l:count = 0
@@ -1943,27 +1951,34 @@ function! QuickReplace(old, new) abort
         let l:line = getline(l:lnum)
         let l:pos  = 0
         while 1
-            let l:idx = stridx(l:line, a:old, l:pos)
+            let l:idx = stridx(l:line, l:old, l:pos)
             if l:idx == -1 | break | endif
             let l:count += 1
-            let l:pos    = l:idx + len(a:old)
+            let l:pos    = l:idx + len(l:old)
         endwhile
         let l:lnum += 1
     endwhile
 
     if l:count == 0
-        echo "No match found for: " . a:old
+        echo "No match found for: " . l:old
         return
     endif
 
     " Perform case-sensitive replacement across entire file
     execute 'silent! %substitute/\C' . l:escaped_old . '/' . l:escaped_new . '/g'
 
-    echo printf("Replaced %d occurrence%s: [%s] → [%s]",
+    " ── Highlight the newly replaced word ───────────────────────────────────
+    set hlsearch
+    let @/ = '\C' . escape(l:new, '/\.*$^~[](){}+?|')
+
+    echo printf("Replaced %d occurrence%s: [%s] → [%s]  (Press <S-l> to clear)",
         \ l:count,
         \ l:count == 1 ? '' : 's',
-        \ a:old,
-        \ a:new)
+        \ l:old,
+        \ l:new)
 endfunction
 
-command! -nargs=+ R call QuickReplace(<f-args>)
+command! -nargs=+ R call QuickReplace(<q-args>)
+
+" ── <S-l>: clear search highlight ───────────────────────────────────────────
+nnoremap <S-l> :nohlsearch<CR>
