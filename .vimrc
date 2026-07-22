@@ -26,7 +26,7 @@ set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
 set termencoding=utf-8
-set guifont=Monospace\ Regular\ 10
+set guifont=Monospace\ Regular\ 9
 set ignorecase
 set smartcase
 set autoread
