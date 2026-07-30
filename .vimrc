@@ -33,7 +33,7 @@ set autoread
 set number
 set mouse=a
 set showtabline=2
-set guitablabel=%t%M
+set guitablabel=%{GuiTabLabel()}
 set tabstop=4
 set shiftwidth=4
 set expandtab
@@ -48,6 +48,17 @@ set cursorline
 set foldlevel=99
 set lazyredraw
 set updatetime=1000
+
+function! GuiTabLabel() abort
+    let l:buflist = tabpagebuflist(v:lnum)
+    let l:winnr   = tabpagewinnr(v:lnum)
+    let l:bufnr   = l:buflist[l:winnr - 1]
+    let l:fname   = bufname(l:bufnr)
+    let l:name    = l:fname ==# '' ? '[No Name]' : fnamemodify(l:fname, ':t')
+    let l:mod     = getbufvar(l:bufnr, '&modified')  ? ' [M]' : ''
+    let l:ro      = getbufvar(l:bufnr, '&readonly')  ? ' [RO]'  : ''
+    return l:name . l:mod . l:ro
+endfunction
 
 au CursorHold,CursorHoldI * silent! checktime
 
@@ -166,9 +177,6 @@ augroup DynamicStatusLine
                          \ | call StatusLineSetInsert()
                          \ | endif
     autocmd InsertLeave  * call StatusLineSetNormal()
-    autocmd ModeChanged  * if mode() =~# '^[vV\x16]' || mode() =~# '^[nN]'
-                         \ | call StatusLineSetNormal()
-                         \ | endif
 augroup END
 
 
