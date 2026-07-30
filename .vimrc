@@ -141,36 +141,34 @@ set statusline+=%#CursorColumn#
 highlight StatusLine   guifg=#00ffff guibg=#001933
 highlight StatusLineNC guifg=#888888 guibg=#001933
 
-function! StatusLineColorMonitor()
-    let m = mode()
-    if m ==# 'i'
-        silent! highlight StatusLine guifg=#00ffff guibg=#661900
-    elseif m ==# 'R'
-        silent! highlight StatusLine guifg=#00ffff guibg=#006619
-    else
-        silent! highlight StatusLine guifg=#00ffff guibg=#001933
-    endif
+function! StatusLineSetNormal() abort
+    silent! highlight StatusLine guifg=#00ffff guibg=#001933
 endfunction
 
-let g:statusline_timer = 0
-
-function! StatuslineStartTimer()
-    if g:statusline_timer == 0
-        let g:statusline_timer = timer_start(1000, {-> silent! StatusLineColorMonitor()}, {'repeat': -1})
-    endif
+function! StatusLineSetInsert() abort
+    silent! highlight StatusLine guifg=#00ffff guibg=#661900
 endfunction
 
-function! StatuslineStopTimer()
-    if g:statusline_timer != 0
-        silent! call timer_stop(g:statusline_timer)
-        let g:statusline_timer = 0
-    endif
+function! StatusLineSetReplace() abort
+    silent! highlight StatusLine guifg=#00ffff guibg=#006619
 endfunction
 
 augroup DynamicStatusLine
     autocmd!
-    autocmd VimEnter,FocusGained * silent! call StatuslineStartTimer()
-    autocmd FocusLost,QuitPre    * silent! call StatuslineStopTimer()
+    autocmd InsertEnter  * if v:insertmode ==# 'r' || v:insertmode ==# 'v'
+                         \ | call StatusLineSetReplace()
+                         \ | else
+                         \ | call StatusLineSetInsert()
+                         \ | endif
+    autocmd InsertChange * if v:insertmode ==# 'r' || v:insertmode ==# 'v'
+                         \ | call StatusLineSetReplace()
+                         \ | else
+                         \ | call StatusLineSetInsert()
+                         \ | endif
+    autocmd InsertLeave  * call StatusLineSetNormal()
+    autocmd ModeChanged  * if mode() =~# '^[vV\x16]' || mode() =~# '^[nN]'
+                         \ | call StatusLineSetNormal()
+                         \ | endif
 augroup END
 
 
@@ -1197,7 +1195,6 @@ function! WinListRefresh() abort
     setlocal nomodifiable nomodified
     setlocal statusline=%!WinListStatusLine()
     silent! call WinListApplySyntax()
-    " ── NO resize here — editing splits are left untouched ────────────────
 
     execute 'noautocmd ' . l:cur_win . 'wincmd w'
 endfunction
@@ -1230,7 +1227,6 @@ function! WinListRefreshAllTabs() abort
         setlocal nomodifiable nomodified
         setlocal statusline=%!WinListStatusLine()
         silent! call WinListApplySyntax()
-        " ── NO resize here — editing splits are left untouched ────────────
         execute 'noautocmd ' . l:restore_win . 'wincmd w'
     endif
 
@@ -1926,7 +1922,6 @@ inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosedFile()<CR>
 " │    Press <S-l> to clear highlight                                        │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! QuickReplace(args) abort
-    " ── Parse: split on ' - ' delimiter ────────────────────────────────────
     let l:parts = split(a:args, ' - ')
 
     if len(l:parts) != 2 || trim(l:parts[0]) ==# '' || trim(l:parts[1]) ==# ''
@@ -1940,11 +1935,9 @@ function! QuickReplace(args) abort
     let l:old = trim(l:parts[0])
     let l:new = trim(l:parts[1])
 
-    " Escape special regex / substitution characters
     let l:escaped_old = escape(l:old, '/\.*$^~[]')
     let l:escaped_new = escape(l:new, '/\&~')
 
-    " Count matches before replacing
     let l:count = 0
     let l:lnum  = 1
     while l:lnum <= line('$')
@@ -1964,10 +1957,8 @@ function! QuickReplace(args) abort
         return
     endif
 
-    " Perform case-sensitive replacement across entire file
     execute 'silent! %substitute/\C' . l:escaped_old . '/' . l:escaped_new . '/g'
 
-    " ── Highlight the newly replaced word ───────────────────────────────────
     set hlsearch
     let @/ = '\C' . escape(l:new, '/\.*$^~[](){}+?|')
 
@@ -1980,5 +1971,4 @@ endfunction
 
 command! -nargs=+ R call QuickReplace(<q-args>)
 
-" ── <S-l>: clear search highlight ───────────────────────────────────────────
 nnoremap <S-l> :nohlsearch<CR>
