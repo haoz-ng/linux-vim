@@ -81,7 +81,7 @@ highlight FoldColumn  ctermbg=black guibg=#000000
 highlight CursorLine   guibg=#363636
 highlight CursorColumn guibg=#363636
 highlight CursorLineNr guifg=#00ffff guibg=#001933
-" highlight Cursor       guibg=blue
+highlight Cursor       guibg=#00ffff
 
 highlight Folded     ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
 highlight Search     ctermfg=blue  ctermbg=grey     guifg=#0000ff guibg=#888888
