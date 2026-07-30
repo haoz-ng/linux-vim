@@ -67,10 +67,10 @@ highlight EndOfBuffer ctermbg=black guibg=#000000
 highlight SignColumn  ctermbg=black guibg=#000000
 highlight FoldColumn  ctermbg=black guibg=#000000
 
-highlight CursorLine   guibg=#001933
-highlight CursorColumn guibg=#001933
+highlight CursorLine   guibg=#363636
+highlight CursorColumn guibg=#363636
 highlight CursorLineNr guifg=#00ffff guibg=#001933
-highlight Cursor       guifg=blue
+" highlight Cursor       guibg=blue
 
 highlight Folded     ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
 highlight Search     ctermfg=blue  ctermbg=grey     guifg=#0000ff guibg=#888888
