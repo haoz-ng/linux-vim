@@ -83,6 +83,8 @@ highlight CursorColumn guibg=#363636
 highlight CursorLineNr guifg=#00ffff guibg=#001933
 highlight Cursor       guibg=#00ffff
 
+highlight Visual       guibg=#003366
+
 highlight Folded     ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
 highlight Search     ctermfg=blue  ctermbg=grey     guifg=#0000ff guibg=#888888
 highlight VertSplit  guifg=#00ffff guibg=#191E2A
