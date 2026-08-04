@@ -5,14 +5,20 @@
 alias ll        "ls -alF --color=auto"
 
 # prompt
+setenv LANG en_US.UTF-8
+setenv LC_ALL en_US.UTF-8
+
+set ai = `printf "\xe6\x84\x9b"`
+
 alias cwdcmd ' \
+  set ai = `printf "\xe6\x84\x9b"`; \
   if ( "$cwd" == "$HOME" ) then \
-    set prompt = "\n%{\e]2;%~\a%}[%{\033[1;32m%}%m%{\033[0m%}:%{\033[1;36m%}%n%{\033[0m%}:%{\033[1;36m%}Haoz%{\033[0m%}][%{\033[1;32m%}~%{\033[0m%}]\n%{\033[1;36m%}  --> %{\033[0m%}%s "; \
+    set prompt = "\n%{\e]2;%~\a%}[%{\033[1;32m%}%m%{\033[0m%}:%{\033[1;36m%}%n%{\033[0m%}:%{\033[1;36m%}Haoz%{\033[0m%}][%{\033[38;5;219m%}${ai}%{\033[0m%}][%{\033[1;32m%}~%{\033[0m%}]\n%{\033[1;36m%}  --> %{\033[0m%}%s "; \
   else \
     set path_without_last = `dirname "$cwd"`; \
     set last_dir = `basename "$cwd"`; \
     if ( "$path_without_last" == "$HOME" ) set path_without_last = "~"; \
-    set prompt = "\n%{\e]2;%~\a%}[%{\033[1;32m%}%m%{\033[0m%}:%{\033[1;36m%}%n%{\033[0m%}:%{\033[1;36m%}Haoz%{\033[0m%}][%{\033[1;36m%}$path_without_last/%{\033[0m%}%{\033[1;32m%}$last_dir%{\033[0m%}]\n%{\033[1;36m%}  --> %{\033[0m%}%s "; \
+    set prompt = "\n%{\e]2;%~\a%}[%{\033[1;32m%}%m%{\033[0m%}:%{\033[1;36m%}%n%{\033[0m%}:%{\033[1;36m%}Haoz%{\033[0m%}][%{\033[38;5;219m%}${ai}%{\033[0m%}][%{\033[1;36m%}$path_without_last/%{\033[0m%}%{\033[1;32m%}$last_dir%{\033[0m%}]\n%{\033[1;36m%}  --> %{\033[0m%}%s "; \
   endif'
 cwdcmd
 
