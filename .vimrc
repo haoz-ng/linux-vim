@@ -86,7 +86,7 @@ highlight Cursor       guibg=#00ffff
 highlight Visual       guibg=#003366
 
 highlight Folded     ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
-highlight Search     ctermfg=blue  ctermbg=grey     guifg=#0000ff guibg=#888888
+highlight Search     guibg=#003366 guifg=NONE gui=NONE ctermbg=DarkBlue ctermfg=NONE
 highlight VertSplit  guifg=#00ffff guibg=#191E2A
 highlight SpecialKey ctermbg=17    guibg=#001933    guifg=#00ffff
 highlight TabLineSel ctermfg=159   ctermbg=0
