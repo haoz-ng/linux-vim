@@ -349,7 +349,7 @@ nnoremap <F5>  :edit!<CR>
 nnoremap <F12> :let @+ = expand('%:p') <bar> echo "Copied full path: " . expand('%:p')<CR>
 
 nnoremap <C-a> ggVG
-nnoremap <S-l> :nohlsearch<CR>
+nnoremap <silent> <S-l> :nohlsearch<CR>
 nnoremap <C-l> V
 inoremap <C-l> <Esc>V
 
