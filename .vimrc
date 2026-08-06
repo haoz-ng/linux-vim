@@ -185,15 +185,15 @@ augroup END
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           COMMENT SYSTEM                                 │
 " └──────────────────────────────────────────────────────────────────────────┘
-autocmd FileType c,cpp,java,scala                   let b:comment_leader = '\/\/'
-autocmd FileType sh,csh,ruby,python,tcsh            let b:comment_leader = '#'
-autocmd FileType conf,fstab                         let b:comment_leader = '#'
-autocmd FileType tex                                let b:comment_leader = '%'
-autocmd FileType mail                               let b:comment_leader = '>'
-autocmd FileType vim                                let b:comment_leader = '"'
-autocmd FileType nasm                               let b:comment_leader = ';'
-autocmd BufReadPre,FileReadPre *.v,*.sv,*.svh,*.svt let b:comment_leader = '\/\/'
-autocmd BufReadPre,FileReadPre *.csh,*.txt          let b:comment_leader = '#'
+autocmd FileType c,cpp,java,scala                           let b:comment_leader = '\/\/'
+autocmd FileType sh,csh,ruby,python,tcsh                    let b:comment_leader = '#'
+autocmd FileType conf,fstab                                 let b:comment_leader = '#'
+autocmd FileType tex                                        let b:comment_leader = '%'
+autocmd FileType mail                                       let b:comment_leader = '>'
+autocmd FileType vim                                        let b:comment_leader = '"'
+autocmd FileType nasm                                       let b:comment_leader = ';'
+autocmd BufReadPre,FileReadPre *.v,*.sv,*.svh,*.svt         let b:comment_leader = '\/\/'
+autocmd BufReadPre,FileReadPre *.csh,*.txt,*.config         let b:comment_leader = '#'
 
 function! CommentLine()
     let line = getline('.')
@@ -567,8 +567,8 @@ function! VisualModeShiftTab()
     endfor
 endfunction
 
-nnoremap <silent> <Tab>   :call NormalModeTab()<CR>
-nnoremap <silent> <S-Tab> :call NormalModeShiftTab()<CR>
+" nnoremap <silent> <Tab>   :call NormalModeTab()<CR>
+" nnoremap <silent> <S-Tab> :call NormalModeShiftTab()<CR>
 vnoremap <silent> <Tab>   :<C-u>call VisualModeTab()<CR>gv
 vnoremap <silent> <S-Tab> :<C-u>call VisualModeShiftTab()<CR>gv
 
