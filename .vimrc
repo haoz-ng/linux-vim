@@ -1982,3 +1982,171 @@ endfunction
 command! -nargs=+ R call QuickReplace(<q-args>)
 
 nnoremap <S-l> :nohlsearch<CR>
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                        MULTI-HIGHLIGHT  ( m / S-l )                     │
+" │   Normal : m  → highlight only the word instance under cursor           │
+" │   Visual : m  → highlight only the selected text instance               │
+" │            supports single-line, multi-line, multi-paragraph            │
+" │   S-l        → clear ALL highlights                                     │
+" └──────────────────────────────────────────────────────────────────────────┘
+
+if !exists('g:mhl_matches')
+    let g:mhl_matches = []
+endif
+
+function! MhlSetupGroup() abort
+    silent! highlight MHL guibg=#7a333d guifg=NONE gui=NONE
+endfunction
+silent! call MhlSetupGroup()
+
+augroup MhlGroups
+    autocmd!
+    autocmd ColorScheme * silent! call MhlSetupGroup()
+augroup END
+
+" ── Add one screen-line segment, return matchid ───────────────────────────
+function! s:AddSegment(lnum, col, len) abort
+    if a:len <= 0 | return -1 | endif
+    return matchaddpos('MHL', [[a:lnum, a:col, a:len]])
+endfunction
+
+" ── Toggle a group of segments (one logical selection) ───────────────────
+" Each entry in g:mhl_matches is a 'group':
+"   { 'segments': [ {lnum, col, len, matchid}, ... ] }
+" A group matches if ALL its segments share the same lnum/col/len set.
+
+function! s:GroupMatches(segments) abort
+    " Build a set of {lnum,col,len} keys from segments
+    let l:keys = {}
+    for l:s in a:segments
+        let l:keys[l:s.lnum . ':' . l:s.col . ':' . l:s.len] = 1
+    endfor
+    return l:keys
+endfunction
+
+function! MhlToggleGroup(segments) abort
+    if empty(a:segments) | return | endif
+
+    let l:new_keys = s:GroupMatches(a:segments)
+
+    " Check if identical group already exists → remove it
+    for l:i in range(len(g:mhl_matches))
+        let l:existing_keys = s:GroupMatches(g:mhl_matches[l:i].segments)
+        if l:existing_keys == l:new_keys
+            for l:seg in g:mhl_matches[l:i].segments
+                silent! call matchdelete(l:seg.matchid)
+            endfor
+            call remove(g:mhl_matches, l:i)
+            return
+        endif
+    endfor
+
+    " Add new group
+    let l:added_segs = []
+    for l:seg in a:segments
+        let l:mid = s:AddSegment(l:seg.lnum, l:seg.col, l:seg.len)
+        if l:mid != -1
+            call add(l:added_segs, {
+                \ 'lnum':    l:seg.lnum,
+                \ 'col':     l:seg.col,
+                \ 'len':     l:seg.len,
+                \ 'matchid': l:mid,
+                \ })
+        endif
+    endfor
+
+    if !empty(l:added_segs)
+        call add(g:mhl_matches, {'segments': l:added_segs})
+    endif
+endfunction
+
+" ── Normal mode: exact word instance under cursor ─────────────────────────
+function! MhlWord() abort
+    let l:word = expand('<cword>')
+    if l:word ==# '' | return | endif
+
+    let l:lnum  = line('.')
+    let l:line  = getline('.')
+    let l:col   = col('.') - 1
+
+    let l:start = l:col
+    while l:start > 0 && l:line[l:start - 1] =~# '\w'
+        let l:start -= 1
+    endwhile
+
+    call MhlToggleGroup([{
+        \ 'lnum': l:lnum,
+        \ 'col':  l:start + 1,
+        \ 'len':  len(l:word),
+        \ }])
+endfunction
+
+" ── Visual mode: single or multi-line selection ───────────────────────────
+function! MhlVisual() abort
+    let l:l1 = line("'<")
+    let l:c1 = col("'<")
+    let l:l2 = line("'>")
+    let l:c2 = col("'>")
+
+    let l:segments = []
+
+    if l:l1 == l:l2
+        " ── Single line ───────────────────────────────────────────────────
+        let l:len = l:c2 - l:c1 + 1
+        call add(l:segments, {'lnum': l:l1, 'col': l:c1, 'len': l:len})
+
+    else
+        " ── Multi-line ────────────────────────────────────────────────────
+
+        " First line: from c1 to end of line
+        let l:first_line = getline(l:l1)
+        let l:len_first  = len(l:first_line) - l:c1 + 1
+        if l:len_first > 0
+            call add(l:segments, {
+                \ 'lnum': l:l1,
+                \ 'col':  l:c1,
+                \ 'len':  l:len_first,
+                \ })
+        endif
+
+        " Middle lines: entire line
+        for l:lnum in range(l:l1 + 1, l:l2 - 1)
+            let l:mid_line = getline(l:lnum)
+            let l:mid_len  = len(l:mid_line)
+            if l:mid_len > 0
+                call add(l:segments, {
+                    \ 'lnum': l:lnum,
+                    \ 'col':  1,
+                    \ 'len':  l:mid_len,
+                    \ })
+            endif
+        endfor
+
+        " Last line: from col 1 to c2
+        if l:c2 > 0
+            call add(l:segments, {
+                \ 'lnum': l:l2,
+                \ 'col':  1,
+                \ 'len':  l:c2,
+                \ })
+        endif
+    endif
+
+    call MhlToggleGroup(l:segments)
+endfunction
+
+" ── Clear ALL ─────────────────────────────────────────────────────────────
+function! MhlClearAll() abort
+    for l:group in g:mhl_matches
+        for l:seg in l:group.segments
+            silent! call matchdelete(l:seg.matchid)
+        endfor
+    endfor
+    let g:mhl_matches = []
+    nohlsearch
+endfunction
+
+nnoremap <silent> m     :call MhlWord()<CR>
+vnoremap <silent> m     :<C-u>call MhlVisual()<CR>
+nnoremap <silent> <S-l> :call MhlClearAll()<CR>
