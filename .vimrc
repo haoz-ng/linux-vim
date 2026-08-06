@@ -2149,4 +2149,4 @@ endfunction
 
 nnoremap <silent> m     :call MhlWord()<CR>
 vnoremap <silent> m     :<C-u>call MhlVisual()<CR>
-nnoremap <silent> <S-l> :call MhlClearAll()<CR>
+nnoremap <silent> <m-l> :call MhlClearAll()<CR>
