@@ -1984,169 +1984,157 @@ command! -nargs=+ R call QuickReplace(<q-args>)
 nnoremap <S-l> :nohlsearch<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │                        MULTI-HIGHLIGHT  ( m / S-l )                     │
-" │   Normal : m  → highlight only the word instance under cursor           │
-" │   Visual : m  → highlight only the selected text instance               │
-" │            supports single-line, multi-line, multi-paragraph            │
-" │   S-l        → clear ALL highlights                                     │
+" │              WORD / SELECTION HIGHLIGHT BOOKMARK  ( m  /  ml )          │
 " └──────────────────────────────────────────────────────────────────────────┘
 
-if !exists('g:mhl_matches')
-    let g:mhl_matches = []
-endif
-
-function! MhlSetupGroup() abort
-    silent! highlight MHL guibg=#7a333d guifg=NONE gui=NONE
+function! s:MarkedHighlights() abort
+    silent! highlight default MarkedWord guibg=#7a333d guifg=NONE gui=NONE ctermbg=95 ctermfg=NONE
+    silent! highlight default MarkedLine guibg=#7a333d guifg=NONE gui=NONE ctermbg=95 ctermfg=NONE
 endfunction
-silent! call MhlSetupGroup()
+call s:MarkedHighlights()
 
-augroup MhlGroups
+augroup MarkedHighlightColors
     autocmd!
-    autocmd ColorScheme * silent! call MhlSetupGroup()
+    autocmd ColorScheme * call s:MarkedHighlights()
 augroup END
 
-" ── Add one screen-line segment, return matchid ───────────────────────────
-function! s:AddSegment(lnum, col, len) abort
-    if a:len <= 0 | return -1 | endif
-    return matchaddpos('MHL', [[a:lnum, a:col, a:len]])
-endfunction
-
-" ── Toggle a group of segments (one logical selection) ───────────────────
-" Each entry in g:mhl_matches is a 'group':
-"   { 'segments': [ {lnum, col, len, matchid}, ... ] }
-" A group matches if ALL its segments share the same lnum/col/len set.
-
-function! s:GroupMatches(segments) abort
-    " Build a set of {lnum,col,len} keys from segments
-    let l:keys = {}
-    for l:s in a:segments
-        let l:keys[l:s.lnum . ':' . l:s.col . ':' . l:s.len] = 1
-    endfor
-    return l:keys
-endfunction
-
-function! MhlToggleGroup(segments) abort
-    if empty(a:segments) | return | endif
-
-    let l:new_keys = s:GroupMatches(a:segments)
-
-    " Check if identical group already exists → remove it
-    for l:i in range(len(g:mhl_matches))
-        let l:existing_keys = s:GroupMatches(g:mhl_matches[l:i].segments)
-        if l:existing_keys == l:new_keys
-            for l:seg in g:mhl_matches[l:i].segments
-                silent! call matchdelete(l:seg.matchid)
-            endfor
-            call remove(g:mhl_matches, l:i)
-            return
-        endif
-    endfor
-
-    " Add new group
-    let l:added_segs = []
-    for l:seg in a:segments
-        let l:mid = s:AddSegment(l:seg.lnum, l:seg.col, l:seg.len)
-        if l:mid != -1
-            call add(l:added_segs, {
-                \ 'lnum':    l:seg.lnum,
-                \ 'col':     l:seg.col,
-                \ 'len':     l:seg.len,
-                \ 'matchid': l:mid,
-                \ })
-        endif
-    endfor
-
-    if !empty(l:added_segs)
-        call add(g:mhl_matches, {'segments': l:added_segs})
+function! s:EnsureMarkedDict() abort
+    if !exists('w:marked_matches')
+        let w:marked_matches = {}
     endif
 endfunction
 
-" ── Normal mode: exact word instance under cursor ─────────────────────────
-function! MhlWord() abort
-    let l:word = expand('<cword>')
-    if l:word ==# '' | return | endif
+" ── Find exact (line, col, len) of the word instance under the cursor ─────
+function! s:GetWordAtCursorPos() abort
+    let l:cword = expand('<cword>')
+    if l:cword ==# '' | return [] | endif
 
-    let l:lnum  = line('.')
-    let l:line  = getline('.')
-    let l:col   = col('.') - 1
+    let l:line     = getline('.')
+    let l:pattern  = '\<' . escape(l:cword, '\.*$^~[]') . '\>'
+    let l:curcol   = col('.') - 1
+    let l:startpos = 0
 
-    let l:start = l:col
-    while l:start > 0 && l:line[l:start - 1] =~# '\w'
-        let l:start -= 1
+    while 1
+        let [l:match, l:start, l:end] = matchstrpos(l:line, l:pattern, l:startpos)
+        if l:start == -1 | break | endif
+        if l:curcol >= l:start && l:curcol < l:end
+            return [line('.'), l:start + 1, l:end - l:start]
+        endif
+        let l:startpos = l:end
     endwhile
 
-    call MhlToggleGroup([{
-        \ 'lnum': l:lnum,
-        \ 'col':  l:start + 1,
-        \ 'len':  len(l:word),
-        \ }])
+    return []
 endfunction
 
-" ── Visual mode: single or multi-line selection ───────────────────────────
-function! MhlVisual() abort
-    let l:l1 = line("'<")
-    let l:c1 = col("'<")
-    let l:l2 = line("'>")
-    let l:c2 = col("'>")
+" ── Toggle highlight on the exact word occurrence under cursor ────────────
+function! ToggleMarkWord() abort
+    call s:EnsureMarkedDict()
+    let l:pos = s:GetWordAtCursorPos()
+    if empty(l:pos) | return | endif
 
-    let l:segments = []
+    let [l:lnum, l:col, l:len] = l:pos
+    let l:key = printf('word_%d_%d_%d', l:lnum, l:col, l:len)
 
-    if l:l1 == l:l2
-        " ── Single line ───────────────────────────────────────────────────
-        let l:len = l:c2 - l:c1 + 1
-        call add(l:segments, {'lnum': l:l1, 'col': l:c1, 'len': l:len})
-
+    if has_key(w:marked_matches, l:key)
+        silent! call matchdelete(w:marked_matches[l:key])
+        call remove(w:marked_matches, l:key)
+        echo "Unmarked word"
     else
-        " ── Multi-line ────────────────────────────────────────────────────
+        let l:id = matchaddpos('MarkedWord', [[l:lnum, l:col, l:len]])
+        let w:marked_matches[l:key] = l:id
+        echo "Marked word"
+    endif
+endfunction
 
-        " First line: from c1 to end of line
-        let l:first_line = getline(l:l1)
-        let l:len_first  = len(l:first_line) - l:c1 + 1
-        if l:len_first > 0
-            call add(l:segments, {
-                \ 'lnum': l:l1,
-                \ 'col':  l:c1,
-                \ 'len':  l:len_first,
-                \ })
-        endif
+" ── Build exact [line, col, len] list for the current visual selection ────
+function! s:GetVisualSelectionPositions() abort
+    let l:mode  = visualmode()
+    let l:start = getpos("'<")
+    let l:end   = getpos("'>")
+    let l:slnum = l:start[1]
+    let l:scol  = l:start[2]
+    let l:elnum = l:end[1]
+    let l:ecol  = l:end[2]
+    let l:positions = []
 
-        " Middle lines: entire line
-        for l:lnum in range(l:l1 + 1, l:l2 - 1)
-            let l:mid_line = getline(l:lnum)
-            let l:mid_len  = len(l:mid_line)
-            if l:mid_len > 0
-                call add(l:segments, {
-                    \ 'lnum': l:lnum,
-                    \ 'col':  1,
-                    \ 'len':  l:mid_len,
-                    \ })
+    if l:mode ==# "\<C-v>"
+        " Blockwise selection
+        let l:c1 = min([l:scol, l:ecol])
+        let l:c2 = max([l:scol, l:ecol])
+        for l:lnum in range(l:slnum, l:elnum)
+            let l:linelen = strlen(getline(l:lnum))
+            let l:cc2 = min([l:c2, l:linelen])
+            if l:cc2 >= l:c1 && l:linelen > 0
+                call add(l:positions, [l:lnum, l:c1, l:cc2 - l:c1 + 1])
             endif
         endfor
-
-        " Last line: from col 1 to c2
-        if l:c2 > 0
-            call add(l:segments, {
-                \ 'lnum': l:l2,
-                \ 'col':  1,
-                \ 'len':  l:c2,
-                \ })
+    elseif l:mode ==# 'V'
+        " Linewise selection -> still just highlight the visible text (no trailing pad)
+        for l:lnum in range(l:slnum, l:elnum)
+            let l:len = strlen(getline(l:lnum))
+            if l:len > 0
+                call add(l:positions, [l:lnum, 1, l:len])
+            endif
+        endfor
+    else
+        " Characterwise selection ('v')
+        if l:slnum == l:elnum
+            let l:linelen = strlen(getline(l:slnum))
+            let l:ecol2   = min([l:ecol, l:linelen])
+            if l:ecol2 >= l:scol
+                call add(l:positions, [l:slnum, l:scol, l:ecol2 - l:scol + 1])
+            endif
+        else
+            let l:firstlen = strlen(getline(l:slnum))
+            if l:firstlen >= l:scol
+                call add(l:positions, [l:slnum, l:scol, l:firstlen - l:scol + 1])
+            endif
+            for l:lnum in range(l:slnum + 1, l:elnum - 1)
+                let l:len = strlen(getline(l:lnum))
+                if l:len > 0
+                    call add(l:positions, [l:lnum, 1, l:len])
+                endif
+            endfor
+            let l:lastlen = strlen(getline(l:elnum))
+            let l:ecol2    = min([l:ecol, l:lastlen])
+            if l:ecol2 >= 1
+                call add(l:positions, [l:elnum, 1, l:ecol2])
+            endif
         endif
     endif
 
-    call MhlToggleGroup(l:segments)
+    return l:positions
 endfunction
 
-" ── Clear ALL ─────────────────────────────────────────────────────────────
-function! MhlClearAll() abort
-    for l:group in g:mhl_matches
-        for l:seg in l:group.segments
-            silent! call matchdelete(l:seg.matchid)
-        endfor
+" ── Toggle highlight on the exact visual selection ─────────────────────────
+function! ToggleMarkSelection() abort
+    call s:EnsureMarkedDict()
+    let l:positions = s:GetVisualSelectionPositions()
+    if empty(l:positions) | return | endif
+
+    let l:key = 'sel_' . string(l:positions)
+
+    if has_key(w:marked_matches, l:key)
+        silent! call matchdelete(w:marked_matches[l:key])
+        call remove(w:marked_matches, l:key)
+        echo "Unmarked selection"
+    else
+        let l:id = matchaddpos('MarkedLine', l:positions)
+        let w:marked_matches[l:key] = l:id
+        echo "Marked selection"
+    endif
+endfunction
+
+" ── Clear all marks (words + selections) in current window ────────────────
+function! ClearAllMarks() abort
+    call s:EnsureMarkedDict()
+    for l:id in values(w:marked_matches)
+        silent! call matchdelete(l:id)
     endfor
-    let g:mhl_matches = []
-    nohlsearch
+    let w:marked_matches = {}
+    echo "All marks cleared"
 endfunction
 
-nnoremap <silent> m     :call MhlWord()<CR>
-vnoremap <silent> m     :<C-u>call MhlVisual()<CR>
-nnoremap <silent> <m-l> :call MhlClearAll()<CR>
+nnoremap <silent> m  :call ToggleMarkWord()<CR>
+vnoremap <silent> m  :<C-u>call ToggleMarkSelection()<CR>
+nnoremap <silent> ml :call ClearAllMarks()<CR>
