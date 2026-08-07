@@ -2135,6 +2135,6 @@ function! ClearAllMarks() abort
     echo "All marks cleared"
 endfunction
 
-nnoremap <silent> m  :call ToggleMarkWord()<CR>
-vnoremap <silent> m  :<C-u>call ToggleMarkSelection()<CR>
-nnoremap <silent> ml :call ClearAllMarks()<CR>
+nnoremap <silent> <nowait> m  :call ToggleMarkWord()<CR>
+vnoremap <silent> <nowait> m  :<C-u>call ToggleMarkSelection()<CR>
+nnoremap <silent> <nowait> ml :call ClearAllMarks()<CR>
