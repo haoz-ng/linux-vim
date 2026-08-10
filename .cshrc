@@ -8,17 +8,33 @@ alias ll        "ls -alF --color=auto"
 setenv LANG en_US.UTF-8
 setenv LC_ALL en_US.UTF-8
 
+# ==================== Customizable Settings ===================
+
+set PROMPT_LABEL = "Haoz"                    # 🔹 your custom name tag
+set PROMPT_ICON  = `printf "\xe6\x84\x9b"`   # 🔹 愛 (change hex bytes for another char)
+
+# Colors (ANSI codes, e.g. "1;32" = bold green, "38;5;204" = 256-color pink)
+set COLOR_HOST  = "1;32"
+set COLOR_USER  = "1;36"
+set COLOR_LABEL = "1;36"
+set COLOR_ICON  = "38;5;204"
+set COLOR_PATH  = "1;36"
+set COLOR_DIR   = "1;32"
+set COLOR_ARROW = "1;36"
+set COLOR_RESET = "0"
+# ==============================================================
+
 alias cwdcmd ' \
-  set ai = `printf "\xe6\x84\x9b"`; \
   if ( "$cwd" == "$HOME" ) then \
-    set prompt = "\n%{\e]2;%~\a%}[%{\033[1;32m%}%m%{\033[0m%}:%{\033[1;36m%}%n%{\033[0m%}:%{\033[1;36m%}Haoz%{\033[0m%}][%{\033[38;5;204m%}${ai}%{\033[0m%}][%{\033[1;32m%}~%{\033[0m%}]\n%{\033[1;36m%}  --> %{\033[0m%}%s "; \
+    set prompt = "\n%{\e]2;%~\a%}[%{\033[${COLOR_ICON}m%}${PROMPT_ICON}%{\033[${COLOR_RESET}m%}][%{\033[${COLOR_HOST}m%}%m%{\033[${COLOR_RESET}m%}:%{\033[${COLOR_USER}m%}%n%{\033[${COLOR_RESET}m%}:%{\033[${COLOR_LABEL}m%}${PROMPT_LABEL}%{\033[${COLOR_RESET}m%}][%{\033[${COLOR_HOST}m%}~%{\033[${COLOR_RESET}m%}]\n%{\033[${COLOR_ARROW}m%}  --> %{\033[${COLOR_RESET}m%}%s "; \
   else \
     set path_without_last = `dirname "$cwd"`; \
     set last_dir = `basename "$cwd"`; \
     if ( "$path_without_last" == "$HOME" ) set path_without_last = "~"; \
-    set prompt = "\n%{\e]2;%~\a%}[%{\033[1;32m%}%m%{\033[0m%}:%{\033[1;36m%}%n%{\033[0m%}:%{\033[1;36m%}Haoz%{\033[0m%}][%{\033[38;5;204m%}${ai}%{\033[0m%}][%{\033[1;36m%}$path_without_last/%{\033[0m%}%{\033[1;32m%}$last_dir%{\033[0m%}]\n%{\033[1;36m%}  --> %{\033[0m%}%s "; \
+    set prompt = "\n%{\e]2;%~\a%}[%{\033[${COLOR_ICON}m%}${PROMPT_ICON}%{\033[${COLOR_RESET}m%}][%{\033[${COLOR_HOST}m%}%m%{\033[${COLOR_RESET}m%}:%{\033[${COLOR_USER}m%}%n%{\033[${COLOR_RESET}m%}:%{\033[${COLOR_LABEL}m%}${PROMPT_LABEL}%{\033[${COLOR_RESET}m%}][%{\033[${COLOR_PATH}m%}$path_without_last/%{\033[${COLOR_RESET}m%}%{\033[${COLOR_DIR}m%}$last_dir%{\033[${COLOR_RESET}m%}]\n%{\033[${COLOR_ARROW}m%}  --> %{\033[${COLOR_RESET}m%}%s "; \
   endif'
 cwdcmd
+
 
 alias gf 'sh -c '"'"'kw=$1; shift; cwd=$(pwd); grep -rn --color=never "$kw" "$@" | perl -pe "s|^(\./)|$cwd/|; s|^([^:]+)|\033[36m\$1\033[0m|; s|:([0-9]+):|\033[0m:\033[32m\$1\033[0m:|; s|\Q$kw\E|\033[31m\$&\033[0m|g"'"'"' -- \!*'
 
