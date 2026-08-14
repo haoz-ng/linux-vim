@@ -10,14 +10,12 @@ setenv LC_ALL en_US.UTF-8
 
 # ==================== Customizable Settings ===================
 set PROMPT_LABEL = "Haoz"
-set PROMPT_ICON  = `printf "\xf0\x9f\xa7\xa2"`   # 🧢 cap emoji (start)
-set PROMPT_ICON2 = `printf "\xf0\x9f\x91\x9f"`   # 👟 shoe emoji (new line)
+set PROMPT_ICON  = `printf "\xf0\x9f\xa7\xa2"`   # 🧢 cap emoji
 
 set COLOR_HOST  = "1;32"
 set COLOR_USER  = "1;36"
 set COLOR_LABEL = "1;36"
 set COLOR_ICON  = "38;5;204"
-set COLOR_ICON2 = "0"
 set COLOR_PATH  = "1;36"
 set COLOR_DIR   = "1;32"
 set COLOR_ARROW = "1;36"
@@ -32,16 +30,14 @@ set COLOR_BRACKET = "${COLOR_LABEL}"
 
 alias cwdcmd ' \
   if ( "$cwd" == "$HOME" ) then \
-    set prompt = "\n%{\e]2;%~\a%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_ICON};${BG_ICON}m%}${PROMPT_ICON}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_HOST};${BG_INFO}m%}%m%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_USER};${BG_INFO}m%}%n%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_LABEL};${BG_INFO}m%}${PROMPT_LABEL}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_HOST};${BG_DIR}m%}~%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}\n%{\033[${COLOR_BRACKET}m%} \n        [%{\033[${COLOR_ICON2};${BG_ICON}m%}${PROMPT_ICON2}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%} %{\033[${COLOR_RESET}m%}%s "; \
+    set prompt = "\n%{\e]2;%~\a%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_ICON};${BG_ICON}m${PROMPT_ICON}\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_HOST};${BG_INFO}m%}%m%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_USER};${BG_INFO}m%}%n%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_LABEL};${BG_INFO}m%}${PROMPT_LABEL}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_HOST};${BG_DIR}m%}~%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]\n   --> %{\033[${COLOR_RESET}m%} %{\033[${COLOR_RESET}m%}"; \
   else \
     set path_without_last = `dirname "$cwd"`; \
     set last_dir = `basename "$cwd"`; \
     if ( "$path_without_last" == "$HOME" ) set path_without_last = "~"; \
-    set prompt = "\n%{\e]2;%~\a%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_ICON};${BG_ICON}m%}${PROMPT_ICON}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_HOST};${BG_INFO}m%}%m%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_USER};${BG_INFO}m%}%n%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_LABEL};${BG_INFO}m%}${PROMPT_LABEL}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_PATH};${BG_DIR}m%}$path_without_last/%{\033[${COLOR_RESET}m%}%{\033[${COLOR_DIR};${BG_DIR}m%}$last_dir%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}\n%{\033[${COLOR_BRACKET}m%} \n        [%{\033[${COLOR_ICON2};${BG_ICON}m%}${PROMPT_ICON2}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%} %{\033[${COLOR_RESET}m%}%s "; \
+    set prompt = "\n%{\e]2;%~\a%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_ICON};${BG_ICON}m${PROMPT_ICON}\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_HOST};${BG_INFO}m%}%m%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_USER};${BG_INFO}m%}%n%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}:%{\033[${COLOR_RESET}m%}%{\033[${COLOR_LABEL};${BG_INFO}m%}${PROMPT_LABEL}%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}[%{\033[${COLOR_PATH};${BG_DIR}m%}$path_without_last/%{\033[${COLOR_RESET}m%}%{\033[${COLOR_DIR};${BG_DIR}m%}$last_dir%{\033[${COLOR_RESET}m%}%{\033[${COLOR_BRACKET}m%}]\n   --> %{\033[${COLOR_RESET}m%} %{\033[${COLOR_RESET}m%}"; \
   endif'
 cwdcmd
-
-
 
 
 alias gf 'sh -c '"'"'kw=$1; shift; cwd=$(pwd); grep -rn --color=never "$kw" "$@" | perl -pe "s|^(\./)|$cwd/|; s|^([^:]+)|\033[36m\$1\033[0m|; s|:([0-9]+):|\033[0m:\033[32m\$1\033[0m:|; s|\Q$kw\E|\033[31m\$&\033[0m|g"'"'"' -- \!*'
