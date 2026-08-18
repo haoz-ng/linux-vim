@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.54                                                         ║
-" ║  Modified : 2026-06-12                                                   ║
+" ║  Version  : 6.55                                                         ║
+" ║  Modified : 2026-08-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save & more.       ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
@@ -1983,8 +1983,12 @@ command! -nargs=+ R call QuickReplace(<q-args>)
 
 nnoremap <S-l> :nohlsearch<CR>
 
+
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │              WORD / SELECTION HIGHLIGHT BOOKMARK  ( m  /  ml )          │
+" │   Marks are bound to BUFFER content — they never leak into netrw/       │
+" │   WinList/other buffers reused in the same window, and never fire       │
+" │   automatically outside of an explicit  m  /  ml  keypress.             │
 " └──────────────────────────────────────────────────────────────────────────┘
 
 function! s:MarkedHighlights() abort
@@ -1998,11 +2002,64 @@ augroup MarkedHighlightColors
     autocmd ColorScheme * call s:MarkedHighlights()
 augroup END
 
-function! s:EnsureMarkedDict() abort
-    if !exists('w:marked_matches')
-        let w:marked_matches = {}
+" g:marked_store : { bufnr : { key : {'group': <hl>, 'pos': [[l,c,len], ...]} } }
+if !exists('g:marked_store')
+    let g:marked_store = {}
+endif
+
+" ── Guard: only allow marking on real, normal file buffers ────────────────
+function! s:MarkGuardOK() abort
+    if WinListIsSpecial() || WinListIsNERDTree()
+        return 0
     endif
+    if &buftype !=# ''
+        return 0
+    endif
+    return 1
 endfunction
+
+function! s:EnsureBufStore() abort
+    let l:bn = bufnr('%')
+    if !has_key(g:marked_store, l:bn)
+        let g:marked_store[l:bn] = {}
+    endif
+    return l:bn
+endfunction
+
+" Clear the visual matches (only) in the CURRENT window — storage untouched
+function! s:ClearWindowMatches() abort
+    if exists('w:marked_ids')
+        for l:id in w:marked_ids
+            silent! call matchdelete(l:id)
+        endfor
+    endif
+    let w:marked_ids = []
+endfunction
+
+" (Re)draw matches for whatever buffer is now loaded in this window
+function! s:ApplyMarksForCurrentBuffer() abort
+    call s:ClearWindowMatches()
+    let l:bn = bufnr('%')
+    if !has_key(g:marked_store, l:bn) | return | endif
+    for l:entry in values(g:marked_store[l:bn])
+        let l:id = matchaddpos(l:entry.group, l:entry.pos)
+        call add(w:marked_ids, l:id)
+    endfor
+endfunction
+
+augroup MarkedBufferSync
+    autocmd!
+    autocmd BufLeave             * call s:ClearWindowMatches()
+    autocmd BufEnter,BufWinEnter * call s:ApplyMarksForCurrentBuffer()
+augroup END
+
+" Free memory when a buffer is wiped out
+augroup MarkedBufWipe
+    autocmd!
+    autocmd BufWipeout * if has_key(g:marked_store, str2nr(expand('<abuf>')))
+                       \ |   call remove(g:marked_store, str2nr(expand('<abuf>')))
+                       \ | endif
+augroup END
 
 " ── Find exact (line, col, len) of the word instance under the cursor ─────
 function! s:GetWordAtCursorPos() abort
@@ -2028,22 +2085,24 @@ endfunction
 
 " ── Toggle highlight on the exact word occurrence under cursor ────────────
 function! ToggleMarkWord() abort
-    call s:EnsureMarkedDict()
+    if !s:MarkGuardOK() | return | endif
+
     let l:pos = s:GetWordAtCursorPos()
     if empty(l:pos) | return | endif
 
+    let l:bn = s:EnsureBufStore()
     let [l:lnum, l:col, l:len] = l:pos
     let l:key = printf('word_%d_%d_%d', l:lnum, l:col, l:len)
 
-    if has_key(w:marked_matches, l:key)
-        silent! call matchdelete(w:marked_matches[l:key])
-        call remove(w:marked_matches, l:key)
+    if has_key(g:marked_store[l:bn], l:key)
+        call remove(g:marked_store[l:bn], l:key)
         echo "Unmarked word"
     else
-        let l:id = matchaddpos('MarkedWord', [[l:lnum, l:col, l:len]])
-        let w:marked_matches[l:key] = l:id
+        let g:marked_store[l:bn][l:key] = {'group': 'MarkedWord', 'pos': [[l:lnum, l:col, l:len]]}
         echo "Marked word"
     endif
+
+    call s:ApplyMarksForCurrentBuffer()
 endfunction
 
 " ── Build exact [line, col, len] list for the current visual selection ────
@@ -2058,7 +2117,6 @@ function! s:GetVisualSelectionPositions() abort
     let l:positions = []
 
     if l:mode ==# "\<C-v>"
-        " Blockwise selection
         let l:c1 = min([l:scol, l:ecol])
         let l:c2 = max([l:scol, l:ecol])
         for l:lnum in range(l:slnum, l:elnum)
@@ -2069,7 +2127,6 @@ function! s:GetVisualSelectionPositions() abort
             endif
         endfor
     elseif l:mode ==# 'V'
-        " Linewise selection -> still just highlight the visible text (no trailing pad)
         for l:lnum in range(l:slnum, l:elnum)
             let l:len = strlen(getline(l:lnum))
             if l:len > 0
@@ -2077,7 +2134,6 @@ function! s:GetVisualSelectionPositions() abort
             endif
         endfor
     else
-        " Characterwise selection ('v')
         if l:slnum == l:elnum
             let l:linelen = strlen(getline(l:slnum))
             let l:ecol2   = min([l:ecol, l:linelen])
@@ -2108,31 +2164,33 @@ endfunction
 
 " ── Toggle highlight on the exact visual selection ─────────────────────────
 function! ToggleMarkSelection() abort
-    call s:EnsureMarkedDict()
+    if !s:MarkGuardOK() | return | endif
+
     let l:positions = s:GetVisualSelectionPositions()
     if empty(l:positions) | return | endif
 
+    let l:bn  = s:EnsureBufStore()
     let l:key = 'sel_' . string(l:positions)
 
-    if has_key(w:marked_matches, l:key)
-        silent! call matchdelete(w:marked_matches[l:key])
-        call remove(w:marked_matches, l:key)
+    if has_key(g:marked_store[l:bn], l:key)
+        call remove(g:marked_store[l:bn], l:key)
         echo "Unmarked selection"
     else
-        let l:id = matchaddpos('MarkedLine', l:positions)
-        let w:marked_matches[l:key] = l:id
+        let g:marked_store[l:bn][l:key] = {'group': 'MarkedLine', 'pos': l:positions}
         echo "Marked selection"
     endif
+
+    call s:ApplyMarksForCurrentBuffer()
 endfunction
 
-" ── Clear all marks (words + selections) in current window ────────────────
+" ── Clear all marks for the CURRENT buffer only ────────────────────────────
 function! ClearAllMarks() abort
-    call s:EnsureMarkedDict()
-    for l:id in values(w:marked_matches)
-        silent! call matchdelete(l:id)
-    endfor
-    let w:marked_matches = {}
-    echo "All marks cleared"
+    let l:bn = bufnr('%')
+    if has_key(g:marked_store, l:bn)
+        let g:marked_store[l:bn] = {}
+    endif
+    call s:ApplyMarksForCurrentBuffer()
+    echo "All marks cleared (this buffer)"
 endfunction
 
 nnoremap <silent> <nowait> m  :call ToggleMarkWord()<CR>
