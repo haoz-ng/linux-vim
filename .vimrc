@@ -1,14 +1,18 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.55                                                         ║
-" ║  Modified : 2026-08-18                                                   ║
+" ║  Version  : 6.57                                                         ║
+" ║  Modified : 2026-08-26                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
-" ║             NERDTree integration, diff, folding, auto-save & more.       ║
+" ║             NERDTree integration, diff, folding, auto-save, quick        ║
+" ║             replace/delete, mark highlighting & more.                    ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                         GVIM AUTO FULLSCREEN                             │
+" │ Description: Automatically maximizes the GVim window (vertical +        │
+" │ horizontal) on startup via wmctrl, and binds F11 to manually toggle      │
+" │ maximize/restore. Linux/X11 only (uses wmctrl).                         │
 " └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     autocmd GUIEnter * silent! call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
@@ -21,6 +25,10 @@ endif
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           BASIC SETTINGS                                 │
+" │ Description: Core editor behavior — UTF-8 encoding, search              │
+" │ (highlight + smartcase), auto-reload changed files, line numbers,       │
+" │ mouse support, tab labels, 4-space soft tabs, cursorline/column,        │
+" │ fold defaults, and performance tuning (lazyredraw, updatetime).         │
 " └──────────────────────────────────────────────────────────────────────────┘
 set hlsearch
 set encoding=utf-8
@@ -49,6 +57,7 @@ set foldlevel=99
 set lazyredraw
 set updatetime=1000
 
+" Builds the tab label text: filename + [M] (modified) + [RO] (readonly)
 function! GuiTabLabel() abort
     let l:buflist = tabpagebuflist(v:lnum)
     let l:winnr   = tabpagewinnr(v:lnum)
@@ -60,11 +69,16 @@ function! GuiTabLabel() abort
     return l:name . l:mod . l:ro
 endfunction
 
+" Auto-detect external file changes when cursor idles (works with autoread)
 au CursorHold,CursorHoldI * silent! checktime
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          THEME AND COLORS                                │
+" │ Description: Loads the custom 'haoz' dark colorscheme and overrides     │
+" │ core highlight groups (Normal, LineNr, CursorLine/Column, Cursor,       │
+" │ Visual, Folded, Search, VertSplit, SpecialKey, TabLineSel) to enforce   │
+" │ the black background / cyan accent visual identity.                    │
 " └──────────────────────────────────────────────────────────────────────────┘
 syntax enable
 syntax on
@@ -94,6 +108,10 @@ highlight TabLineSel ctermfg=159   ctermbg=0
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                         NETRW ( :E ) STYLING                            │
+" │ Description: Configures netrw's built-in file explorer (tree-style      │
+" │ listing, horizontal size hints) and applies a custom cyan/dark syntax    │
+" │ highlight palette (directories, links, executables, hidden files,       │
+" │ marks, banner, etc.) re-applied on every colorscheme change.            │
 " └──────────────────────────────────────────────────────────────────────────┘
 let g:netrw_liststyle    = 1
 let g:netrw_banner       = 1
@@ -134,6 +152,10 @@ augroup END
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           CURSOR SHAPE                                   │
+" │ Description: Sets distinct cursor shapes per mode in GUI (vertical bar  │
+" │ for normal/visual/cmdline, blinking bar for insert, blinking underline  │
+" │ for replace). Falls back to terminal escape codes (t_SI/t_EI) for       │
+" │ console Vim to switch cursor shape between insert/normal mode.          │
 " └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guicursor=n-v-c:ver25-blinkon0,i:ver25-blinkon500-blinkoff500,r:hor20-blinkon500-blinkoff500
@@ -145,6 +167,10 @@ endif
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            STATUS LINE                                   │
+" │ Description: Custom statusline showing filename (left) and padding       │
+" │ (right). Dynamically recolors the StatusLine highlight group based on   │
+" │ current mode: cyan/dark-blue (Normal), cyan/orange (Insert), cyan/green  │
+" │ (Replace) — updated automatically via InsertEnter/Change/Leave.         │
 " └──────────────────────────────────────────────────────────────────────────┘
 set statusline=%F
 set statusline+=%#LineNr#
@@ -184,6 +210,10 @@ augroup END
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           COMMENT SYSTEM                                 │
+" │ Description: Filetype-aware line-comment toggling. Detects the correct  │
+" │ comment leader (//, #, %, ", ;, >) per filetype/extension and provides  │
+" │ CommentLine/UncommentLine/Range helpers. Bound to  cc  in Normal mode    │
+" │ (single line) and Visual mode (range) to toggle comment on/off.        │
 " └──────────────────────────────────────────────────────────────────────────┘
 autocmd FileType c,cpp,java,scala                           let b:comment_leader = '\/\/'
 autocmd FileType sh,csh,ruby,python,tcsh                    let b:comment_leader = '#'
@@ -258,6 +288,9 @@ vnoremap <silent> cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │               TOGGLE 'haoz' AT END OF LINE  ( hh )                      │
+" │ Description: Appends/removes a trailing "<comment_leader> haoz" marker  │
+" │ at the end of the current line — quick personal authorship/attention   │
+" │ tag toggle. Works in Normal and Visual mode via  hh .                  │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleCommentSyntaxHaoz()
     let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
@@ -277,6 +310,9 @@ vnoremap <silent> hh :call ToggleCommentSyntaxHaoz()<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │             TOGGLE 'haoz' AT BEGINNING OF LINE  ( ch )                  │
+" │ Description: Inserts/removes a leading "<comment_leader> haoz " marker  │
+" │ right after the indentation, before the actual code/text. Supports     │
+" │ single-line ( ch  Normal) and multi-line range toggling (Visual).      │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleHaozCommentAtBeginning()
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
@@ -331,6 +367,10 @@ vnoremap <silent> ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), li
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                             AUTO SAVE                                    │
+" │ Description: Automatically saves the buffer whenever text changes or    │
+" │ insert mode is left (if the buffer is modifiable). Also defaults an     │
+" │ unset filetype to 'log' on read — useful for arbitrary/extension-less   │
+" │ log files.                                                              │
 " └──────────────────────────────────────────────────────────────────────────┘
 augroup autosave
     autocmd!
@@ -341,6 +381,10 @@ augroup END
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          BASIC KEYBINDINGS                               │
+" │ Description: Miscellaneous general-purpose keymaps — new tab (Ctrl-N),  │
+" │ vertical split + focus (Ctrl-\), reload file (F5), copy full path       │
+" │ (F12), select-all (Ctrl-A), clear search highlight (Shift-L), and       │
+" │ Ctrl-L remapped to start Visual mode (Normal/Insert).                  │
 " └──────────────────────────────────────────────────────────────────────────┘
 noremap <C-n> :tabnew<CR>
 noremap <C-\> :vs<CR><C-w>w
@@ -356,6 +400,9 @@ inoremap <C-l> <Esc>V
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          COPY / PASTE / CUT                              │
+" │ Description: System-clipboard ("+  register) bindings for standard      │
+" │ Ctrl-C / Ctrl-V / Ctrl-X behavior across Normal, Visual, Insert, and    │
+" │ Command-line modes — mimics conventional OS clipboard shortcuts.        │
 " └──────────────────────────────────────────────────────────────────────────┘
 vnoremap <C-c> "+y
 nnoremap <C-c> "+yy
@@ -369,6 +416,10 @@ nnoremap <C-x> "+dd
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                       VISUAL MODE AND SELECTION                          │
+" │ Description: Remaps  V  to enter blockwise-visual (Ctrl-V default)      │
+" │ instead of linewise-visual. Ctrl-D selects/searches the word under      │
+" │ cursor (Normal/Insert); Ctrl-F sets the search register to the word     │
+" │ under cursor or the visually selected text and enables highlighting.   │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap V <C-v>
 
@@ -381,6 +432,10 @@ vnoremap <C-f> "zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                        SHIFT ARROW SELECTION                             │
+" │ Description: Standard "Shift+Arrow" text selection behavior familiar    │
+" │ from GUI editors — extends/starts a Visual selection in Insert,        │
+" │ Visual, and Normal mode using Shift+Arrow/Home/End. Ctrl-Shift-Arrow    │
+" │ extends selection by word (Insert mode).                               │
 " └──────────────────────────────────────────────────────────────────────────┘
 inoremap <S-Left>    <Left><C-o>v
 inoremap <S-Right>   <C-o>v
@@ -408,6 +463,8 @@ nnoremap <S-End>   v<End>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                      CTRL ARROW WORD NAVIGATION                          │
+" │ Description: Ctrl+Left/Right jumps by word (Normal/Visual/Insert);      │
+" │ Ctrl+Shift+Left/Right extends selection by word.                       │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-Right>   w
 nnoremap <C-Left>    b
@@ -423,6 +480,7 @@ inoremap <C-Left>    <C-o>b
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                       TAB NAVIGATION (CTRL UP/DOWN)                      │
+" │ Description: Ctrl+Up / Ctrl+Down switch to previous/next tab.          │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-Up>   :tabprevious<CR>
 nnoremap <C-Down> :tabnext<CR>
@@ -430,6 +488,9 @@ nnoremap <C-Down> :tabnext<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                  SPLIT WINDOW NAVIGATION (ALT LEFT/RIGHT)                │
+" │ Description: Alt+Left / Alt+Right cycle focus between real (non-panel)  │
+" │ editing splits horizontally, automatically skipping over the WinList    │
+" │ and NERDTree panel windows and wrapping around at the edges.           │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <silent> <M-Left>  :call WinListNavLeft()<CR>
 nnoremap <silent> <M-Right> :call WinListNavRight()<CR>
@@ -472,6 +533,8 @@ endfunction
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                     NUMBER KEY TAB JUMP  (1–9, 0=10)                     │
+" │ Description: Pressing a number key (1-9, 0 for tab 10) in Normal mode   │
+" │ jumps directly to that tab index, if it exists.                        │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! GoToTab(n) abort
     let l:target = a:n == 0 ? 10 : a:n
@@ -494,6 +557,8 @@ nnoremap <silent> 0 :call GoToTab(0)<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          HOME KEY BEHAVIOR                               │
+" │ Description: Home key jumps to first non-blank character (^) instead    │
+" │ of column 0, in both Normal and Insert mode.                           │
 " └──────────────────────────────────────────────────────────────────────────┘
 inoremap <Home> <C-o>^
 nnoremap <Home> ^
@@ -501,6 +566,11 @@ nnoremap <Home> ^
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                       TAB / SHIFT-TAB INDENTATION                        │
+" │ Description: Custom indent-aware Tab/Shift-Tab handling. In Normal      │
+" │ mode (currently commented-out bindings), Tab increases indent to the    │
+" │ next multiple of shiftwidth (or inserts a literal tab if past          │
+" │ leading whitespace); Shift-Tab dedents. In Visual mode, Tab/Shift-Tab   │
+" │ indent/dedent the whole selection by shiftwidth (active bindings).     │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! NormalModeTab()
     let sw = &shiftwidth
@@ -575,6 +645,7 @@ vnoremap <silent> <S-Tab> :<C-u>call VisualModeShiftTab()<CR>gv
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                                UNDO                                      │
+" │ Description: Ctrl-Z triggers undo from Normal, Insert, and Visual mode. │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-z> u
 inoremap <C-z> <C-o>u
@@ -583,12 +654,15 @@ vnoremap <C-z> <Esc>u
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            DELETE LINE                                   │
+" │ Description: Shift-Delete deletes the current line (like  dd ).        │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <S-Del> dd
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            TOGGLE CASE                                   │
+" │ Description: Ctrl-U toggles case of the word under cursor (Normal) or   │
+" │ the selected text (Visual), using  g~ .                                │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleCase()
     if mode() ==# 'v' || mode() ==# 'V' || mode() ==# "\<C-v>"
@@ -604,6 +678,8 @@ nnoremap <C-U> :<C-u>call ToggleCase()<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                         SEARCH NAVIGATION                                │
+" │ Description: n / N (next/prev search match) additionally re-center      │
+" │ the view (zz) after jumping.                                           │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap n nzz
 nnoremap N Nzz
@@ -611,12 +687,15 @@ nnoremap N Nzz
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          TOGGLE LINE WRAP                                │
+" │ Description: Alt-Z toggles soft line-wrap on/off.                       │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <M-z> :set wrap!<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                        DISABLE PROBLEMATIC KEYS                          │
+" │ Description: Disables  x  (char delete) and <Del> in Normal mode to     │
+" │ prevent accidental single-character deletions.                          │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap x     <Nop>
 nnoremap <Del> <Nop>
@@ -624,6 +703,9 @@ nnoremap <Del> <Nop>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                              FOLDING                                     │
+" │ Description: Sets indent-based folding for Verilog/SystemVerilog files  │
+" │ (*.v, *.sv, *.svh, *.svt) and loads matchit.vim for extended %          │
+" │ (matching pairs) navigation.                                            │
 " └──────────────────────────────────────────────────────────────────────────┘
 augroup filtype_verilog
     autocmd!
@@ -635,6 +717,8 @@ runtime macros/matchit.vim
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            INDENT LINE                                   │
+" │ Description: Configuration for the indentLine plugin — sets guide       │
+" │ character (┆) and its color to match the dark/cyan theme.              │
 " └──────────────────────────────────────────────────────────────────────────┘
 let g:indentLine_color_gui = '#0055aa'
 let g:indentLine_char      = '┆'
@@ -642,6 +726,9 @@ let g:indentLine_char      = '┆'
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           VIM BOOKMARK                                   │
+" │ Description: Configuration for the vim-bookmark plugin — highlights      │
+" │ bookmarked lines/signs in the theme's dark-blue/cyan palette, sets       │
+" │ bookmark sign glyph ("==") and enables auto-centering on jump.          │
 " └──────────────────────────────────────────────────────────────────────────┘
 let g:bookmark_highlight_lines = 1
 highlight BookmarkLine ctermbg=17 guibg=#001933
@@ -652,6 +739,8 @@ let g:bookmark_center = 1
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          GVIM GUI SETTINGS                               │
+" │ Description: Hides GUI menu bar and toolbar by default. F10 toggles     │
+" │ menu+toolbar visibility on/off manually.                               │
 " └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guioptions-=mT
@@ -679,6 +768,11 @@ augroup END
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                             DIFF MODE                                    │
+" │ Description: Custom diff highlight colors (add/change/delete/text) for  │
+" │ both dark and light backgrounds, re-applied on colorscheme change.      │
+" │ In diff mode: dn/db jump next/prev change, df ("diff-fix") applies      │
+" │ :diffput (dp) to push the change across. Also auto-unfolds all diff     │
+" │ windows on startup so changes are immediately visible.                 │
 " └──────────────────────────────────────────────────────────────────────────┘
 augroup diffcolors
     autocmd!
@@ -736,6 +830,9 @@ augroup END
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                           MISCELLANEOUS                                  │
+" │ Description: Restores cursor to last-known position when reopening a   │
+" │ file, and disables auto-comment continuation (formatoptions c/r/o) so   │
+" │ new lines don't inherit comment leaders automatically.                 │
 " └──────────────────────────────────────────────────────────────────────────┘
 if has("autocmd")
     au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | exe "normal! g`\"" | endif
@@ -747,6 +844,10 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                    COMBINED PANEL (WinList + NERDTree)                   │
 " │          WinList TOP half ── NERDTree BOTTOM half  (50/50 split)         │
+" │ Description: Global state/config for the combined side panel feature —  │
+" │ a persistent left-hand panel showing a custom Window/Tab list (top) and │
+" │ NERDTree file explorer (bottom), stacked 50/50, kept in sync across      │
+" │ tabs. Includes width/height constants and per-tab open-state tracking.  │
 " └──────────────────────────────────────────────────────────────────────────┘
 
 " ── Panel dimensions ──────────────────────────────────────────────────────
@@ -784,6 +885,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  TAB ID SYSTEM — stable IDs that survive drag-reorder
+"  Description: Assigns each tab a unique, stable string ID (independent
+"  of its numeric position) so WinList jump-targets remain valid even
+"  after tabs are reordered/dragged.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListEnsureTabID(...) abort
@@ -824,6 +928,10 @@ augroup END
 
 " ══════════════════════════════════════════════════════════════════════════
 "  HELPER FUNCTIONS
+"  Description: Buffer/window classification helpers used throughout the
+"  panel system — detect if a buffer/window is the WinList panel,
+"  NERDTree, or any "special" (non-editable) window, and locate the
+"  nearest normal editing window.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListBufName(...) abort
@@ -880,6 +988,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  AUTO-CLOSE TAB WHEN ONLY PANEL REMAINS
+"  Description: If a tab's only remaining windows are the WinList/NERDTree
+"  panel (no real file buffer left), automatically closes that tab (or
+"  quits Vim if it's the last tab) after a short debounce delay.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListCheckAutoCloseTab() abort
@@ -931,6 +1042,10 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WIDTH MANAGEMENT  (panel-open time + manual only)
+"  Description: Locks/unlocks winfixwidth on real editing splits so panel
+"  open/resize operations don't disturb user split widths. Provides
+"  manual-only width sync (WinListFixWidth) and NERDTree width sync
+"  (SyncNERDTreeWidth) — never triggered automatically during normal edits.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListLockSplitWidths() abort
@@ -1009,6 +1124,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST CONTENT
+"  Description: Builds the textual content of the WinList panel buffer —
+"  one section per tab (with split count + active marker), listing each
+"  editable window's filename, modified flag, and shortened directory path.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListShortPath(fullpath) abort
@@ -1086,6 +1204,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST STATUSLINE
+"  Description: Renders a mini tab-indicator statusline inside the WinList
+"  panel window itself — shows all tab numbers, highlighting the active
+"  one, plus a "current/total" counter on the right.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListStatusLine() abort
@@ -1110,6 +1231,10 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  HIGHLIGHTS & SYNTAX
+"  Description: Highlight groups and syntax rules for the WinList buffer —
+"  colors headers, split counts, active-tab marker, entry numbers, active
+"  entry, modified flag, path text, plus the mini-statusline groups.
+"  Also sets WinList buffer-local options (nofile, nowrap off, etc.).
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListSetupHighlight() abort
@@ -1180,6 +1305,10 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST REFRESH  — content only, NO resize
+"  Description: Rebuilds and rewrites the WinList buffer content without
+"  touching window sizes. WinListRefresh updates just the current window's
+"  view; WinListRefreshAllTabs rebuilds fully across all tabs (used by
+"  most autocmds) while remembering the "last active" real window per tab.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListRefresh() abort
@@ -1246,6 +1375,11 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  COMBINED PANEL — Open / Close / Toggle
+"  Description: Core open/close/toggle logic for the combined WinList +
+"  NERDTree panel. Opens NERDTree rooted at the current file's directory
+"  (top area becomes WinList after split), sets up panel-local keymaps
+"  (double-click/Enter to jump, q to close, r to refresh), and restores
+"  focus to the previously active editing window afterward.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! CombinedPanelOpen() abort
@@ -1384,6 +1518,10 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  NERDTREE — open file as RIGHT SPLIT, keep panel open
+"  Description: Overrides NERDTree's default Enter/double-click file-open
+"  behavior so files always open in a new rightmost vertical split (or as
+"  a fresh split if no editing window exists yet), instead of replacing
+"  the NERDTree window — panel stays open and in sync afterward.
 " ══════════════════════════════════════════════════════════════════════════
 
 autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1
@@ -1446,6 +1584,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST MOUSE JUMP
+"  Description: Handles double-click inside the WinList panel — resolves
+"  the exact clicked line/column via getmousepos() and jumps to the
+"  corresponding entry if the line matches a file entry pattern.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListMouseJump() abort
@@ -1471,6 +1612,10 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST JUMP — uses stable Tab ID to survive drag-reorder
+"  Description: Given the cursor's current line in the WinList buffer,
+"  parses the entry number and the concealed Tab ID from its section
+"  header, resolves it to the real (possibly reordered) tab number, and
+"  focuses the corresponding editing window.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListJump() abort
@@ -1524,6 +1669,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  WINLIST OPEN / CLOSE / TOGGLE (backward-compat wrappers)
+"  Description: Thin wrapper functions preserving the original
+"  WinListOpen/Close/Toggle API names, delegating to the CombinedPanel*
+"  functions. WinListOpenInAllTabs opens the panel across every tab.
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListOpen() abort
@@ -1547,6 +1695,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  TAB LIFECYCLE HANDLERS
+"  Description: Tracks, per tab, whether the panel was open before
+"  leaving it, and automatically re-opens/refreshes it upon re-entering
+"  that tab (with a small timer delay to let Vim settle window layout).
 " ══════════════════════════════════════════════════════════════════════════
 
 function! WinListOnTabLeave() abort
@@ -1577,6 +1728,9 @@ endfunction
 
 " ══════════════════════════════════════════════════════════════════════════
 "  AUTOCMDS  — content refresh only, editing splits never auto-resized
+"  Description: Wires up all events (buffer write/read/add/delete/wipeout,
+"  window/buffer enter, tab enter/leave/new) that keep the WinList panel
+"  content in sync, without ever forcibly resizing the user's own splits.
 " ══════════════════════════════════════════════════════════════════════════
 
 augroup WinListAuto
@@ -1601,6 +1755,10 @@ augroup END
 
 " ══════════════════════════════════════════════════════════════════════════
 "  KEYMAPS + COMMANDS
+"  Description: User-facing entry points for the panel system — Ctrl-B
+"  toggles the combined panel; <leader>w/<leader>W/<leader>wa/<leader>wh
+"  toggle/fix-width/open-all-tabs/fix-heights respectively. Ex commands
+"  (:WinList, :WinListClose, :WinListFix, etc.) provide the same actions.
 " ══════════════════════════════════════════════════════════════════════════
 
 noremap <silent> <C-b> :call CombinedPanelToggle()<CR>
@@ -1620,6 +1778,11 @@ command! WinListFixH    call WinListFixPanelHeights()
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                    DOUBLE-ENTER SPLIT EXPAND / RESTORE                   │
+" │ Description: Pressing Enter twice quickly in a vertical split           │
+" │ temporarily maximizes the current split's width (minimizing others to   │
+" │ 1 column) — pressing Enter again restores original layout. Ctrl-Enter   │
+" │ force-expands the current window immediately (collapsing any active     │
+" │ expand first). Panel (WinList/NERDTree) widths are protected throughout.│
 " └──────────────────────────────────────────────────────────────────────────┘
 let g:splitexpand_active  = 0
 let g:splitexpand_timer   = 0
@@ -1770,6 +1933,11 @@ nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │           CTRL+O — Open netrw expanded, restore on leave                 │
+" │ Description: Ctrl-O expands all real editing splits to minimum width     │
+" │ (keeping current window maximized) before opening netrw (:E), giving     │
+" │ maximum room for file browsing. Original split layout is automatically   │
+" │ restored (wincmd =, then WinList width fix) when leaving the netrw       │
+" │ buffer.                                                                   │
 " └──────────────────────────────────────────────────────────────────────────┘
 let g:netrw_pre_expand_layout = {}
 
@@ -1865,6 +2033,10 @@ noremap <silent> <C-o> :call SmartCtrlO()<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                     REOPEN LAST CLOSED FILE (CTRL+SHIFT+T)              │
+" │ Description: Tracks a stack (max 20) of recently closed real file       │
+" │ buffers. Ctrl-W closes the current window while pushing its file path   │
+" │ onto the stack; Ctrl-Shift-T pops the most recent entry and reopens it  │
+" │ (as a vertical split if needed, else in the current window).           │
 " └──────────────────────────────────────────────────────────────────────────┘
 if !exists('g:closed_file_stack')
     let g:closed_file_stack = []
@@ -1925,39 +2097,62 @@ inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosedFile()<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │               QUICK REPLACE  :R <old> - <new>                            │
-" │    Replace all exact occurrences of <old> with <new> (case-sensitive)    │
-" │    Use  -  as delimiter between old and new (surround with spaces)       │
-" │    After replace: new word is highlighted                                │
-" │    Press <S-l> to clear highlight                                        │
+" │               QUICK REPLACE  :R <old> --- <new>                          │
+" │ Description: Replaces ALL literal (regex-safe, symbol/space-agnostic)   │
+" │ occurrences of <old> with <new> across the whole buffer, case-sensitive.│
+" │ Delimiter is the LAST "---" found in the argument string, so both       │
+" │ <old> and <new> may freely contain spaces, punctuation, or code syntax  │
+" │ (brackets, arrows, dots, etc.) without breaking the pattern. After a    │
+" │ successful replace, the NEW text is search-highlighted (clear via      │
+" │ <S-l> / :nohlsearch). Reports the number of occurrences replaced.       │
 " └──────────────────────────────────────────────────────────────────────────┘
 function! QuickReplace(args) abort
-    let l:parts = split(a:args, ' - ')
+    " ── Find the LAST '---' delimiter ──────────────────────────────────────
+    let l:idx         = -1
+    let l:search_from = 0
+    while 1
+        let l:found = stridx(a:args, '---', l:search_from)
+        if l:found == -1 | break | endif
+        let l:idx         = l:found
+        let l:search_from = l:found + 1
+    endwhile
 
-    if len(l:parts) != 2 || trim(l:parts[0]) ==# '' || trim(l:parts[1]) ==# ''
-        echo "Usage: :R <old word(s)> - <new word(s)>"
-        echo "  e.g. :R i am haoz - haoz"
-        echo "  e.g. :R some word - new some word"
-        echo "  e.g. :R foo - bar"
+    if l:idx == -1
+        echo "Usage: :R <old word(s)> --- <new word(s)>"
+        echo "  e.g. :R i am haoz --- haoz"
+        echo "  e.g. :R foo.bar[0] --- baz->qux"
+        echo "  e.g. :R assign a = b; --- assign a = b + 1;"
         return
     endif
 
-    let l:old = trim(l:parts[0])
-    let l:new = trim(l:parts[1])
+    let l:old = trim(a:args[0 : l:idx - 1])
+    let l:new = trim(a:args[l:idx + 3 :])
 
-    let l:escaped_old = escape(l:old, '/\.*$^~[]')
-    let l:escaped_new = escape(l:new, '/\&~')
+    if l:old ==# '' || l:new ==# ''
+        echo "Usage: :R <old word(s)> --- <new word(s)>"
+        return
+    endif
 
+    " ── Build a fully literal (\V) search pattern ─────────────────────────
+    " Only '\' and '/' need escaping under \V — everything else
+    " (. * $ ^ [ ] ( ) { } + ? | < > ~ - etc.) is treated as plain text.
+    let l:escaped_old = escape(l:old, '\/')
+    let l:pattern      = '\V\C' . l:escaped_old
+
+    " ── Escape only what matters on the *replacement* side of :substitute ─
+    let l:escaped_new = escape(l:new, '\/&~')
+
+    " ── Count literal occurrences first (plain string search, no regex) ───
     let l:count = 0
     let l:lnum  = 1
     while l:lnum <= line('$')
         let l:line = getline(l:lnum)
         let l:pos  = 0
         while 1
-            let l:idx = stridx(l:line, l:old, l:pos)
-            if l:idx == -1 | break | endif
+            let l:found = stridx(l:line, l:old, l:pos)
+            if l:found == -1 | break | endif
             let l:count += 1
-            let l:pos    = l:idx + len(l:old)
+            let l:pos    = l:found + max([1, len(l:old)])
         endwhile
         let l:lnum += 1
     endwhile
@@ -1967,12 +2162,12 @@ function! QuickReplace(args) abort
         return
     endif
 
-    execute 'silent! %substitute/\C' . l:escaped_old . '/' . l:escaped_new . '/g'
+    execute 'silent! %substitute/' . l:pattern . '/' . l:escaped_new . '/g'
 
     set hlsearch
-    let @/ = '\C' . escape(l:new, '/\.*$^~[](){}+?|')
+    let @/ = '\V\C' . escape(l:new, '\/')
 
-    echo printf("Replaced %d occurrence%s: [%s] → [%s]  (Press <S-l> to clear)",
+    echo printf("Replaced %d occurrence%s: [%s] -> [%s]  (Press <S-l> to clear)",
         \ l:count,
         \ l:count == 1 ? '' : 's',
         \ l:old,
@@ -1980,6 +2175,80 @@ function! QuickReplace(args) abort
 endfunction
 
 command! -nargs=+ R call QuickReplace(<q-args>)
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                    QUICK DELETE  :D <text>                               │
+" │ Description: Deletes ALL literal (regex-safe, symbol/space-agnostic)    │
+" │ occurrences of <text> across the whole buffer, case-sensitive. <text>   │
+" │ may contain spaces, punctuation, or code syntax — works for single      │
+" │ words or full multi-word phrases, matching the same \V-literal engine   │
+" │ as :R. After a successful delete, every FULL LINE that had a match is   │
+" │ highlighted (since the deleted text itself no longer exists to          │
+" │ highlight), built via ordinary-magic \%Nl line-number atoms — clear via │
+" │ <S-l> / :nohlsearch, identical to :R's behavior. Reports the number of  │
+" │ occurrences deleted.                                                     │
+" └──────────────────────────────────────────────────────────────────────────┘
+function! QuickDelete(args) abort
+    let l:target = trim(a:args)
+
+    if l:target ==# ''
+        echo "Usage: :D <word(s)/text to delete>"
+        echo "  e.g. :D haoz"
+        echo "  e.g. :D foo.bar[0]"
+        echo "  e.g. :D assign a = b;"
+        return
+    endif
+
+    " ── Build a fully literal (\V) search pattern ─────────────────────────
+    let l:escaped = escape(l:target, '\/')
+    let l:pattern = '\V\C' . l:escaped
+
+    " ── Find occurrences + collect affected line numbers ──────────────────
+    let l:count         = 0
+    let l:affected_lnum = []
+    let l:lnum = 1
+    while l:lnum <= line('$')
+        let l:line = getline(l:lnum)
+        let l:pos  = 0
+        let l:hit_on_line = 0
+        while 1
+            let l:found = stridx(l:line, l:target, l:pos)
+            if l:found == -1 | break | endif
+            let l:count += 1
+            let l:hit_on_line = 1
+            let l:pos = l:found + max([1, len(l:target)])
+        endwhile
+        if l:hit_on_line
+            call add(l:affected_lnum, l:lnum)
+        endif
+        let l:lnum += 1
+    endwhile
+
+    if l:count == 0
+        echo "No match found for: " . l:target
+        return
+    endif
+
+    execute 'silent! %substitute/' . l:pattern . '//g'
+
+    " ── Highlight affected full lines (ordinary magic mode, correct \%Nl) ─
+    let l:parts = []
+    for l:n in l:affected_lnum
+        call add(l:parts, '\%' . l:n . 'l')
+    endfor
+    let l:linepattern = join(l:parts, '\|')
+
+    set hlsearch
+    let @/ = '\%(' . l:linepattern . '\).*'
+
+    echo printf("Deleted %d occurrence%s: [%s]  (Press <S-l> to clear)",
+        \ l:count,
+        \ l:count == 1 ? '' : 's',
+        \ l:target)
+endfunction
+
+command! -nargs=+ D call QuickDelete(<q-args>)
 
 nnoremap <S-l> :nohlsearch<CR>
 
@@ -1989,6 +2258,13 @@ nnoremap <S-l> :nohlsearch<CR>
 " │   Marks are bound to BUFFER content — they never leak into netrw/       │
 " │   WinList/other buffers reused in the same window, and never fire       │
 " │   automatically outside of an explicit  m  /  ml  keypress.             │
+" │ Description: Persistent per-buffer text-highlight bookmarks (a manual   │
+" │ "sticky highlight" separate from search-highlight). Press  m  on a      │
+" │ word (Normal) or a selection (Visual) to toggle a highlight mark at     │
+" │ that exact position; marks persist across buffer switches (redrawn via │
+" │ matchaddpos on BufEnter) and are cleaned up automatically when a        │
+" │ buffer is wiped out. Press  ml  to clear all marks in the current      │
+" │ buffer.                                                                  │
 " └──────────────────────────────────────────────────────────────────────────┘
 
 function! s:MarkedHighlights() abort
