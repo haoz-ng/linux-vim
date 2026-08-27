@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.58                                                         ║
-" ║  Modified : 2026-08-27                                                   ║
+" ║  Version  : 6.57                                                         ║
+" ║  Modified : 2026-08-26                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
 " ║             NERDTree integration, diff, folding, auto-save, quick        ║
 " ║             replace/delete, mark highlighting & more.                    ║
@@ -2036,13 +2036,7 @@ noremap <silent> <C-o> :call SmartCtrlO()<CR>
 " │ Description: Tracks a stack (max 20) of recently closed real file       │
 " │ buffers. Ctrl-W closes the current window while pushing its file path   │
 " │ onto the stack; Ctrl-Shift-T pops the most recent entry and reopens it  │
-" │ ALWAYS as a new vertical split placed after the rightmost normal        │
-" │ editing window — never overwriting an existing window's buffer.        │
-" │ [FIXED v6.58] Previous `wincmd l` + `:edit` logic could land on an      │
-" │ arbitrary neighboring window and destructively overwrite it. Now       │
-" │ explicitly scans for the true rightmost normal (non-panel) window and  │
-" │ always opens via `rightbelow vsplit`, matching the same safe pattern   │
-" │ already used by OpenSmart() for NERDTree file-opening.                 │
+" │ (as a vertical split if needed, else in the current window).           │
 " └──────────────────────────────────────────────────────────────────────────┘
 if !exists('g:closed_file_stack')
     let g:closed_file_stack = []
@@ -2081,25 +2075,14 @@ function! ReopenLastClosedFile() abort
         return
     endif
 
-    " ── Find the true rightmost NORMAL editing window (skip WinList/NERDTree) ──
-    let l:normal_wins = []
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call add(l:normal_wins, l:i)
-        endif
-    endfor
+    let l:cur_win = winnr()
+    wincmd l
 
-    " ── No normal window exists at all → just edit in current window ──────────
-    if empty(l:normal_wins)
+    if winnr() == l:cur_win
+        execute 'rightbelow vsplit ' . fnameescape(l:path)
+    else
         execute 'edit ' . fnameescape(l:path)
-        return
     endif
-
-    " ── Always open as a NEW split to the right of the rightmost editing win ──
-    let l:rightmost = l:normal_wins[-1]
-    execute 'noautocmd ' . l:rightmost . 'wincmd w'
-    execute 'rightbelow vsplit ' . fnameescape(l:path)
 endfunction
 
 function! SmartClose() abort
