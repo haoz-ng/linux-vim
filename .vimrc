@@ -2472,3 +2472,171 @@ endfunction
 nnoremap <silent> <nowait> m  :call ToggleMarkWord()<CR>
 vnoremap <silent> <nowait> m  :<C-u>call ToggleMarkSelection()<CR>
 nnoremap <silent> <nowait> ml :call ClearAllMarks()<CR>
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                    F1 — VIMRC MANUAL (TOP SPLIT TOGGLE)                  │
+" │ Description: F1 toggles a top-half horizontal split showing a built-in  │
+" │ cheat-sheet documenting this vimrc's keybindings and auto-features.     │
+" │ Read-only scratch buffer; press F1 or q inside it to close.             │
+" └──────────────────────────────────────────────────────────────────────────┘
+
+function! s:VimrcManualHighlights() abort
+    silent! highlight default VMHeader  guifg=#61AFEF ctermfg=75  gui=bold
+    silent! highlight default VMSubHead guifg=#98c379 ctermfg=114 gui=bold
+    silent! highlight default VMKey     guifg=#e5c07b ctermfg=180 gui=bold
+    silent! highlight default VMDim     guifg=#5c6370 ctermfg=59  gui=italic
+endfunction
+call s:VimrcManualHighlights()
+
+augroup VimrcManualColors
+    autocmd!
+    autocmd ColorScheme * call s:VimrcManualHighlights()
+augroup END
+
+function! s:VimrcManualSyntax() abort
+    silent! syntax clear
+    syntax match VMHeader  /^═\+$/
+    syntax match VMHeader  /^▶.*/
+    syntax match VMSubHead /^  •.*/ contains=VMKey
+    syntax match VMKey     /`[^`]\+`/
+    syntax match VMDim     /^\s*$/
+endfunction
+
+function! s:VimrcManualContent() abort
+    let l:L = []
+    call add(l:L, '═══════════════════════════════════════════════════════════════════')
+    call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
+    call add(l:L, '═══════════════════════════════════════════════════════════════════')
+    call add(l:L, '')
+
+    call add(l:L, '▶ COMMENT SYSTEM')
+    call add(l:L, '  • `cc`        Toggle comment on line (Normal) / range (Visual)')
+    call add(l:L, '  • `hh`        Toggle trailing " <leader> haoz" tag at end of line')
+    call add(l:L, '  • `ch`        Toggle leading "<leader> haoz " tag at start of code')
+    call add(l:L, '     (leader auto-detected per filetype: // # % " ; >)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ AUTO-SAVE & AUTO-FEATURES')
+    call add(l:L, '  • Buffer auto-saves on TextChanged / InsertLeave (if writable)')
+    call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
+    call add(l:L, '  • `autoread` + CursorHold auto :checktime (detect external changes)')
+    call add(l:L, '  • Cursor position restored on reopening a file')
+    call add(l:L, '  • Auto-comment continuation disabled (fo-=c,r,o)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ CLIPBOARD / EDITING')
+    call add(l:L, '  • `Ctrl-C` / `Ctrl-V` / `Ctrl-X`  Copy/Paste/Cut via system clipboard "+')
+    call add(l:L, '  • `Ctrl-Z`   Undo (Normal/Insert/Visual)')
+    call add(l:L, '  • `Ctrl-U`   Toggle case of word (Normal) / selection (Visual)')
+    call add(l:L, '  • `Ctrl-A`   Select whole buffer')
+    call add(l:L, '  • `Ctrl-D`   Select word under cursor + set search')
+    call add(l:L, '  • `Ctrl-F`   Search word under cursor / visual selection')
+    call add(l:L, '  • `V`        Enter BLOCKWISE visual (remapped from linewise)')
+    call add(l:L, '  • `x` / `Del` disabled (prevent accidental char delete)')
+    call add(l:L, '  • `S-Del`    Delete current line (dd)')
+    call add(l:L, '  • `S-l`      Clear search highlight (:nohlsearch)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ NAVIGATION')
+    call add(l:L, '  • `Ctrl-Left/Right`      Word jump (Normal/Visual/Insert)')
+    call add(l:L, '  • `Ctrl-Shift-Left/Right` Extend selection by word')
+    call add(l:L, '  • `Shift-Arrow/Home/End`  GUI-style text selection')
+    call add(l:L, '  • `Home`                 Jump to first non-blank char (^)')
+    call add(l:L, '  • `n` / `N`               Next/prev search match + re-center (zz)')
+    call add(l:L, '  • `1..9,0`                Jump directly to tab N (0 = tab 10)')
+    call add(l:L, '  • `Ctrl-Up` / `Ctrl-Down` Prev/Next tab')
+    call add(l:L, '  • `Alt-Left` / `Alt-Right` Cycle real editing splits')
+    call add(l:L, '     (auto-skips WinList/NERDTree panel windows)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ SPLIT / WINDOW MANAGEMENT')
+    call add(l:L, '  • `Ctrl-\`     Vertical split + focus new window')
+    call add(l:L, '  • `Enter Enter` (double-tap) Temporarily maximize current split')
+    call add(l:L, '     width (others collapse to 1 col); Enter again restores layout')
+    call add(l:L, '  • `Ctrl-Enter` Force-expand current window immediately')
+    call add(l:L, '  • `Ctrl-W`     Close window (pushes file path to reopen-stack)')
+    call add(l:L, '  • `Ctrl-Shift-T` Reopen last closed file (stack, max 20)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ WINLIST + NERDTREE COMBINED PANEL')
+    call add(l:L, '  • `Ctrl-B`      Toggle combined panel (WinList top / NERDTree bottom)')
+    call add(l:L, '  • `<leader>w`   Toggle panel (same as Ctrl-B)')
+    call add(l:L, '  • `<leader>W`   Fix/sync WinList panel width')
+    call add(l:L, '  • `<leader>wa`  Open panel in ALL tabs')
+    call add(l:L, '  • `<leader>wh`  Fix panel heights (50/50 split)')
+    call add(l:L, '  • Inside panel: `Enter` / double-click jumps to entry, `q` closes,')
+    call add(l:L, '     `r` refreshes')
+    call add(l:L, '  • NERDTree Enter/double-click opens file as a NEW right split')
+    call add(l:L, '     (panel stays open, stable Tab-ID survives tab drag-reorder)')
+    call add(l:L, '  • Commands: `:WinList` `:WinListClose` `:WinListFix`')
+    call add(l:L, '     `:WinListRefresh` `:WinListAllTabs` `:WinListFixH`')
+    call add(l:L, '')
+
+    call add(l:L, '▶ NETRW QUICK BROWSE')
+    call add(l:L, '  • `Ctrl-O`  Expand all real splits to min width, open netrw (:E)')
+    call add(l:L, '     Layout auto-restores when leaving the netrw buffer')
+    call add(l:L, '')
+
+    call add(l:L, '▶ QUICK REPLACE / DELETE (whole buffer, literal text)')
+    call add(l:L, '  • `:R <old> --- <new>`  Replace ALL literal occurrences of <old>')
+    call add(l:L, '     with <new> (case-sensitive, symbol/space-safe). New text gets')
+    call add(l:L, '     search-highlighted. Clear via `S-l`.')
+    call add(l:L, '  • `:D <text>`           Delete ALL literal occurrences of <text>.')
+    call add(l:L, '     Affected FULL LINES get search-highlighted. Clear via `S-l`.')
+    call add(l:L, '')
+
+    call add(l:L, '▶ MARK / BOOKMARK HIGHLIGHT (per-buffer, persistent)')
+    call add(l:L, '  • `m`   (Normal) Toggle highlight mark on word under cursor')
+    call add(l:L, '  • `m`   (Visual) Toggle highlight mark on selection')
+    call add(l:L, '  • `ml`  Clear all marks in current buffer')
+    call add(l:L, '     Marks persist across buffer switches, cleaned up on BufWipeout')
+    call add(l:L, '')
+
+    call add(l:L, '▶ DIFF MODE')
+    call add(l:L, '  • `dn` / `db`  Next / previous diff change (]c / [c)')
+    call add(l:L, '  • `df`         diff-put (dp) — push current change across')
+    call add(l:L, '  • All diff windows auto-unfold on VimEnter')
+    call add(l:L, '')
+
+    call add(l:L, '▶ MISC / FUNCTION KEYS')
+    call add(l:L, '  • `F1`   Toggle this manual (you are here)')
+    call add(l:L, '  • `F5`   Reload current file (:edit!)')
+    call add(l:L, '  • `F10`  Toggle GVim menu bar + toolbar')
+    call add(l:L, '  • `F11`  Toggle window maximize (wmctrl, Linux/X11)')
+    call add(l:L, '  • `F12`  Copy full file path to clipboard')
+    call add(l:L, '  • `Alt-Z` Toggle line wrap')
+    call add(l:L, '')
+    call add(l:L, '═══════════════════════════════════════════════════════════════════')
+    return l:L
+endfunction
+
+function! ToggleVimrcManual() abort
+    let l:bufname = '__VimrcManual__'
+    let l:winnr   = bufwinnr(l:bufname)
+
+    if l:winnr != -1
+        execute l:winnr . 'wincmd c'
+        return
+    endif
+
+    let l:height = max([10, &lines / 2])
+    execute 'topleft ' . l:height . 'split ' . l:bufname
+
+    setlocal buftype=nofile bufhidden=hide noswapfile nobuflisted
+    setlocal nowrap number norelativenumber
+    setlocal winfixheight signcolumn=no
+    setlocal filetype=vimrcmanual
+    setlocal modifiable
+
+    silent! %delete _
+    call setline(1, s:VimrcManualContent())
+    call s:VimrcManualSyntax()
+
+    setlocal nomodifiable nomodified
+    setlocal statusline=\ 【Vimrc\ Manual】\ Press\ F1\ or\ q\ to\ close
+
+    nnoremap <silent> <buffer> q  :call ToggleVimrcManual()<CR>
+    nnoremap <silent> <buffer> <F1> :call ToggleVimrcManual()<CR>
+endfunction
+
+nnoremap <silent> <F1> :call ToggleVimrcManual()<CR>
