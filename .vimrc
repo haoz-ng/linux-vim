@@ -80,6 +80,15 @@ au CursorHold,CursorHoldI * silent! checktime
 " │ Visual, Folded, Search, VertSplit, SpecialKey, TabLineSel) to enforce   │
 " │ the black background / cyan accent visual identity.                    │
 " └──────────────────────────────────────────────────────────────────────────┘
+" Use GUI (true-color) highlights in terminal Vim so colors match GVim
+if !has('gui_running') && has('termguicolors')
+    if &term =~# 'tmux\|screen' || $COLORTERM =~# 'truecolor\|24bit'
+        let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+        let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+    endif
+    set termguicolors
+endif
+
 syntax enable
 syntax on
 set background=dark
