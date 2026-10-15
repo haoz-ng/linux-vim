@@ -46,6 +46,10 @@ alias gvim     'gvim \!* &'
 alias g        'gvim \!* &'
 alias gdiff    'gvimdiff'
 
+alias vim      'vim \!* &'
+alias v        'vim \!* &'
+alias vdiff    'vimdiff'
+
 # svn bind
 # Add to ~/.cshrc
 
