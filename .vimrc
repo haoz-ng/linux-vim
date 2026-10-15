@@ -112,7 +112,9 @@ highlight Folded     ctermfg=White ctermbg=DarkBlue guifg=#ffffff guibg=#003366
 highlight Search     guibg=#003366 guifg=NONE gui=NONE ctermbg=DarkBlue ctermfg=NONE
 highlight VertSplit  guifg=#00ffff guibg=#191E2A
 highlight SpecialKey ctermbg=17    guibg=#001933    guifg=#00ffff
-highlight TabLineSel ctermfg=159   ctermbg=0
+highlight TabLineSel ctermfg=159   ctermbg=0 guifg=#afffff guibg=#000000 cterm=NONE gui=NONE
+highlight TabLine     ctermfg=245  ctermbg=0 guifg=#888888 guibg=#000000 cterm=NONE gui=NONE
+highlight TabLineFill ctermfg=0   ctermbg=0 guifg=#000000 guibg=#000000 cterm=NONE gui=NONE
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -399,7 +401,19 @@ noremap <C-n> :tabnew<CR>
 noremap <C-\> :vs<CR><C-w>w
 
 nnoremap <F5>  :edit!<CR>
-nnoremap <F12> :let @+ = expand('%:p') <bar> echo "Copied full path: " . expand('%:p')<CR>
+function! CopyFullPath() abort
+    let l:path = expand('%:p')
+    call setreg('"', l:path)
+    if has('clipboard')
+        call setreg('+', l:path)
+    else
+        silent! call ClipPush()
+    endif
+    echo "Copied full path: " . l:path
+endfunction
+
+nnoremap <silent> <F12> :call CopyFullPath()<CR>
+inoremap <silent> <F12> <C-o>:call CopyFullPath()<CR>
 
 nnoremap <C-a> ggVG
 nnoremap <silent> <S-l> :nohlsearch<CR>
@@ -413,14 +427,65 @@ inoremap <C-l> <Esc>V
 " │ Ctrl-C / Ctrl-V / Ctrl-X behavior across Normal, Visual, Insert, and    │
 " │ Command-line modes — mimics conventional OS clipboard shortcuts.        │
 " └──────────────────────────────────────────────────────────────────────────┘
-vnoremap <C-c> "+y
-nnoremap <C-c> "+yy
-nnoremap <C-v> "+p
-inoremap <C-v> <C-r>+
-vnoremap <C-V> "+p
-cnoremap <C-v> <C-r>+
-vnoremap <C-x> "+d
-nnoremap <C-x> "+dd
+" Without +clipboard, bridge to the system clipboard via an external tool
+function! s:ClipTools() abort
+    if executable('wl-copy') && executable('wl-paste')
+        return ['wl-copy', 'wl-paste --no-newline']
+    elseif executable('xclip')
+        return ['xclip -selection clipboard -in', 'xclip -selection clipboard -out']
+    elseif executable('xsel')
+        return ['xsel --clipboard --input', 'xsel --clipboard --output']
+    elseif executable('clip.exe') && executable('powershell.exe')
+        return ['clip.exe', 'powershell.exe -NoProfile -Command Get-Clipboard -Raw']
+    elseif executable('pbcopy')
+        return ['pbcopy', 'pbpaste']
+    endif
+    return []
+endfunction
+
+" Send the unnamed register (just yanked/deleted) to the system clipboard
+function! ClipPush() abort
+    let l:tools = s:ClipTools()
+    if !empty(l:tools)
+        silent call system(l:tools[0] . ' >/dev/null 2>&1', @")
+    endif
+endfunction
+
+" Load the system clipboard into the unnamed register; returns '' for <C-r>=
+function! ClipPull() abort
+    let l:tools = s:ClipTools()
+    if empty(l:tools) | return '' | endif
+    let l:text = system(l:tools[1])
+    if !v:shell_error
+        call setreg('"', substitute(l:text, '\r', '', 'g'))
+    endif
+    return ''
+endfunction
+
+if has('clipboard')
+    vnoremap <C-c> "+y
+    nnoremap <C-c> "+yy
+    nnoremap <C-v> "+p
+    inoremap <C-v> <C-r>+
+    vnoremap <C-v> "+p
+    cnoremap <C-v> <C-r>+
+    vnoremap <C-x> "+d
+    nnoremap <C-x> "+dd
+else
+    vnoremap <silent> <C-c> y:call ClipPush()<CR>
+    nnoremap <silent> <C-c> yy:call ClipPush()<CR>
+    nnoremap <silent> <C-v> :call ClipPull()<CR>p
+    inoremap <silent> <C-v> <C-r>=ClipPull()<CR><C-r><C-o>"
+    vnoremap <silent> <C-v> :<C-u>call ClipPull()<CR>gvp
+    cnoremap <C-v> <C-r>=ClipPull()<CR><C-r>"
+    vnoremap <silent> <C-x> d:call ClipPush()<CR>
+    nnoremap <silent> <C-x> dd:call ClipPush()<CR>
+endif
+
+" Terminal Vim: avoid auto-indent staircase when pasting via the terminal
+if !has('gui_running')
+    set pastetoggle=<F2>
+endif
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
