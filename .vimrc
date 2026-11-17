@@ -1,10 +1,11 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.57                                                         ║
-" ║  Modified : 2026-08-26                                                   ║
-" ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList,      ║
-" ║             NERDTree integration, diff, folding, auto-save, quick        ║
-" ║             replace/delete, mark highlighting & more.                    ║
+" ║  Version  : 6.59                                                         ║
+" ║  Modified : 2026-11-18                                                   ║
+" ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
+" ║             (always-on) + on-demand NERDTree, statusline with            ║
+" ║             [CL:TL], diff, folding, auto-save, quick replace/delete,     ║
+" ║             mark highlighting & more.                                    ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
 
@@ -179,17 +180,29 @@ endif
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            STATUS LINE                                   │
 " │ Description: Custom statusline showing filename (left) and padding       │
-" │ (right). Dynamically recolors the StatusLine highlight group based on   │
-" │ current mode: cyan/dark-blue (Normal), cyan/orange (Insert), cyan/green  │
+" │ (right), plus cursor position as [CL current:TL total] on the right.    │
+" │ Dynamically recolors the StatusLine highlight group based on current     │
+" │ mode: cyan/dark-blue (Normal), cyan/orange (Insert), cyan/green          │
 " │ (Replace) — updated automatically via InsertEnter/Change/Leave.         │
+" │ StatusLinePos is linked to StatusLine so the position text always      │
+" │ matches the path colour.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
+" Bố cục:  ~/.vimrc                                        [CL81:TL1793]
+"   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
+"   %=   = đệm, đẩy phần sau sang phải
+"   %l   = dòng hiện tại  (CL = current line)
+"   %L   = tổng số dòng   (TL = total lines)
 set statusline=%F
 set statusline+=%#LineNr#
 set statusline+=%=
+set statusline+=%#StatusLinePos#\ [CL%l:TL%L]
 set statusline+=%#CursorColumn#
 
 highlight StatusLine   guifg=#00ffff guibg=#001933
 highlight StatusLineNC guifg=#888888 guibg=#001933
+" Màu vị trí bám theo StatusLine (giống hệt màu path, kể cả khi đổi
+" màu nền theo mode Insert/Replace nhờ DynamicStatusLine).
+highlight link StatusLinePos StatusLine
 
 function! StatusLineSetNormal() abort
     silent! highlight StatusLine guifg=#00ffff guibg=#001933
@@ -916,12 +929,13 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │                    COMBINED PANEL (WinList + NERDTree)                   │
-" │          WinList TOP half ── NERDTree BOTTOM half  (50/50 split)         │
-" │ Description: Global state/config for the combined side panel feature —  │
-" │ a persistent left-hand panel showing a custom Window/Tab list (top) and │
-" │ NERDTree file explorer (bottom), stacked 50/50, kept in sync across      │
-" │ tabs. Includes width/height constants and per-tab open-state tracking.  │
+" │                 SIDE PANEL (WinList always-on + NERDTree)               │
+" │ Description: Global state/config for the side panel.  WinList is a       │
+" │ persistent left-hand column listing every tab/window — it is ALWAYS on   │
+" │ and stays consistent across all tabs.  NERDTree is on-demand only:       │
+" │ Ctrl-B toggles it, and when open it takes the bottom half of the same    │
+" │ column (WinList top / NERDTree bottom, 50/50).  Ctrl-O hides both while  │
+" │ netrw is open.  Includes width/height constants + state flags.          │
 " └──────────────────────────────────────────────────────────────────────────┘
 
 " ── Panel dimensions ──────────────────────────────────────────────────────
@@ -933,6 +947,13 @@ let g:winlist_width        = 75
 let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
 let g:NERDTreeWinSize      = 75
+
+" WinList luôn hiển thị ở mọi tab; NERDTree chỉ bật/tắt bằng Ctrl-B
+let g:winlist_always       = 1
+
+" Nhớ trạng thái panel trong lúc Ctrl-O mở netrw, để dựng lại khi rời netrw
+let g:netrw_panel_was_open    = 0
+let g:netrw_nerdtree_was_open = 0
 
 let g:panel_nerdtree_lines = 0
 let g:panel_nerdtree_open  = 0
@@ -1448,25 +1469,42 @@ endfunction
 
 
 " ══════════════════════════════════════════════════════════════════════════
-"  COMBINED PANEL — Open / Close / Toggle
-"  Description: Core open/close/toggle logic for the combined WinList +
-"  NERDTree panel. Opens NERDTree rooted at the current file's directory
-"  (top area becomes WinList after split), sets up panel-local keymaps
-"  (double-click/Enter to jump, q to close, r to refresh), and restores
-"  focus to the previously active editing window afterward.
+"  SIDE PANEL — Open / Close / Toggle
+"  Description: Core open/close/toggle logic. CombinedPanelOpen() opens
+"  WinList alone (full height, left column) — NERDTree is NOT opened.
+"  NERDTreePanelToggle() (Ctrl-B) opens NERDTree on demand; if WinList is
+"  already up, WinList takes the top half and NERDTree the bottom half of
+"  the same column. Panel-local keymaps (double-click/Enter to jump, q to
+"  close, r to refresh) are applied by s:SetupWinListWindow(). Focus is
+"  always restored to the previously active editing window afterwards.
 " ══════════════════════════════════════════════════════════════════════════
 
+" ── Áp option + keymap cho cửa sổ WinList (dùng chung mọi nơi mở panel) ───
+function! s:SetupWinListWindow() abort
+    setlocal winfixwidth
+    setlocal buftype=nofile bufhidden=hide
+    setlocal noswapfile nobuflisted
+    setlocal nowrap number norelativenumber
+    setlocal cursorline filetype=winlist signcolumn=no
+    setlocal statusline=%!WinListStatusLine()
+
+    nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
+    nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
+    nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
+    nnoremap <silent> <nowait> <buffer> q             :call CombinedPanelClose()<CR>
+    nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
+endfunction
+
+
+" Mở WinList (full height, cột trái). KHÔNG mở NERDTree nữa.
 function! CombinedPanelOpen() abort
     if g:panel_opening   | return | endif
     if g:winlist_opening | return | endif
 
-    let l:tabnr   = tabpagenr()
-    let l:bufname = WinListBufName()
-
-    if WinListIsOpen() && NERDTreeIsOpen()
+    " đang mở rồi -> chỉ refresh + chỉnh lại bề rộng
+    if WinListIsOpen()
         silent! call WinListRefreshAllTabs()
-        silent! call SyncNERDTreeWidth()
-        silent! call WinListFixPanelHeights()
+        silent! call WinListFixWidth()
         return
     endif
 
@@ -1478,73 +1516,21 @@ function! CombinedPanelOpen() abort
 
     let g:panel_opening   = 1
     let g:winlist_opening = 1
-    let l:cur      = winnr()
-    let l:cur_file = expand('%:p')
-
-    let l:half = WinListHalfHeight()
 
     try
         execute 'noautocmd ' . l:safe . 'wincmd w'
 
-        if filereadable(l:cur_file)
-            execute 'NERDTree ' . fnameescape(fnamemodify(l:cur_file, ':h'))
-        else
-            execute 'NERDTree ' . fnameescape(getcwd())
-        endif
-
-        let g:panel_nerdtree_open  = 1
-        let g:panel_nerdtree_lines = l:half
-
+        execute 'topleft vertical split ' . WinListBufName()
         execute 'vertical resize ' . g:winlist_width
-        setlocal winfixwidth
+        call s:SetupWinListWindow()
 
-        execute 'noautocmd leftabove ' . l:half . 'split ' . l:bufname
+        let g:winlist_tab_open[tabpagenr()] = 1
 
-        setlocal winfixwidth winfixheight
-        setlocal buftype=nofile bufhidden=hide
-        setlocal noswapfile nobuflisted
-        setlocal nowrap nonumber norelativenumber
-        setlocal cursorline filetype=winlist signcolumn=no
-        setlocal statusline=%!WinListStatusLine()
-
-        nnoremap <silent> <nowait> <buffer> <LeftMouse>   <LeftMouse>
-        nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call WinListMouseJump()<CR>
-        nnoremap <silent> <nowait> <buffer> <CR>          :call WinListJump()<CR>
-        nnoremap <silent> <nowait> <buffer> q             :call CombinedPanelClose()<CR>
-        nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
-
-        let g:winlist_tab_open[l:tabnr] = 1
-
-        execute 'vertical resize ' . g:winlist_width
-
-        for l:i in range(1, winnr('$'))
-            if WinListIsNERDTree(winbufnr(l:i))
-                execute 'noautocmd ' . l:i . 'wincmd w'
-                setlocal winfixwidth
-                execute 'vertical resize ' . g:winlist_width
-                execute 'resize ' . l:half
-                break
-            endif
-        endfor
-
-        let l:return_nr = l:cur + 2
-        let l:return_nr = min([l:return_nr, winnr('$')])
-        while l:return_nr <= winnr('$')
-            if !WinListIsSpecial(winbufnr(l:return_nr)) && !WinListIsNERDTree(winbufnr(l:return_nr))
-                break
-            endif
-            let l:return_nr += 1
-        endwhile
-
-        if l:return_nr <= winnr('$')
-            execute 'noautocmd ' . l:return_nr . 'wincmd w'
-        else
-            let l:fb = WinListFindNormalWin()
-            if l:fb != -1
-                execute 'noautocmd ' . l:fb . 'wincmd w'
-            endif
+        " trả focus về cửa sổ soạn thảo
+        let l:back = WinListFindNormalWin()
+        if l:back != -1
+            execute 'noautocmd ' . l:back . 'wincmd w'
         endif
-
     finally
         let g:panel_opening   = 0
         let g:winlist_opening = 0
@@ -1554,16 +1540,104 @@ function! CombinedPanelOpen() abort
 endfunction
 
 
+" Mở NERDTree theo yêu cầu. Nếu WinList đang mở -> WinList nửa trên,
+" NERDTree nửa dưới, cùng cột trái.
+function! PanelOpenWithNERDTree() abort
+    if g:panel_opening | return | endif
+    if !exists(':NERDTree')
+        echo "NERDTree chưa được cài."
+        return
+    endif
+    if NERDTreeIsOpen() && WinListIsOpen()
+        silent! call WinListRefreshAllTabs()
+        return
+    endif
+
+    let g:panel_opening = 1
+
+    try
+        " 1) NERDTree tạo cột trái trước (nó luôn mở sang trái)
+        if !NERDTreeIsOpen()
+            let l:cwd = filereadable(expand('%:p'))
+                \ ? fnamemodify(expand('%:p'), ':h')
+                \ : getcwd()
+            execute 'NERDTree ' . fnameescape(l:cwd)
+            execute 'vertical resize ' . g:winlist_width
+            setlocal winfixwidth
+        endif
+
+        " 2) tìm cửa sổ NERDTree vừa tạo
+        let l:nt = -1
+        for l:i in range(1, winnr('$'))
+            if WinListIsNERDTree(winbufnr(l:i))
+                let l:nt = l:i
+                break
+            endif
+        endfor
+
+        " 3) chèn WinList vào NỬA TRÊN của cột đó
+        if l:nt != -1 && !WinListIsOpen()
+            let l:half = WinListHalfHeight()
+
+            execute 'noautocmd ' . l:nt . 'wincmd w'
+            execute 'aboveleft ' . l:half . 'split ' . WinListBufName()
+            call s:SetupWinListWindow()
+            execute 'vertical resize ' . g:winlist_width
+
+            " cân lại NERDTree cho đúng nửa dưới
+            let l:nt2 = -1
+            for l:i in range(1, winnr('$'))
+                if WinListIsNERDTree(winbufnr(l:i))
+                    let l:nt2 = l:i
+                    break
+                endif
+            endfor
+            if l:nt2 != -1
+                execute 'noautocmd ' . l:nt2 . 'wincmd w'
+                execute 'resize ' . l:half
+                setlocal winfixwidth winfixheight
+            endif
+
+            let g:winlist_tab_open[tabpagenr()] = 1
+        endif
+
+        let g:panel_nerdtree_open = 1
+    finally
+        let g:panel_opening = 0
+    endtry
+
+    let l:back = WinListFindNormalWin()
+    if l:back != -1
+        execute 'noautocmd ' . l:back . 'wincmd w'
+    endif
+
+    silent! call WinListRefreshAllTabs()
+endfunction
+
+
+" Ctrl-B: bật/tắt NERDTree. WinList không bị ảnh hưởng.
+function! NERDTreePanelToggle() abort
+    if NERDTreeIsOpen()
+        silent! NERDTreeClose
+        let g:panel_nerdtree_open = 0
+
+        let l:back = WinListFindNormalWin()
+        if l:back != -1
+            execute 'noautocmd ' . l:back . 'wincmd w'
+        endif
+        silent! call WinListRefreshAllTabs()
+    else
+        silent! call PanelOpenWithNERDTree()
+    endif
+endfunction
+
+
+" Đóng WinList (NERDTree giữ nguyên — nó có công tắc riêng là Ctrl-B)
 function! CombinedPanelClose() abort
     if WinListIsOpen()
         let l:wl_wnr = bufwinnr(WinListBufName())
         execute 'noautocmd ' . l:wl_wnr . 'wincmd c'
         let g:winlist_tab_open[tabpagenr()] = 0
-    endif
-
-    if NERDTreeIsOpen()
-        silent! NERDTreeClose
-        let g:panel_nerdtree_open = 0
     endif
 
     let l:back = WinListFindNormalWin()
@@ -1573,6 +1647,7 @@ function! CombinedPanelClose() abort
 endfunction
 
 
+" Toggle WinList. Không đụng tới NERDTree.
 function! CombinedPanelToggle() abort
     if CombinedPanelIsOpen()
         silent! call CombinedPanelClose()
@@ -1779,24 +1854,24 @@ function! WinListOnTabLeave() abort
 endfunction
 
 function! WinListOnTabEnter() abort
-    let l:tabnr = tabpagenr()
-    if get(g:winlist_tab_open, l:tabnr, 0) == 1
-        call timer_start(20, {-> s:RestorePanel(l:tabnr)})
-    endif
+    " WinList luôn có mặt ở mọi tab, trừ khi đang trong netrw (Ctrl-O)
+    if !get(g:, 'winlist_always', 1) | return | endif
+    call timer_start(20, {-> s:EnsureWinListInTab(tabpagenr())})
 endfunction
 
-function! s:RestorePanel(tabnr) abort
-    if tabpagenr() != a:tabnr | return | endif
-    if !WinListIsOpen()
-        silent! call CombinedPanelOpen()
-    else
+function! s:EnsureWinListInTab(tabnr) abort
+    if tabpagenr() != a:tabnr        | return | endif
+    if get(g:, 'netrw_expanding', 0) | return | endif
+    if WinListIsOpen()
         silent! call WinListRefreshAllTabs()
+    else
+        silent! call CombinedPanelOpen()
     endif
 endfunction
 
 function! WinListOnTabNew() abort
     let l:tabnr = tabpagenr()
-    let g:winlist_tab_open[l:tabnr] = 0
+    let g:winlist_tab_open[l:tabnr] = 1
 endfunction
 
 
@@ -1827,15 +1902,52 @@ augroup WinListAuto
 augroup END
 
 
+" ── Mở WinList ngay khi khởi động (VimEnter không bắn TabEnter) ───────────
+augroup WinListStartup
+    autocmd!
+    autocmd VimEnter * call timer_start(60, {-> s:StartupWinList()})
+augroup END
+
+function! s:StartupWinList() abort
+    if !get(g:, 'winlist_always', 1) | return | endif
+    if get(g:, 'netrw_expanding', 0)  | return | endif
+    if WinListIsOpen()                | return | endif
+
+    " đang mở file thẳng vào netrw -> không chen panel vào
+    if &filetype ==# 'netrw'          | return | endif
+
+    " chưa có cửa sổ soạn thảo nào (chỉ có [No Name]) vẫn phải mở được:
+    " WinListFindNormalWin() trả về -1 khi buffer hiện tại là special,
+    " nên tạo một cửa sổ soạn thảo rỗng trước nếu cần.
+    if WinListFindNormalWin() == -1
+        if &buftype ==# '' && expand('%') ==# ''
+            " cửa sổ [No Name] bình thường -> dùng luôn
+        else
+            silent! enew
+        endif
+    endif
+
+    silent! call CombinedPanelOpen()
+endfunction
+
+
 " ══════════════════════════════════════════════════════════════════════════
 "  KEYMAPS + COMMANDS
-"  Description: User-facing entry points for the panel system — Ctrl-B
-"  toggles the combined panel; <leader>w/<leader>W/<leader>wa/<leader>wh
-"  toggle/fix-width/open-all-tabs/fix-heights respectively. Ex commands
-"  (:WinList, :WinListClose, :WinListFix, etc.) provide the same actions.
+"  Description: User-facing entry points for the panel system.
+"    wl          → toggle WinList (bật/tắt cột WindowList)
+"    Ctrl-B      → toggle NERDTree ONLY (không đụng WinList)
+"    <leader>W   → fix/sync WinList width
+"    <leader>wa  → open panel in ALL tabs
+"    <leader>wh  → fix 50/50 panel heights (khi NERDTree đang mở)
+"  Ex commands (:WinList, :WinListClose, :WinListFix, etc.) mirror these.
 " ══════════════════════════════════════════════════════════════════════════
 
-noremap <silent> <C-b> :call CombinedPanelToggle()<CR>
+" wl — bật/tắt WinList. Dùng nnoremap để KHÔNG ảnh hưởng Visual mode
+" (Visual  w  phải giữ nguyên nghĩa "chọn word tiếp theo").
+nnoremap <silent> wl :call WinListToggle()<CR>
+
+" Ctrl-B chỉ bật/tắt NERDTree. WinList luôn hiển thị.
+noremap <silent> <C-b> :call NERDTreePanelToggle()<CR>
 
 nnoremap <silent> <leader>w  :call WinListToggle()<CR>
 nnoremap <silent> <leader>W  :call WinListFixWidth()<CR>
@@ -2018,46 +2130,45 @@ let g:netrw_pre_expand_layout = {}
 function! SmartCtrlO() abort
     let g:netrw_expanding         = 1
     let g:netrw_pre_expand_layout = {}
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            let g:netrw_pre_expand_layout[l:i] = winwidth(l:i)
-        endif
-    endfor
 
-    let l:wl_wnr = bufwinnr(WinListBufName())
-    if l:wl_wnr != -1
-        call setwinvar(l:wl_wnr, '&winfixwidth', 1)
+    " ghi nhớ panel TRƯỚC khi đóng
+    let g:netrw_panel_was_open    = WinListIsOpen()  ? 1 : 0
+    let g:netrw_nerdtree_was_open = NERDTreeIsOpen() ? 1 : 0
+
+    " 1) đóng panel trước, để số thứ tự cửa sổ bên dưới còn đúng
+    if g:netrw_nerdtree_was_open
+        silent! NERDTreeClose
+        let g:panel_nerdtree_open = 0
     endif
-    for l:i in range(1, winnr('$'))
-        if WinListIsNERDTree(winbufnr(l:i))
-            call setwinvar(l:i, '&winfixwidth', 1)
+    if g:netrw_panel_was_open
+        let l:wl = bufwinnr(WinListBufName())
+        if l:wl != -1
+            execute 'noautocmd ' . l:wl . 'wincmd c'
         endif
-    endfor
+    endif
 
+    let l:safe = WinListFindNormalWin()
+    if l:safe == -1
+        execute 'E'
+        return
+    endif
+    execute 'noautocmd ' . l:safe . 'wincmd w'
+
+    " 2) ghi lại bề rộng các split soạn thảo thật
     let l:normal_wins = []
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
         if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
             call add(l:normal_wins, l:i)
+            let g:netrw_pre_expand_layout[l:i] = winwidth(l:i)
         endif
     endfor
 
+    " 3) co các split khác về 1 cột để netrw có chỗ
     let l:cur = winnr()
-
     if len(l:normal_wins) >= 2
-        let l:avail = &columns
-        if l:wl_wnr != -1
-            let l:avail -= winwidth(l:wl_wnr) + 1
-        endif
-        for l:i in range(1, winnr('$'))
-            if WinListIsNERDTree(winbufnr(l:i))
-                let l:avail -= winwidth(l:i) + 1
-            endif
-        endfor
-
         let l:min_w  = 1
-        let l:main_w = l:avail - (len(l:normal_wins) - 1) * (l:min_w + 1)
+        let l:main_w = &columns - (len(l:normal_wins) - 1) * (l:min_w + 1)
         if l:main_w < 1 | let l:main_w = 1 | endif
 
         for l:i in l:normal_wins
@@ -2087,13 +2198,27 @@ function! SmartCtrlORestore() abort
 
     execute 'wincmd ='
 
-    let l:wl_wnr = bufwinnr(WinListBufName())
-    if l:wl_wnr != -1
-        silent! call WinListFixWidth()
+    " dựng lại panel đúng như trước khi Ctrl-O
+    if get(g:, 'netrw_panel_was_open', 0)
+        if get(g:, 'netrw_nerdtree_was_open', 0)
+            silent! call PanelOpenWithNERDTree()
+        else
+            silent! call CombinedPanelOpen()
+
+        endif
+    elseif get(g:, 'netrw_nerdtree_was_open', 0)
+        silent! call PanelOpenWithNERDTree()
     endif
 
     let g:netrw_pre_expand_layout = {}
+    let g:netrw_panel_was_open    = 0
+    let g:netrw_nerdtree_was_open = 0
     let g:netrw_expanding         = 0
+
+    let l:back = WinListFindNormalWin()
+    if l:back != -1
+        execute 'noautocmd ' . l:back . 'wincmd w'
+    endif
 endfunction
 
 augroup NetrwExpandRestore
@@ -2580,7 +2705,16 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
+    call add(l:L, '  Version 6.59  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
+    call add(l:L, '')
+
+    call add(l:L, '▶ STATUSLINE')
+    call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
+    call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
+    call add(l:L, '  • Màu chữ vị trí bám theo màu path (highlight link StatusLinePos)')
+    call add(l:L, '  • Nền statusline đổi theo mode: xanh đậm (Normal), cam (Insert),')
+    call add(l:L, '     xanh lá (Replace) — tự động qua DynamicStatusLine')
     call add(l:L, '')
 
     call add(l:L, '▶ COMMENT SYSTEM')
@@ -2632,12 +2766,14 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `Ctrl-Shift-T` Reopen last closed file (stack, max 20)')
     call add(l:L, '')
 
-    call add(l:L, '▶ WINLIST + NERDTREE COMBINED PANEL')
-    call add(l:L, '  • `Ctrl-B`      Toggle combined panel (WinList top / NERDTree bottom)')
-    call add(l:L, '  • `<leader>w`   Toggle panel (same as Ctrl-B)')
+    call add(l:L, '▶ SIDE PANEL — WinList (always on) + NERDTree (on demand)')
+    call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
+    call add(l:L, '  • `wl`            Bật/tắt WinList (KHÔNG ảnh hưởng NERDTree)')
+    call add(l:L, '  • `Ctrl-B`        Bật/tắt NERDTree. NERDTree mở ra ở NỬA DƯỚI')
+    call add(l:L, '     của cột trái (WinList giữ nửa trên). WinList KHÔNG bị ảnh hưởng.')
     call add(l:L, '  • `<leader>W`   Fix/sync WinList panel width')
     call add(l:L, '  • `<leader>wa`  Open panel in ALL tabs')
-    call add(l:L, '  • `<leader>wh`  Fix panel heights (50/50 split)')
+    call add(l:L, '  • `<leader>wh`  Fix panel heights (50/50 split when NERDTree is up)')
     call add(l:L, '  • Inside panel: `Enter` / double-click jumps to entry, `q` closes,')
     call add(l:L, '     `r` refreshes')
     call add(l:L, '  • NERDTree Enter/double-click opens file as a NEW right split')
@@ -2647,8 +2783,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ NETRW QUICK BROWSE')
-    call add(l:L, '  • `Ctrl-O`  Expand all real splits to min width, open netrw (:E)')
-    call add(l:L, '     Layout auto-restores when leaving the netrw buffer')
+    call add(l:L, '  • `Ctrl-O`  Ẩn WinList + NERDTree, mở netrw (:E) toàn màn hình')
+    call add(l:L, '     Panel tự dựng lại đúng trạng thái cũ khi rời netrw')
     call add(l:L, '')
 
     call add(l:L, '▶ QUICK REPLACE / DELETE (whole buffer, literal text)')
