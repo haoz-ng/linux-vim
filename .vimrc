@@ -1063,6 +1063,26 @@ function! WinListFindNormalWin() abort
     return -1
 endfunction
 
+" Như WinListFindNormalWin(), nhưng CHẤP NHẬN netrw làm cửa sổ tựa.
+" netrw có buftype=nofile nên bị WinListIsSpecial() coi là special — nếu
+" dùng FindNormalWin() ở đây sẽ trả -1 và code gọi enew, đè mất netrw.
+function! WinListFindAnchorWin() abort
+    " ưu tiên cửa sổ soạn thảo thật
+    let l:w = WinListFindNormalWin()
+    if l:w != -1 | return l:w | endif
+    " không có -> lấy cửa sổ netrw nếu đang mở
+    for l:i in range(1, winnr('$'))
+        let l:bn = winbufnr(l:i)
+        if WinListIsNERDTree(l:bn) || WinListIsWinList(l:bn)
+            continue
+        endif
+        if getbufvar(l:bn, '&filetype') ==# 'netrw'
+            return l:i
+        endif
+    endfor
+    return -1
+endfunction
+
 function! WinListIsOpen() abort
     return bufwinnr(WinListBufName()) != -1
 endfunction
@@ -1508,7 +1528,7 @@ function! CombinedPanelOpen() abort
         return
     endif
 
-    let l:safe = WinListFindNormalWin()
+    let l:safe = WinListFindAnchorWin()
     if l:safe == -1
         call timer_start(100, {-> CombinedPanelOpen()})
         return
@@ -1526,8 +1546,8 @@ function! CombinedPanelOpen() abort
 
         let g:winlist_tab_open[tabpagenr()] = 1
 
-        " trả focus về cửa sổ soạn thảo
-        let l:back = WinListFindNormalWin()
+        " trả focus về cửa sổ nội dung (chấp nhận cả netrw)
+        let l:back = WinListFindAnchorWin()
         if l:back != -1
             execute 'noautocmd ' . l:back . 'wincmd w'
         endif
@@ -1913,20 +1933,19 @@ function! s:StartupWinList() abort
     if get(g:, 'netrw_expanding', 0)  | return | endif
     if WinListIsOpen()                | return | endif
 
-    " đang mở file thẳng vào netrw -> không chen panel vào
-    if &filetype ==# 'netrw'          | return | endif
-
-    " chưa có cửa sổ soạn thảo nào (chỉ có [No Name]) vẫn phải mở được:
-    " WinListFindNormalWin() trả về -1 khi buffer hiện tại là special,
-    " nên tạo một cửa sổ soạn thảo rỗng trước nếu cần.
-    if WinListFindNormalWin() == -1
-        if &buftype ==# '' && expand('%') ==# ''
-            " cửa sổ [No Name] bình thường -> dùng luôn
-        else
-            silent! enew
+    " Khởi động với một thư mục (gvim . / gvim /path/dir) hoặc không có
+    " argument: Vim mở [No Name] trống.  Nếu có thư mục làm việc thì mở
+    " netrw để hiện cây thư mục, thay vì để buffer trống.
+    if &buftype ==# '' && expand('%') ==# ''
+        let l:dir = argc() > 0 ? fnamemodify(argv(0), ':p') : getcwd()
+        if isdirectory(l:dir)
+            silent! execute 'edit ' . fnameescape(l:dir)
         endif
     endif
 
+    " Không bao giờ enew ở đây: netrw dùng buftype=nofile nên bị coi là
+    " special, enew sẽ đè mất netrw.  CombinedPanelOpen() tự tìm cửa sổ
+    " tựa qua WinListFindAnchorWin() (chấp nhận cả netrw).
     silent! call CombinedPanelOpen()
 endfunction
 
