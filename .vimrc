@@ -1,11 +1,11 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.59                                                         ║
+" ║  Version  : 6.60                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
-" ║             [CL:TL], diff, folding, auto-save, quick replace/delete,     ║
-" ║             mark highlighting & more.                                    ║
+" ║             [CL:TL], panel-aware tab label & window title, diff,         ║
+" ║             folding, auto-save, quick replace/delete, mark highlight.    ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
 
@@ -59,10 +59,35 @@ set lazyredraw
 set updatetime=1000
 
 " Builds the tab label text: filename + [M] (modified) + [RO] (readonly)
+" Bỏ qua các cửa sổ panel (WinList / NERDTree / netrw): nếu cửa sổ đang
+" focus là panel thì vẫn lấy tên file thật đang mở trong tab, không hiện
+" "__WindowList__".  Ưu tiên cửa sổ đang focus nếu nó là cửa sổ nội dung.
+function! s:IsPanelBuf(bufnr) abort
+    let l:name = bufname(a:bufnr)
+    let l:bt   = getbufvar(a:bufnr, '&buftype')
+    return l:name =~# '^NERD_tree'
+        \ || l:name ==# '__WindowList__'
+        \ || l:bt   ==# 'quickfix'
+        \ || l:bt   ==# 'help'
+        \ || l:bt   ==# 'nofile'
+endfunction
+
 function! GuiTabLabel() abort
     let l:buflist = tabpagebuflist(v:lnum)
     let l:winnr   = tabpagewinnr(v:lnum)
-    let l:bufnr   = l:buflist[l:winnr - 1]
+    let l:cur     = l:buflist[l:winnr - 1]
+
+    " Nếu cửa sổ focus là panel, tìm cửa sổ nội dung đầu tiên trong tab
+    let l:bufnr = l:cur
+    if s:IsPanelBuf(l:cur)
+        for l:bn in l:buflist
+            if !s:IsPanelBuf(l:bn)
+                let l:bufnr = l:bn
+                break
+            endif
+        endfor
+    endif
+
     let l:fname   = bufname(l:bufnr)
     let l:name    = l:fname ==# '' ? '[No Name]' : fnamemodify(l:fname, ':t')
     let l:mod     = getbufvar(l:bufnr, '&modified')  ? ' [M]' : ''
@@ -801,6 +826,18 @@ augroup filtype_verilog
 augroup END
 runtime macros/matchit.vim
 
+" ── Markdown: bỏ highlight lỗi của syntax mặc định ────────────────────────
+" Vim tô đỏ (markdownError) các dòng markdown mà bộ syntax coi là sai —
+" ví dụ khối code không có ngôn ngữ, đường dẫn Windows, bảng thiếu cột.
+" Không phải lỗi thật nên tắt hẳn nhóm highlight đó.
+" Lưu ý: phải dùng 'hi! link ... NONE' (không phải 'highlight clear') để
+" giữ nguyên các nhóm markdown khác; và chạy sau khi syntax đã nạp nên
+" đặt trong FileType (và lặp lại ở Syntax nếu filetype đổi muộn).
+augroup markdown_fix
+    autocmd!
+    autocmd FileType markdown hi! link markdownError NONE
+augroup END
+
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                            INDENT LINE                                   │
@@ -827,11 +864,53 @@ let g:bookmark_center = 1
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                          GVIM GUI SETTINGS                               │
 " │ Description: Hides GUI menu bar and toolbar by default. F10 toggles     │
-" │ menu+toolbar visibility on/off manually.                               │
+" │ menu+toolbar visibility on/off manually. Also builds the window title   │
+" │ from the CURRENT CONTENT window — focusing the WinList/NERDTree panel   │
+" │ no longer changes the title to "__WindowList__".                        │
 " └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guioptions-=mT
 endif
+
+" Title = tên file thật của cửa sổ nội dung đang hoạt động.
+" Mặc định Vim dùng tên buffer của cửa sổ đang focus, nên khi focus vào
+" panel WinList thì title thành "__WindowList__" — đây là lỗi đã sửa.
+set title
+set titleold=
+" %{...} trong titlestring chỉ gọi được hàm public (không phải s:).
+function! GuiTitle() abort
+    " tabs: số tab đang mở, để giữ thông tin như title mặc định của Vim
+    let l:ntabs = tabpagenr('$')
+
+    " tìm cửa sổ nội dung: ưu tiên cửa sổ focus nếu nó không phải panel
+    let l:bn = bufnr('%')
+    if s:IsPanelBuf(l:bn)
+        for l:i in range(1, winnr('$'))
+            let l:cand = winbufnr(l:i)
+            if !s:IsPanelBuf(l:cand)
+                let l:bn = l:cand
+                break
+            endif
+        endfor
+    endif
+
+    let l:name = bufname(l:bn)
+    let l:title = l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t')
+    let l:full  = l:name ==# '' ? '' : fnamemodify(l:name, ':p:h:t')
+
+    let l:mod = getbufvar(l:bn, '&modified') ? ' [+]' : ''
+    let l:ro  = getbufvar(l:bn, '&readonly') ? ' [RO]' : ''
+
+    " tab hiện tại / tổng số tab — giống kiểu title mặc định
+    let l:tabinfo = l:ntabs > 1
+        \ ? printf(' (%d/%d)', tabpagenr(), l:ntabs)
+        \ : ''
+
+    return (l:full ==# '' ? '' : l:full . ' — ')
+        \ . l:title . l:mod . l:ro . l:tabinfo . ' — GVIM'
+endfunction
+
+set titlestring=%{GuiTitle()}
 
 function! ToggleGvimMenuToolbar()
     if has('gui_running')
@@ -1031,6 +1110,27 @@ augroup END
 
 function! WinListBufName(...) abort
     return '__WindowList__'
+endfunction
+
+" Trả về BUFFER NUMBER của cửa sổ NỘI DUNG đang hoạt động trong tab hiện
+" tại.  Dùng bufnr chứ không dùng winnr: winnr thay đổi khi tách/đóng
+" split hoặc khi panel chen vào, còn bufnr thì ổn định — đây chính là
+" nguồn gốc bug marker '>' chỉ sai dòng trước đây.
+" - Focus đang ở cửa sổ nội dung  -> bufnr của nó
+" - Focus đang ở panel           -> bufnr đã nhớ trong g:winlist_last_active
+" - Không có gì hợp lệ           -> -1
+function! s:CurrentContentBuf() abort
+    if !WinListIsSpecial()
+        return bufnr('%')
+    endif
+
+    let l:saved = get(g:winlist_last_active, tabpagenr(), -1)
+    if l:saved > 0 && bufexists(l:saved)
+        return l:saved
+    endif
+
+    let l:w = WinListFindNormalWin()
+    return l:w == -1 ? -1 : winbufnr(l:w)
 endfunction
 
 function! WinListIsNERDTree(...) abort
@@ -1282,12 +1382,22 @@ function! WinListBuildAllTabLines() abort
             \ printf('=== Tab %d  %s%s ===§%s',
             \        l:t, l:split_label, l:active_mark, l:tid))
 
-        let l:active_win  = get(g:winlist_last_active, l:t, 1)
-        let l:raw_idx     = 0
+        " Xác định cửa sổ đang hoạt động bằng BUFFER NUMBER, không dùng index.
+        " Bug cũ: code so sánh raw_idx (vị trí trong tabpagebuflist) với
+        " g:winlist_last_active (vốn là winnr). Hai đại lượng khác hệ quy
+        " chiếu, nên khi thứ tự buffer trong tab khác thứ tự cửa sổ (rất hay
+        " xảy ra sau khi tách/mở nhiều split) marker '>' chỉ sai dòng.
+        if l:t == l:cur_tab
+            let l:active_buf = s:CurrentContentBuf()
+        else
+            " tab khác: dùng buffer đã nhớ (g:winlist_last_active lưu BUFFER
+            " NUMBER, xem WinListRefreshAllTabs)
+            let l:active_buf = get(g:winlist_last_active, l:t, -1)
+        endif
+
         let l:display_idx = 0
 
         for l:bn in l:wins_in_tab
-            let l:raw_idx += 1
             if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn)
                 continue
             endif
@@ -1298,7 +1408,7 @@ function! WinListBuildAllTabLines() abort
                            \ : fnamemodify(l:fullpath, ':t')
             let l:mod      = getbufvar(l:bn, '&modified') ? ' [+]' : ''
             let l:prefix   = (l:t == l:cur_tab
-                           \ && l:raw_idx == l:active_win) ? '> ' : '  '
+                           \ && l:bn == l:active_buf) ? '> ' : '  '
 
             call add(l:lines,
                 \ printf('%s%d: %s%s', l:prefix, l:display_idx, l:fname, l:mod))
@@ -1434,10 +1544,12 @@ function! WinListRefresh() abort
     let l:wl_winnr = bufwinnr(WinListBufName())
     let l:cur_win  = winnr()
 
+    " LƯU BUFFER NUMBER (không phải winnr): winnr đổi khi tách/đóng split
+    " hoặc khi panel chiếm chỗ, còn bufnr thì ổn định.
     if l:cur_win != l:wl_winnr
         \ && !WinListIsSpecial()
         \ && !WinListIsNERDTree(winbufnr(l:cur_win))
-        let g:winlist_last_active[tabpagenr()] = l:cur_win
+        let g:winlist_last_active[tabpagenr()] = bufnr('%')
     endif
 
     let l:lines = WinListBuildAllTabLines()
@@ -1465,7 +1577,7 @@ function! WinListRefreshAllTabs() abort
     let l:cur_win = winnr()
 
     if !WinListIsSpecial() && !WinListIsNERDTree()
-        let g:winlist_last_active[l:cur_tab] = l:cur_win
+        let g:winlist_last_active[l:cur_tab] = bufnr('%')
     endif
 
     let l:lines  = WinListBuildAllTabLines()
@@ -2724,7 +2836,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.59  ·  2026-11-18')
+    call add(l:L, '  Version 6.60  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -2734,6 +2846,15 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Màu chữ vị trí bám theo màu path (highlight link StatusLinePos)')
     call add(l:L, '  • Nền statusline đổi theo mode: xanh đậm (Normal), cam (Insert),')
     call add(l:L, '     xanh lá (Replace) — tự động qua DynamicStatusLine')
+    call add(l:L, '')
+
+    call add(l:L, '▶ TAB LABEL & WINDOW TITLE')
+    call add(l:L, '  • Cả hai luôn hiện tên FILE THẬT, kể cả khi focus đang ở panel')
+    call add(l:L, '     WinList/NERDTree — không còn hiện "__WindowList__"')
+    call add(l:L, '  • Tab label: `GuiTabLabel()` → tên file + [M] + [RO]')
+    call add(l:L, '  • Window title: `GuiTitle()` qua `titlestring`, dạng')
+    call add(l:L, '     `<thư mục> — <file> [M] [RO] (tab/tổng) — GVIM`')
+    call add(l:L, '  • Cả hai dùng chung `s:IsPanelBuf()` để bỏ qua buffer panel')
     call add(l:L, '')
 
     call add(l:L, '▶ COMMENT SYSTEM')
