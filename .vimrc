@@ -331,7 +331,7 @@ function! ToggleHaozCommentAtBeginning()
     let line = getline('.')
     let indent = matchstr(line, '^\s*')
     let content = substitute(line, '^\s*', '', '')
-    let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz: \s\+'
+    let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz:\s\+'
     if content =~ pattern
         let new_content = substitute(content, pattern, '', '')
         silent! call setline('.', indent . new_content)
