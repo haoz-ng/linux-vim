@@ -35,7 +35,7 @@ set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
 set termencoding=utf-8
-set guifont=Consolas\ Regular\ 9
+set guifont=Consolas\ Regular\ 10
 set ignorecase
 set smartcase
 set autoread
