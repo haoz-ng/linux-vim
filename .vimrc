@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
 " ║  Version  : 6.62                                                         ║
-" ║  Modified : 2026-11-18                                                   ║
+" ║  Modified : 2026-11-17                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
 " ║             [CL:TL], panel-aware tab label & window title, diff,         ║
@@ -35,7 +35,7 @@ set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
 set termencoding=utf-8
-set guifont=Consolas\ Regular\ 10
+set guifont=Consolas\ Regular\ 9
 set ignorecase
 set smartcase
 set autoread
