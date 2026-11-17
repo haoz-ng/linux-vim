@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.60                                                         ║
+" ║  Version  : 6.62                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -1018,14 +1018,17 @@ autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 " └──────────────────────────────────────────────────────────────────────────┘
 
 " ── Panel dimensions ──────────────────────────────────────────────────────
+" Width cố định 50 cột; min 15, max 50.  Dùng hàm s:PanelWidth() bên dưới
+" để mọi chỗ resize đều bị kẹp trong [min,max] — trước đây min/max khai
+" báo nhưng KHÔNG chỗ nào đọc, nên panel có thể bị nới rộng tuỳ ý.
 let g:winlist_min_width    = 15
-let g:winlist_max_width    = 75
+let g:winlist_max_width    = 50
 let g:winlist_padding      = 2
-let g:winlist_width        = 75
+let g:winlist_width        = 50
 
 let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
-let g:NERDTreeWinSize      = 75
+let g:NERDTreeWinSize      = 50
 
 " WinList luôn hiển thị ở mọi tab; NERDTree chỉ bật/tắt bằng Ctrl-B
 let g:winlist_always       = 1
@@ -1110,6 +1113,17 @@ augroup END
 
 function! WinListBufName(...) abort
     return '__WindowList__'
+endfunction
+
+" Width thực tế của panel, đã kẹp trong [g:winlist_min_width, g:winlist_max_width].
+" Không bao giờ vượt quá nửa màn hình: panel rộng hơn nửa thì cửa sổ soạn
+" thảo còn < 50% và không đọc được code.
+function! s:PanelWidth() abort
+    let l:w = g:winlist_width
+    let l:w = max([l:w, g:winlist_min_width])
+    let l:w = min([l:w, g:winlist_max_width])
+    let l:w = min([l:w, max([g:winlist_min_width, &columns / 2])])
+    return l:w
 endfunction
 
 " Trả về BUFFER NUMBER của cửa sổ NỘI DUNG đang hoạt động trong tab hiện
@@ -1286,7 +1300,7 @@ function! SyncNERDTreeWidth() abort
         if WinListIsNERDTree(winbufnr(l:i))
             let l:cur = winnr()
             execute 'noautocmd ' . l:i . 'wincmd w'
-            execute 'vertical resize ' . g:winlist_width
+            execute 'vertical resize ' . s:PanelWidth()
             execute 'noautocmd ' . l:cur . 'wincmd w'
             return
         endif
@@ -1298,12 +1312,12 @@ function! WinListFixWidth() abort
     if g:netrw_expanding  | return | endif
     if !WinListIsOpen()   | return | endif
     let l:wnr = bufwinnr(WinListBufName())
-    if winwidth(l:wnr) == g:winlist_width | return | endif
+    if winwidth(l:wnr) == s:PanelWidth() | return | endif
 
     let l:cur = winnr()
     silent! call WinListLockSplitWidths()
     execute 'noautocmd ' . l:wnr . 'wincmd w'
-    execute 'vertical resize ' . g:winlist_width
+    execute 'vertical resize ' . s:PanelWidth()
     execute 'noautocmd ' . l:cur . 'wincmd w'
     silent! call WinListUnlockSplitWidths()
     silent! call SyncNERDTreeWidth()
@@ -1653,7 +1667,7 @@ function! CombinedPanelOpen() abort
         execute 'noautocmd ' . l:safe . 'wincmd w'
 
         execute 'topleft vertical split ' . WinListBufName()
-        execute 'vertical resize ' . g:winlist_width
+        execute 'vertical resize ' . s:PanelWidth()
         call s:SetupWinListWindow()
 
         let g:winlist_tab_open[tabpagenr()] = 1
@@ -1694,7 +1708,7 @@ function! PanelOpenWithNERDTree() abort
                 \ ? fnamemodify(expand('%:p'), ':h')
                 \ : getcwd()
             execute 'NERDTree ' . fnameescape(l:cwd)
-            execute 'vertical resize ' . g:winlist_width
+            execute 'vertical resize ' . s:PanelWidth()
             setlocal winfixwidth
         endif
 
@@ -1714,7 +1728,7 @@ function! PanelOpenWithNERDTree() abort
             execute 'noautocmd ' . l:nt . 'wincmd w'
             execute 'aboveleft ' . l:half . 'split ' . WinListBufName()
             call s:SetupWinListWindow()
-            execute 'vertical resize ' . g:winlist_width
+            execute 'vertical resize ' . s:PanelWidth()
 
             " cân lại NERDTree cho đúng nửa dưới
             let l:nt2 = -1
@@ -2179,7 +2193,7 @@ function! SplitExpandRestore() abort
 
     if l:wl_wnr != -1
         execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
-        execute 'vertical resize ' . g:winlist_width
+        execute 'vertical resize ' . s:PanelWidth()
         call setwinvar(l:wl_wnr, '&winfixwidth', 1)
     endif
 
@@ -2836,7 +2850,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.60  ·  2026-11-18')
+    call add(l:L, '  Version 6.62  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
