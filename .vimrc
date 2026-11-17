@@ -306,12 +306,12 @@ vnoremap <silent> cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
 function! ToggleCommentSyntaxHaoz()
     let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
     let l:comment = substitute(l:comment, '\\/\\/', '//', 'g')
-    let l:pattern = '\s*' . escape(l:comment, '/\.*$^~[]') . '\s* haoz\s*$'
+    let l:pattern = '\s*' . escape(l:comment, '/\.*$^~[]') . '\s* haoz: \s*$'
     let l:current_line = getline('.')
     if l:current_line =~ l:pattern
         silent! call setline('.', substitute(l:current_line, l:pattern, '', ''))
     else
-        silent! call setline('.', l:current_line . ' ' . l:comment . ' haoz')
+        silent! call setline('.', l:current_line . ' ' . l:comment . ' haoz: ')
     endif
 endfunction
 
@@ -331,13 +331,13 @@ function! ToggleHaozCommentAtBeginning()
     let line = getline('.')
     let indent = matchstr(line, '^\s*')
     let content = substitute(line, '^\s*', '', '')
-    let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+    let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz: \s\+'
     if content =~ pattern
         let new_content = substitute(content, pattern, '', '')
         silent! call setline('.', indent . new_content)
     else
         if content != ''
-            silent! call setline('.', indent . cl . ' haoz ' . content)
+            silent! call setline('.', indent . cl . ' haoz: ' . content)
         endif
     endif
 endfunction
@@ -346,11 +346,11 @@ function! ToggleHaozCommentRangeAtBeginning(start, end)
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
     let cl = substitute(cl, '\\/\\/', '//', 'g')
     let all_have_haoz = 1
-    let pattern = '^\s*' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+    let pattern = '^\s*' . escape(cl, '/\.*$^~[]') . '\s*haoz: \s\+'
     for lnum in range(a:start, a:end)
         let line = getline(lnum)
         let content = substitute(line, '^\s*', '', '')
-        if content != '' && content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
+        if content != '' && content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz: \s\+'
             let all_have_haoz = 0
             break
         endif
@@ -361,11 +361,11 @@ function! ToggleHaozCommentRangeAtBeginning(start, end)
         let content = substitute(line, '^\s*', '', '')
         if content != ''
             if all_have_haoz
-                let new_content = substitute(content, '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+', '', '')
+                let new_content = substitute(content, '^' . escape(cl, '/\.*$^~[]') . '\s*haoz: \s\+', '', '')
                 silent! call setline(lnum, indent . new_content)
             else
-                if content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz\s\+'
-                    silent! call setline(lnum, indent . cl . ' haoz ' . content)
+                if content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz: \s\+'
+                    silent! call setline(lnum, indent . cl . ' haoz: ' . content)
                 endif
             endif
         endif
