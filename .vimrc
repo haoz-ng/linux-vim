@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.67                                                         ║
+" ║  Version  : 6.68                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -1409,6 +1409,27 @@ function! WinListShortPath(fullpath) abort
     endif
 endfunction
 
+" Bề ngang text thực tế của buffer WinList (đã trừ cột number), dùng để đệm
+" space cho dòng entry đang active nhằm phủ kín cả hàng bằng guibg.
+" Không có cửa sổ WinList (đang dựng panel) -> lấy theo bề rộng cấu hình.
+function! s:WinListTextWidth() abort
+    let l:wnr = bufwinnr(WinListBufName())
+    if l:wnr == -1
+        return max([10, s:PanelWidth() - 1])
+    endif
+    let l:w = winwidth(l:wnr)
+    " Cột number chiếm 'numberwidth' cột + 1 dấu cách phân cách.  Lưu ý: với
+    " buffer winlist, augroup WinListBufSettings đặt 'nonumber' (FileType
+    " winlist bắn ra sau 'setlocal number' trong s:SetupWinListWindow), nên
+    " thực tế cột này KHÔNG tồn tại — chỉ trừ khi 'number' thật sự đang bật.
+    " Đệm dư 1-2 cột là vô hại (nowrap nên phần thừa bị cắt), đệm thiếu thì
+    " thanh nền bị hụt so với mép panel.
+    if getwinvar(l:wnr, '&number')
+        let l:w -= str2nr(getwinvar(l:wnr, '&numberwidth')) + 1
+    endif
+    return max([10, l:w])
+endfunction
+
 function! WinListBuildAllTabLines() abort
     let l:cur_tab = tabpagenr()
     let l:lines   = []
@@ -1464,8 +1485,23 @@ function! WinListBuildAllTabLines() abort
             let l:prefix   = (l:t == l:cur_tab
                            \ && l:bn == l:active_buf) ? '> ' : '  '
 
-            call add(l:lines,
-                \ printf('%s%d: %s%s', l:prefix, l:display_idx, l:fname, l:mod))
+            let l:entry = printf('%s%d: %s%s',
+                \ l:prefix, l:display_idx, l:fname, l:mod)
+
+            " Đệm space cho hết bề ngang panel CHỈ ở dòng entry đang active.
+            " Lý do: guibg của syntax chỉ tô phần có ký tự, nên nếu không đệm
+            " thì thanh nền xanh chỉ dài bằng tên file, không phủ hết hàng.
+            " Buffer WinList đặt 'nowrap' nên phần đệm dư không bao giờ xuống
+            " dòng.  Buffer là nofile và được dựng lại mỗi lần refresh
+            " (WinListRefresh/RefreshAllTabs) nên đệm luôn khớp bề ngang mới.
+            if l:prefix ==# '> '
+                let l:pad = s:WinListTextWidth() - strwidth(l:entry)
+                if l:pad > 0
+                    let l:entry .= repeat(' ', l:pad)
+                endif
+            endif
+
+            call add(l:lines, l:entry)
 
             if l:fullpath !=# ''
                 let l:abspath = fnamemodify(l:fullpath, ':p')
@@ -1530,10 +1566,14 @@ function! WinListSetupHighlight() abort
     " Number/Modified/Mark: chúng PHẢI khai báo lại guibg, vì trong Vim một
     " syntax item contained không thừa hưởng thuộc tính của nhóm bao ngoài —
     " thiếu guibg thì chữ số / [+] / '>' sẽ bị khoét lỗ đen giữa thanh xanh.
-    silent! highlight default WinListActive     guifg=#ffffff guibg=#003366 ctermfg=231 ctermbg=DarkBlue gui=bold
-    silent! highlight default WinListActiveNum  guifg=#98c379 guibg=#003366 ctermfg=114 ctermbg=DarkBlue gui=bold
-    silent! highlight default WinListActiveMod  guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
-    silent! highlight default WinListActiveMark guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
+    " Bốn nhóm dưới đây cố ý KHÔNG dùng 'default': ':highlight default' không
+    " ghi đè nhóm đã tồn tại, nên sau khi 'hi clear' (đổi colorscheme) hay
+    " khi source lại vimrc giữa chừng, màu mới sẽ không được áp — đúng lỗi
+    " đã gặp: chữ vẫn cyan cũ, chỉ các nhóm mới sinh ra mới có nền xanh.
+    silent! highlight WinListActive     guifg=#ffffff guibg=#003366 ctermfg=231 ctermbg=DarkBlue gui=bold
+    silent! highlight WinListActiveNum  guifg=#98c379 guibg=#003366 ctermfg=114 ctermbg=DarkBlue gui=bold
+    silent! highlight WinListActiveMod  guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
+    silent! highlight WinListActiveMark guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic
     silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66
@@ -1550,7 +1590,7 @@ augroup WinListHighlight
     autocmd ColorScheme * silent! call WinListSetupHighlight()
     augroup WinListBufSettings
         autocmd!
-        autocmd FileType winlist setlocal wrap nonumber norelativenumber
+        autocmd FileType winlist setlocal wrap nonumber norelativenumber nolist
                                \ cursorline buftype=nofile noswapfile nobuflisted
                                \ winfixwidth winfixheight signcolumn=no
     augroup END
@@ -2116,6 +2156,11 @@ augroup WinListAuto
     autocmd TabLeave * silent! call WinListOnTabLeave()
     autocmd TabEnter * silent! call WinListOnTabEnter()
     autocmd TabNew   * silent! call WinListOnTabNew()
+
+    " Đổi bề ngang cửa sổ (hoặc resize panel bằng <leader>W / Ctrl-w +) thì
+    " phần đệm space của dòng active phải được tính lại, nếu không thanh nền
+    " xanh sẽ hụt (hẹp lại) hoặc dư (rộng ra) so với bề ngang panel.
+    autocmd VimResized * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
 augroup END
 
 
@@ -2921,7 +2966,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.67  ·  2026-11-18')
+    call add(l:L, '  Version 6.68  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
