@@ -3089,7 +3089,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `Alt-Z` Toggle line wrap')
     call add(l:L, '')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
-    return l:L
+    return l:L 
 endfunction
 
 function! ToggleVimrcManual() abort
