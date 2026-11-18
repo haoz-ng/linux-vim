@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.68                                                         ║
+" ║  Version  : 6.84                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -144,7 +144,7 @@ highlight TabLineFill ctermfg=0   ctermbg=0 guifg=#000000 guibg=#000000 cterm=NO
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │                         NETRW ( :E ) STYLING                            │
+" │                       NETRW ( :Explore ) STYLING                        │
 " │ Description: Configures netrw's built-in file explorer (tree-style      │
 " │ listing, horizontal size hints) and applies a custom cyan/dark syntax    │
 " │ highlight palette (directories, links, executables, hidden files,       │
@@ -1073,9 +1073,18 @@ let g:NERDTreeWinSize      = 50
 " WinList luôn hiển thị ở mọi tab; NERDTree chỉ bật/tắt bằng Ctrl-B
 let g:winlist_always       = 1
 
-" Nhớ trạng thái panel trong lúc Ctrl-O mở netrw, để dựng lại khi rời netrw
-let g:netrw_panel_was_open    = 0
-let g:netrw_nerdtree_was_open = 0
+" Trạng thái netrw của Ctrl-O.  Ctrl-O không ẩn panel / không resize gì cả,
+" nên KHÔNG cần nhớ layout để dựng lại — chỉ cần các biến dưới đây.
+" g:netrw_expanding      : 1 trong lúc đang xem netrw -> tạm tắt auto-close tab
+"                          và các lần refresh/dựng lại panel.
+" g:netrw_explore_active : 1 = phiên Ctrl-O đang mở (để SmartCtrlORestore()
+"                          bỏ qua những lần rời netrw không do Ctrl-O tạo ra).
+" g:netrw_back_buf/path  : buffer (và đường dẫn dự phòng) đã xem NGAY TRƯỚC khi
+"                          mở netrw — Ctrl-O lần 2 sẽ quay lại đúng chỗ này.
+let g:netrw_expanding         = 0
+let g:netrw_explore_active    = 0
+let g:netrw_back_buf          = -1
+let g:netrw_back_path         = ''
 
 let g:panel_nerdtree_lines = 0
 let g:panel_nerdtree_open  = 0
@@ -1090,7 +1099,8 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
-let g:netrw_expanding      = 0
+" (g:netrw_expanding / g:netrw_explore_active khai báo ở trên, cùng cụm với
+"  trạng thái Ctrl-O)
 
 
 " ── Helper: compute half-screen height for WinList panel ──────────────────
@@ -1266,6 +1276,9 @@ function! WinListCheckAutoCloseTab() abort
     if g:winlist_opening      | return | endif
     if g:winlist_file_opening | return | endif
     if g:panel_opening        | return | endif
+    " Đang xem netrw bằng Ctrl-O: panel bị ẩn và buffer netrw là nofile nên
+    " "số cửa sổ thật" có thể bằng 0 — không được đóng tab lúc này.
+    if get(g:, 'netrw_expanding', 0) | return | endif
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
@@ -1287,6 +1300,7 @@ function! s:DelayedAutoClose() abort
     if g:winlist_opening      | return | endif
     if g:winlist_file_opening | return | endif
     if g:panel_opening        | return | endif
+    if get(g:, 'netrw_expanding', 0) | return | endif
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
@@ -1512,6 +1526,10 @@ function! WinListBuildAllTabLines() abort
             endif
         endfor
     endfor
+
+    " Chụp layout mọi tab (và phát hiện tab vừa đóng) ngay tại đây: hàm này
+    " vốn đã đi qua toàn bộ tab/cửa sổ nên không tốn thêm vòng lặp đáng kể.
+    silent! call s:SnapshotAllTabLayouts()
 
     return l:lines
 endfunction
@@ -2379,107 +2397,108 @@ nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │           CTRL+O — Open netrw expanded, restore on leave                 │
-" │ Description: Ctrl-O expands all real editing splits to minimum width     │
-" │ (keeping current window maximized) before opening netrw (:E), giving     │
-" │ maximum room for file browsing. Original split layout is automatically   │
-" │ restored (wincmd =, then WinList width fix) when leaving the netrw       │
-" │ buffer.                                                                   │
+" │        CTRL+O — mở netrw / quay lại file vừa xem (toggle 2 chiều)       │
+" │ Description: Ctrl-O bật/tắt netrw NGAY TRONG cửa sổ hiện tại — KHÔNG ẩn │
+" │ panel, KHÔNG phóng to, layout của tab giữ nguyên như bình thường.       │
+" │  • Lần 1 (đang xem file): nhớ buffer hiện tại rồi mở explorer bằng tên  │
+" │    đầy đủ ':Explore' — ':E' đã được định nghĩa lại thành ':e' (mở file  │
+" │    theo đường dẫn) nên không dùng được cho explorer nữa).              │
+" │  • Lần 2 (đang trong netrw): quay lại đúng buffer/file vừa xem; nếu     │
+" │    buffer đó đã bị xoá thì mở lại theo đường dẫn, cuối cùng fallback    │
+" │    sang alternate buffer.                                               │
+" │ Chọn file trong netrw -> file mở ra thay chỗ netrw (browse_split = 0),  │
+" │ panel vẫn nguyên chỗ cũ.  Không có layout nào phải dựng lại, nên khi    │
+" │ rời netrw chỉ cần hạ cờ.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
-let g:netrw_pre_expand_layout = {}
 
-function! SmartCtrlO() abort
-    let g:netrw_expanding         = 1
-    let g:netrw_pre_expand_layout = {}
-
-    " ghi nhớ panel TRƯỚC khi đóng
-    let g:netrw_panel_was_open    = WinListIsOpen()  ? 1 : 0
-    let g:netrw_nerdtree_was_open = NERDTreeIsOpen() ? 1 : 0
-
-    " 1) đóng panel trước, để số thứ tự cửa sổ bên dưới còn đúng
-    if g:netrw_nerdtree_was_open
-        silent! NERDTreeClose
-        let g:panel_nerdtree_open = 0
-    endif
-    if g:netrw_panel_was_open
-        let l:wl = bufwinnr(WinListBufName())
-        if l:wl != -1
-            execute 'noautocmd ' . l:wl . 'wincmd c'
-        endif
-    endif
-
-    let l:safe = WinListFindNormalWin()
-    if l:safe == -1
-        execute 'E'
-        return
-    endif
-    execute 'noautocmd ' . l:safe . 'wincmd w'
-
-    " 2) ghi lại bề rộng các split soạn thảo thật
-    let l:normal_wins = []
+" Có cửa sổ netrw nào đang mở không — dùng để phát hiện cờ cũ còn sót lại
+" (netrw bị đóng bằng :bd nên autocmd BufLeave không bắt được).
+function! s:HasNetrwWindow() abort
     for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call add(l:normal_wins, l:i)
-            let g:netrw_pre_expand_layout[l:i] = winwidth(l:i)
+        if getbufvar(winbufnr(l:i), '&filetype') ==# 'netrw'
+            return 1
         endif
     endfor
+    return 0
+endfunction
 
-    " 3) co các split khác về 1 cột để netrw có chỗ
-    let l:cur = winnr()
-    if len(l:normal_wins) >= 2
-        let l:min_w  = 1
-        let l:main_w = &columns - (len(l:normal_wins) - 1) * (l:min_w + 1)
-        if l:main_w < 1 | let l:main_w = 1 | endif
+" Buffer đang hiển thị có phải netrw không (dùng filetype, giống các autocmd
+" BufLeave/BufWinLeave bên dưới).
+function! s:IsNetrwBuffer() abort
+    return &filetype ==# 'netrw' || bufname('%') =~# '^netrw'
+endfunction
 
-        for l:i in l:normal_wins
-            call setwinvar(l:i, '&winfixwidth', 0)
-            execute l:i . 'wincmd w'
-            if l:i == l:cur
-                execute 'vertical resize ' . l:main_w
-            else
-                execute 'vertical resize ' . l:min_w
-            endif
-        endfor
-        execute l:cur . 'wincmd w'
+" Quay lại buffer đã xem trước khi mở netrw.  Ba mức dự phòng, theo thứ tự:
+"   1. buffer number đã nhớ (còn tồn tại)
+"   2. đường dẫn đã nhớ (buffer bị :bwipeout nhưng file còn trên đĩa)
+"   3. alternate buffer  -> cho trường hợp netrw mở bằng tay, không qua Ctrl-O
+function! s:NetrwBack() abort
+    let l:bn   = get(g:, 'netrw_back_buf', -1)
+    let l:path = get(g:, 'netrw_back_path', '')
+
+    if l:bn > 0 && bufexists(l:bn) && l:bn != bufnr('%')
+        silent! execute 'buffer ' . l:bn
+        return
     endif
 
-    execute 'E'
+    if l:path !=# '' && filereadable(l:path)
+        silent! execute 'edit ' . fnameescape(l:path)
+        return
+    endif
+
+    let l:alt = bufnr('#')
+    if l:alt > 0 && bufexists(l:alt) && getbufvar(l:alt, '&filetype') !=# 'netrw'
+        silent! execute 'buffer ' . l:alt
+        return
+    endif
+
+    echo 'Ctrl-O: không còn buffer nào để quay lại.'
+endfunction
+
+function! SmartCtrlO() abort
+    " Đang trong netrw -> Ctrl-O lần 2 = quay lại file vừa xem.  Việc chuyển
+    " buffer sẽ bắn BufLeave(netrw) -> SmartCtrlORestore() hạ cờ giúp mình.
+    if s:IsNetrwBuffer()
+        silent! call s:NetrwBack()
+        return
+    endif
+
+    " Tên đầy đủ ':Explore' (netrw).  Không dùng ':E': trong gvim ':E' đã
+    " được bind cho Ctrl-O và hành xử như ':e' (mở file), nên ':Explore' là
+    " cách gọi chắc chắn đúng explorer, không phụ thuộc alias/abbrev.
+    if !exists(':Explore')
+        echo ':Explore (netrw) không có sẵn — không mở được explorer.'
+        return
+    endif
+
+    if get(g:, 'netrw_explore_active', 0) && !s:HasNetrwWindow()
+        let g:netrw_explore_active = 0
+        let g:netrw_expanding      = 0
+    endif
+
+    " Nhớ chỗ đang xem để Ctrl-O lần 2 quay lại: buffer number là chính, đường
+    " dẫn chỉ là phương án dự phòng khi buffer bị xoá.
+    let g:netrw_back_buf  = bufnr('%')
+    let g:netrw_back_path = expand('%:p')
+
+    " Cờ này KHÔNG dùng để dựng lại layout (không có gì bị thay đổi), chỉ để:
+    " (1) tạm tắt auto-close tab trong lúc buffer duy nhất của tab là netrw —
+    " netrw có buftype=nofile nên bị tính là "không phải cửa sổ thật",
+    " (2) các hàm panel khỏi refresh/dựng lại giữa chừng.
+    let g:netrw_expanding      = 1
+    let g:netrw_explore_active = 1
+
+    silent! execute 'Explore'
 endfunction
 
 function! SmartCtrlORestore() abort
-    if empty(g:netrw_pre_expand_layout) | return | endif
-
-    for l:i in range(1, winnr('$'))
-        let l:bn = winbufnr(l:i)
-        if !WinListIsSpecial(l:bn) && !WinListIsNERDTree(l:bn)
-            call setwinvar(l:i, '&winfixwidth', 0)
-        endif
-    endfor
-
-    execute 'wincmd ='
-
-    " dựng lại panel đúng như trước khi Ctrl-O
-    if get(g:, 'netrw_panel_was_open', 0)
-        if get(g:, 'netrw_nerdtree_was_open', 0)
-            silent! call PanelOpenWithNERDTree()
-        else
-            silent! call CombinedPanelOpen()
-
-        endif
-    elseif get(g:, 'netrw_nerdtree_was_open', 0)
-        silent! call PanelOpenWithNERDTree()
-    endif
-
-    let g:netrw_pre_expand_layout = {}
-    let g:netrw_panel_was_open    = 0
-    let g:netrw_nerdtree_was_open = 0
-    let g:netrw_expanding         = 0
-
-    let l:back = WinListFindNormalWin()
-    if l:back != -1
-        execute 'noautocmd ' . l:back . 'wincmd w'
-    endif
+    " Rời netrw = đã chọn xong file, đã bấm Ctrl-O quay lại, hoặc thoát
+    " explorer.  Chỉ hạ cờ; layout và panel không bị đụng tới nên không phải
+    " dựng lại gì.  g:netrw_back_buf/path được GIỮ LẠI để lần Ctrl-O sau còn
+    " dùng (nó luôn được ghi đè khi mở netrw).
+    if !get(g:, 'netrw_explore_active', 0) | return | endif
+    let g:netrw_explore_active = 0
+    let g:netrw_expanding      = 0
 endfunction
 
 augroup NetrwExpandRestore
@@ -2492,11 +2511,43 @@ noremap <silent> <C-o> :call SmartCtrlO()<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │                     REOPEN LAST CLOSED FILE (CTRL+SHIFT+T)              │
+" │                  ':E' = ':e'  (mở file), KHÔNG phải explorer            │
+" │ Description: netrw định nghĩa ':E' là ':Explore' trong plugin của nó,   │
+" │ và plugin được nạp SAU vimrc — nên phải ghi đè ở VimEnter mới thắng.    │
+" │ Kết quả: ':E <path>' mở file y như ':e <path>'; ':E' (không tham số)     │
+" │ nạp lại file hiện tại.  Explorer vẫn còn nguyên: ':Explore' và Ctrl-O   │
+" │ (SmartCtrlO gọi thẳng ':Explore' nên không bị ảnh hưởng).              │
+" └──────────────────────────────────────────────────────────────────────────┘
+function! s:DefineEAsEdit() abort
+    " delcommand trước để không bị E174 khi định nghĩa lại
+    silent! delcommand E
+    " -nargs=?  : ':E' không tham số = ':e' (nạp lại file hiện tại)
+    " -bang     : cho ':E!' hoạt động như ':e!'
+    " -complete=file : Tab completion giống ':e'
+    command! -nargs=? -bang -complete=file E edit<bang> <args>
+endfunction
+
+augroup ForceEAsEdit
+    autocmd!
+    autocmd VimEnter * call s:DefineEAsEdit()
+augroup END
+
+" Gọi ngay 1 lần nữa: lúc khởi động lệnh này bị netrw (nạp sau vimrc) ghi đè
+" và được VimEnter sửa lại; nhưng khi ':so ~/.vimrc' giữa chừng thì VimEnter
+" không bắn nữa, nên phải áp luôn tại đây.
+silent! call s:DefineEAsEdit()
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │              REOPEN LAST CLOSED  (CTRL+SHIFT+T)                         │
 " │ Description: Tracks a stack (max 20) of recently closed real file       │
-" │ buffers. Ctrl-W closes the current window while pushing its file path   │
-" │ onto the stack; Ctrl-Shift-T pops the most recent entry and reopens it  │
-" │ (as a vertical split if needed, else in the current window).           │
+" │ buffers. Ctrl-W closes the current window while pushing onto the stack  │
+" │ not only its file path but ALSO which tab it belonged to (stable        │
+" │ Tab-ID), its ordinal among the tab's content windows, and its width.    │
+" │ Ctrl-Shift-T then reopens it in that very tab, at that very position,   │
+" │ with the same width — not as a stray split in the current tab.          │
+" │ Tab vừa đóng được ưu tiên khôi phục trước (xem mục TAB RESTORE bên     │
+" │ dưới, chạy cùng phím Ctrl-Shift-T).                                    │
 " └──────────────────────────────────────────────────────────────────────────┘
 if !exists('g:closed_file_stack')
     let g:closed_file_stack = []
@@ -2504,6 +2555,41 @@ endif
 
 let g:closed_file_stack_max = 20
 
+" Đường dẫn của 1 entry trong ngăn xếp (chấp nhận cả entry dict kiểu mới lẫn
+" string của bản cũ, phòng khi ngăn xếp được tạo từ trước khi source lại).
+function! s:ClosedEntryPath(e) abort
+    return type(a:e) == type({}) ? get(a:e, 'path', '') : a:e
+endfunction
+
+" Thứ tự (1-based) của cửa sổ đang hiển thị buffer {bn} trong tab hiện tại,
+" chỉ đếm cửa sổ NỘI DUNG (bỏ panel) — đúng thứ tự WinList đang liệt kê.
+function! s:ContentWinOrdinal(bn) abort
+    let l:c = 0
+    for l:i in range(1, winnr('$'))
+        if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
+            let l:c += 1
+            if winbufnr(l:i) == a:bn
+                return l:c
+            endif
+        endif
+    endfor
+    return 0
+endfunction
+
+" Số hiệu cửa sổ (winnr) của cửa sổ NỘI DUNG thứ n; 0 nếu không có.
+function! s:ContentWinNr(n) abort
+    let l:c = 0
+    for l:i in range(1, winnr('$'))
+        if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
+            let l:c += 1
+            if l:c == a:n | return l:i | endif
+        endif
+    endfor
+    return 0
+endfunction
+
+" Ghi lại cửa sổ sắp đóng: file + TAB nào (Tab-ID ổn định) + vị trí thứ mấy
+" trong tab + bề rộng, để ReopenLastClosedFile() dựng lại ĐÚNG CHỖ.
 function! ClosedFileStackPush() abort
     let l:name = expand('%:p')
     let l:bt   = &buftype
@@ -2514,35 +2600,161 @@ function! ClosedFileStackPush() abort
     if l:name =~# '__WindowList__' | return | endif
     if !filereadable(l:name)       | return | endif
 
-    call filter(g:closed_file_stack, 'v:val !=# l:name')
-    call insert(g:closed_file_stack, l:name, 0)
+    let l:tabidx = tabpagenr()
+    let l:ord    = s:ContentWinOrdinal(bufnr('%'))
+
+    let l:entry = {
+        \ 'path':   l:name,
+        \ 'tabid':  WinListGetTabID(),
+        \ 'tabidx': l:tabidx,
+        \ 'ord':    l:ord,
+        \ 'w':      winwidth(0),
+        \ }
+
+    " Bỏ entry cũ khi:
+    "   1. cùng ĐƯỜNG DẪN (đóng lại chính file đó ở chỗ khác), hoặc
+    "   2. cùng SLOT (cùng tabidx + cùng ord) — ca "đóng split B rồi mở split C
+    "      thay đúng chỗ đó rồi đóng C": vị trí đó chỉ còn đúng MỘT cửa sổ, nên
+    "      entry của C GHI ĐÈ entry của B thay vì giữ cả hai (giữ cả hai thì
+    "      bấm Ctrl-Shift-T 2 lần sẽ dựng lại 3 split, không đúng thực tế).
+    call filter(g:closed_file_stack,
+        \ 'type(v:val) == type({})'
+        \ . ' ? (v:val.path !=# l:name'
+        \ . '    && !(get(v:val, "tabidx", -1) == l:tabidx'
+        \ . '         && get(v:val, "ord", -1) == l:ord))'
+        \ . ' : v:val !=# l:name')
+    call insert(g:closed_file_stack, l:entry, 0)
 
     if len(g:closed_file_stack) > g:closed_file_stack_max
         let g:closed_file_stack = g:closed_file_stack[:g:closed_file_stack_max - 1]
     endif
 endfunction
 
+" Mở lại cửa sổ vừa đóng Ở ĐÚNG TAB VÀ ĐÚNG VỊ TRÍ của nó:
+"   1. tab cũ còn sống (so theo Tab-ID, không phụ thuộc thứ tự tab) -> tabnext
+"   2. dựng split đúng thứ tự: ord = 1 -> chèn vào trái cửa sổ nội dung đầu;
+"      ord = N -> chèn ngay sau cửa sổ nội dung thứ N-1
+"   3. trả lại bề rộng cũ
+" Không tìm được tab cũ (tab đã bị đóng hẳn) thì mới mở trong tab hiện tại —
+" trường hợp đó tab-restore (Ctrl-Shift-T) đã có nhánh riêng lo cả tab.
 function! ReopenLastClosedFile() abort
     if empty(g:closed_file_stack)
-        echo "No recently closed files."
-        return
+        echo 'No recently closed files.'
+        return 0
     endif
 
-    let l:path = remove(g:closed_file_stack, 0)
+    let l:entry = remove(g:closed_file_stack, 0)
+    let l:path  = s:ClosedEntryPath(l:entry)
 
-    if !filereadable(l:path)
-        echo "File no longer readable: " . l:path
-        return
+    if l:path ==# '' || !filereadable(l:path)
+        echo 'File no longer readable: ' . l:path
+        return 0
     endif
 
-    let l:cur_win = winnr()
-    wincmd l
+    let l:is_dict = type(l:entry) == type({})
+    let l:tabid   = l:is_dict ? get(l:entry, 'tabid',  '') : ''
+    let l:tabidx  = l:is_dict ? get(l:entry, 'tabidx', 0)  : 0
+    let l:ord     = l:is_dict ? get(l:entry, 'ord',    0)  : 0
+    let l:width   = l:is_dict ? get(l:entry, 'w',      0)  : 0
 
-    if winnr() == l:cur_win
-        execute 'rightbelow vsplit ' . fnameescape(l:path)
+    if get(g:, 'tab_restore_debug', 0)
+        echo printf('FILE RESTORE: %s tabid=%s tabidx=%d ord=%d w=%d',
+            \ fnamemodify(l:path, ':t'), l:tabid, l:tabidx, l:ord, l:width)
+    endif
+
+    " 1) về đúng tab cũ; tab đã bị đóng hẳn thì DỰNG LẠI TAB đó (không mở
+    "    file lạc vào tab đang đứng) — đây là trường hợp đóng cả file lẫn tab.
+    let l:tab = l:tabid ==# '' ? -1 : WinListFindTabByID(l:tabid)
+
+    " Lần bấm TRƯỚC đã dựng lại đúng tab chứa cửa sổ này?  Tab dựng lại mang
+    " Tab-ID mới nên tìm theo ID ở trên thất bại — dùng ký ức theo VỊ TRÍ.
+    " Chỉ dùng một lần rồi xoá, tránh lần khôi phục sau nhảy nhầm tab.
+    if l:tab == -1 && !empty(get(g:, 'last_restored_tab', {}))
+        let l:lrt = g:last_restored_tab
+        if get(l:lrt, 'index', -1) == l:tabidx
+            \ && get(l:lrt, 'tabnr', 0) >= 1
+            \ && get(l:lrt, 'tabnr', 0) <= tabpagenr('$')
+            let l:tab = l:lrt.tabnr
+            let g:last_restored_tab = {}
+        endif
+    endif
+
+    call s:RestoreLog(printf('POP-WIN %s tabidx=%d ord=%d -> tab %d',
+        \ fnamemodify(l:path, ':t'), l:tabidx, l:ord, l:tab))
+
+    if l:tab == -1 && l:tabidx > 0
+        let l:n_before = tabpagenr('$')
+        silent! execute 'tabnew'
+        if tabpagenr('$') == l:n_before + 1
+            silent! execute 'edit ' . fnameescape(l:path)
+
+            " Khôi phục MỘT thứ mỗi lần bấm (giống restore tab của browser):
+            " ở đây chỉ mở đúng file này trong tab mới.  Các cửa sổ khác của
+            " tab đó (nếu người dùng đóng nhiều split trước khi tab biến mất)
+            " sẽ được khôi phục ở những lần bấm TIẾP THEO, nhờ
+            " g:last_restored_tab bên dưới chỉ đúng tab này.
+            let g:last_restored_tab = {'tabnr': tabpagenr(), 'index': l:tabidx}
+
+            " WinList của tab mới
+            silent! call CombinedPanelOpen()
+
+            " về đúng vị trí tab cũ
+            let l:target = max([0, min([l:tabidx - 1, tabpagenr('$') - 1])])
+            silent! execute 'tabmove ' . l:target
+
+            " trả bề rộng cũ cho cửa sổ vừa mở
+            if l:width > 0 && winwidth(0) != l:width
+                silent! execute 'vertical resize ' . l:width
+            endif
+
+            silent! call WinListRefreshAllTabs()
+            echo printf('Ctrl-Shift-T: dựng lại tab %d với %s',
+                \ tabpagenr(), fnamemodify(l:path, ':t'))
+            return 1
+        endif
+        " không tạo được tab mới -> rơi xuống nhánh mở trong tab hiện tại
+    elseif l:tab != -1 && l:tab != tabpagenr()
+        silent! execute 'tabnext ' . l:tab
+    endif
+
+    " 2) dựng lại split đúng vị trí
+    let l:n_wins = 0
+    for l:i in range(1, winnr('$'))
+        if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
+            let l:n_wins += 1
+        endif
+    endfor
+
+    " cửa sổ làm mốc: đứng ngay trước vị trí cũ; vị trí cũ vượt quá số cửa sổ
+    " hiện có thì lấy cửa sổ cuối (coi như thêm vào cuối)
+    let l:anchor = s:ContentWinNr(max([1, l:ord - 1]))
+    if l:anchor == 0
+        let l:anchor = s:ContentWinNr(l:n_wins)
+    endif
+
+    if l:anchor == 0
+        " tab không còn cửa sổ nội dung nào -> mở ngay trong cửa sổ hiện tại
+        silent! execute 'edit ' . fnameescape(l:path)
     else
-        execute 'edit ' . fnameescape(l:path)
+        execute 'noautocmd ' . l:anchor . 'wincmd w'
+        if l:ord <= 1
+            " vị trí cũ là cửa sổ đầu -> chèn sang TRÁI cửa sổ nội dung đầu
+            silent! execute 'leftabove vsplit ' . fnameescape(l:path)
+        else
+            " chèn ngay SAU cửa sổ thứ ord-1 -> thành cửa sổ thứ ord
+            silent! execute 'rightbelow vsplit ' . fnameescape(l:path)
+        endif
     endif
+
+    " 3) trả lại bề rộng cũ (chỉ khi cửa sổ mới thật sự hẹp/rộng khác đi)
+    if l:width > 0 && winwidth(0) != l:width
+        silent! execute 'vertical resize ' . l:width
+    endif
+
+    silent! call WinListRefreshAllTabs()
+    echo printf('Ctrl-Shift-T: %s -> tab %d, vị trí %d, rộng %d',
+        \ fnamemodify(l:path, ':t'), tabpagenr(), l:ord, winwidth(0))
+    return 1
 endfunction
 
 function! SmartClose() abort
@@ -2552,8 +2764,474 @@ endfunction
 
 noremap <silent> <C-w> :call SmartClose()<CR>
 
-nnoremap <silent> <C-S-t> :call ReopenLastClosedFile()<CR>
-inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosedFile()<CR>
+nnoremap <silent> <C-S-t> :call ReopenLastClosed()<CR>
+inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosed()<CR>
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  TAB RESTORE — Ctrl-Shift-T mở lại TAB vừa đóng, ĐÚNG vị trí cũ
+"  Description: mỗi lần WinList refresh, layout của TẤT CẢ tab được chụp lại
+"  (danh sách cửa sổ con + buffer + bề rộng/chiều cao + cửa sổ đang active).
+"  Tab nào biến mất khỏi danh sách tab thì bản chụp của nó được đẩy vào
+"  g:closed_tab_stack.  Ctrl-Shift-T lấy mục đầu, tạo lại tab với đúng các
+"  cửa sổ con đó rồi ':tabmove' về đúng vị trí tab cũ, và GIỮ LẠI Tab-ID cũ
+"  cho tab vừa dựng (settabvar) — nhờ vậy các entry còn trong
+"  closed_file_stack của tab đó vẫn tìm lại được chính tab này.
+"  Không có tab nào đã đóng thì Ctrl-Shift-T mở lại CỬA SỔ vừa đóng bằng
+"  Ctrl-W: đúng tab (theo Tab-ID), đúng vị trí thứ N, đúng bề rộng.  Nếu tab
+"  chứa cửa sổ đó cũng đã bị đóng hẳn (đóng file rồi đóng luôn tab) thì nó
+"  DỰNG LẠI TAB đó ở vị trí cũ chứ không thả file vào tab đang đứng.
+"  Không cần TabClosed (Vim cũ không có) — việc phát hiện tab đã đóng dựa
+"  trên so sánh Tab-ID ổn định (g:winlist_tab_id) với danh sách tab hiện có.
+" ══════════════════════════════════════════════════════════════════════════
+
+if !exists('g:closed_tab_stack')
+    let g:closed_tab_stack = []
+endif
+if !exists('g:tab_layout_cache')
+    let g:tab_layout_cache = {}
+endif
+
+let g:closed_tab_stack_max = 10
+
+" ── restore_log: nhật ký push/pop của cơ chế khôi phục ────────────────────
+" Ghi lại MỌI quyết định (đẩy tab, đẩy cửa sổ, pop, có gộp file vào tab hay
+" không) kèm giờ.  Chỉ để chẩn đoán: :ClosedInfo in 40 dòng gần nhất, nhờ vậy
+" biết chính xác lần bấm Ctrl-Shift-T đã thấy dữ liệu gì.
+if !exists('g:restore_log')
+    let g:restore_log = []
+endif
+
+" Tab vừa được Ctrl-Shift-T dựng lại: {'tabnr': N, 'index': vị trí tab cũ}.
+" Dùng cho lần bấm TIẾP THEO: nếu cửa sổ cần khôi phục thuộc tab vừa dựng đó
+" (so theo vị trí) thì đưa nó vào đúng tab ấy — không phụ thuộc Tab-ID, vì
+" tab dựng lại mang ID mới nên WinListFindTabByID() không tìm ra.
+if !exists('g:last_restored_tab')
+    let g:last_restored_tab = {}
+endif
+
+function! s:RestoreLog(msg) abort
+    call add(g:restore_log, strftime('%H:%M:%S') . '  ' . a:msg)
+    while len(g:restore_log) > 40
+        call remove(g:restore_log, 0)
+    endwhile
+endfunction
+
+" ── :ClosedInfo — in nội dung 2 ngăn xếp khôi phục ────────────────────────
+" Dùng để chẩn đoán khi Ctrl-Shift-T khôi phục sai chỗ: xem nó sẽ lấy entry
+" nào, entry đó mang tab/tabidx/ord gì, và trong ngăn xếp có entry cũ sót
+" lại từ lần thử trước hay không.
+function! ClosedInfo() abort
+    echomsg '── closed_tab_stack (mới nhất trước) ──'
+    if empty(g:closed_tab_stack)
+        echomsg '  (rỗng)'
+    else
+        let l:i = 0
+        for l:s in g:closed_tab_stack
+            let l:i += 1
+            echomsg printf('  %d) tab %d  tid=%s  dir=%s  active=%d  wins=%s',
+                \ l:i, get(l:s, 'index', -1), get(l:s, 'tid', '?'),
+                \ get(l:s, 'dir', '?'), get(l:s, 'active', 0),
+                \ string(map(copy(get(l:s, 'wins', [])),
+                \            'fnamemodify(v:val.path, ":t")')))
+        endfor
+    endif
+    echomsg '── closed_file_stack (mới nhất trước) ──'
+    if empty(g:closed_file_stack)
+        echomsg '  (rỗng)'
+    else
+        let l:i = 0
+        for l:e in g:closed_file_stack
+            let l:i += 1
+            if type(l:e) == type({})
+                echomsg printf('  %d) %s  tabid=%s  tabidx=%d  ord=%d  w=%d',
+                    \ l:i, fnamemodify(get(l:e, 'path', ''), ':t'),
+                    \ get(l:e, 'tabid', ''), get(l:e, 'tabidx', 0),
+                    \ get(l:e, 'ord', 0), get(l:e, 'w', 0))
+            else
+                echomsg printf('  %d) %s  (entry kiểu cũ)', l:i, l:e)
+            endif
+        endfor
+    endif
+    echomsg '── tab hiện có / Tab-ID ──'
+    for l:t in range(1, tabpagenr('$'))
+        echomsg printf('  tab %d  tid=%s  wins=%s', l:t,
+            \ gettabvar(l:t, 'winlist_tab_id', '?'),
+            \ string(map(copy(tabpagebuflist(l:t)), 'fnamemodify(bufname(v:val), ":t")')))
+    endfor
+    echomsg '── restore_log (cũ → mới) ──'
+    if empty(g:restore_log)
+        echomsg '  (rỗng)'
+    else
+        for l:m in g:restore_log
+            echomsg '  ' . l:m
+        endfor
+    endif
+endfunction
+command! ClosedInfo call ClosedInfo()
+
+" Thu các winid của node 'leaf' theo đúng thứ tự layout.
+function! s:CollectLayoutLeaves(node, out) abort
+    if a:node[0] ==# 'leaf'
+        call add(a:out, a:node[1])
+        return
+    endif
+    for l:child in a:node[1:]
+        call s:CollectLayoutLeaves(l:child, a:out)
+    endfor
+endfunction
+
+" Bỏ panel (WinList/NERDTree/cửa sổ special) khỏi cây layout, và gộp node chỉ
+" còn 1 con vào con đó.  Nhờ vậy hướng chia của tab được suy ra từ phần NỘI
+" DUNG, không bị cột panel bên trái làm sai: ví dụ
+"   ['row', leaf(WinList), ['col', A, B]]  ->  ['col', A, B]  -> chia NGANG
+function! s:PruneLayout(node) abort
+    if a:node[0] ==# 'leaf'
+        let l:bn = winbufnr(a:node[1])
+        if l:bn <= 0 | return [] | endif
+        if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn) | return [] | endif
+        if WinListIsSpecial(l:bn) | return [] | endif
+        return a:node
+    endif
+
+    let l:kids = []
+    for l:child in a:node[1:]
+        let l:p = s:PruneLayout(l:child)
+        if !empty(l:p)
+            call add(l:kids, l:p)
+        endif
+    endfor
+
+    if empty(l:kids)     | return []       | endif
+    if len(l:kids) == 1  | return l:kids[0] | endif
+    return [a:node[0]] + l:kids
+endfunction
+
+" Chụp layout của 1 tab.  Trả {} nếu không lấy được / tab không còn cửa sổ
+" nội dung nào (tab chỉ có panel thì không có gì để dựng lại).
+function! s:SnapshotTabLayout(tabnr) abort
+    try
+        call WinListEnsureTabID(a:tabnr)
+        let l:tid = WinListGetTabID(a:tabnr)
+        if l:tid ==# '' | return {} | endif
+
+        let l:root = []
+        let l:wids = []
+        if exists('*winlayout')
+            let l:root = winlayout(a:tabnr)
+            call s:CollectLayoutLeaves(l:root, l:wids)
+        endif
+
+        let l:wins = []
+        for l:wid in l:wids
+            let l:bn = winbufnr(l:wid)
+            if l:bn <= 0 | continue | endif
+            " Bỏ panel: WinList luôn tự mở lại ở mọi tab, NERDTree do Ctrl-B
+            if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn) | continue | endif
+            if WinListIsSpecial(l:bn) | continue | endif
+            " Ghi đường dẫn TUYỆT ĐỐI: buffer number có thể bị dùng lại / đổi
+            " nội dung khi chuyển qua lại giữa các tab, còn đường dẫn thì
+            " không.  Buffer không tên ([No Name]) thì để rỗng.
+            let l:name  = bufname(l:bn)
+            let l:apath = l:name ==# '' ? '' : fnamemodify(l:name, ':p')
+            call add(l:wins, {
+                \ 'nr':   l:bn,
+                \ 'path': l:apath,
+                \ 'w':    winwidth(l:wid),
+                \ 'h':    winheight(l:wid),
+                \ })
+        endfor
+
+        if empty(l:wins) | return {} | endif
+
+        " Hướng chia lấy từ node gốc SAU KHI bỏ panel: 'row' = các cửa sổ nằm
+        " NGANG nhau (split dọc), 'col' = xếp CHỒNG (split ngang).  Mặc định
+        " 'row' vì vimrc này dùng split dọc là chính.
+        let l:dir = 'row'
+        let l:pruned = empty(l:root) ? [] : s:PruneLayout(l:root)
+        if type(l:pruned) == type([]) && !empty(l:pruned)
+            if l:pruned[0] ==# 'col'
+                let l:dir = 'col'
+            endif
+        endif
+
+        " ── ANCHOR = nội dung WinList ──────────────────────────────────────
+        " Không dùng tabpagewinnr()/tabpagebuflist() để đoán cửa sổ đang active:
+        " khi chuyển qua lại giữa các gvim tab, hoặc khi focus đang nằm ở panel,
+        " index đó trỏ sai cửa sổ (buffer "đổi chỗ").  WinList đã giải quyết
+        " đúng chuyện này bằng BUFFER NUMBER, lưu ở g:winlist_last_active[tab]
+        " và cũng chính là dấu '>' trong panel — nên lấy lại từ đó:
+        "   • tab hiện tại : s:CurrentContentBuf()  (tự fallback về buffer đã nhớ)
+        "   • tab khác     : g:winlist_last_active[tab]  (do WinListRefresh ghi)
+        let l:active_buf = (a:tabnr == tabpagenr())
+            \ ? s:CurrentContentBuf()
+            \ : get(g:winlist_last_active, a:tabnr, -1)
+
+        let l:active = 0
+        let l:i = 0
+        for l:w in l:wins
+            let l:i += 1
+            if l:w.nr == l:active_buf
+                let l:active = l:i
+            endif
+        endfor
+
+        return {
+            \ 'index':  a:tabnr,
+            \ 'tid':    l:tid,
+            \ 'wins':   l:wins,
+            \ 'dir':    l:dir,
+            \ 'active': l:active,
+            \ 'seen':   localtime(),
+            \ }
+    catch
+        return {}
+    endtry
+endfunction
+
+" Đẩy bản chụp của tab vừa đóng vào ngăn xếp (bỏ trùng, giới hạn số lượng).
+function! s:PushClosedTab(snap) abort
+    if empty(a:snap) || empty(get(a:snap, 'wins', [])) | return | endif
+
+    call s:RestoreLog(printf('PUSH-TAB index=%d tid=%s wins=%s',
+        \ get(a:snap, 'index', -1), get(a:snap, 'tid', '<none>'),
+        \ string(map(copy(a:snap.wins), 'fnamemodify(v:val.path, ":t")'))))
+
+    if !empty(g:closed_tab_stack)
+        let l:top = g:closed_tab_stack[0]
+        if get(l:top, 'index', -1) == a:snap.index
+            \ && map(copy(l:top.wins), 'v:val.nr') == map(copy(a:snap.wins), 'v:val.nr')
+            return
+        endif
+    endif
+
+    call insert(g:closed_tab_stack, a:snap, 0)
+    if len(g:closed_tab_stack) > g:closed_tab_stack_max
+        let g:closed_tab_stack = g:closed_tab_stack[: g:closed_tab_stack_max - 1]
+    endif
+endfunction
+
+" Chụp layout mọi tab + phát hiện tab vừa đóng.  Được gọi ở cuối
+" WinListBuildAllTabLines() nên chạy theo mọi lần panel refresh.
+function! s:SnapshotAllTabLayouts() abort
+    let l:live = {}
+    for l:t in range(1, tabpagenr('$'))
+        call WinListEnsureTabID(l:t)
+        let l:tid = WinListGetTabID(l:t)
+        let l:live[l:tid] = 1
+        let l:snap = s:SnapshotTabLayout(l:t)
+        if !empty(l:snap)
+            let g:tab_layout_cache[l:tid] = l:snap
+        endif
+    endfor
+
+    " Tid có trong cache mà không còn tab tương ứng -> tab đó vừa bị đóng.
+    for l:tid in keys(g:tab_layout_cache)
+        if !has_key(l:live, l:tid)
+            call s:PushClosedTab(remove(g:tab_layout_cache, l:tid))
+        endif
+    endfor
+endfunction
+
+" Mở buffer của 1 cửa sổ trong snapshot.  Trả 1 nếu cửa sổ này ĐÃ HIỂN THỊ
+" đúng buffer/file cần khôi phục, 0 nếu thất bại (vd E37 vì buffer đang sửa
+" mà không ghi được) — nhờ vậy chỗ gọi báo được lỗi thay vì im lặng.
+" Ưu tiên ĐƯỜNG DẪN: buffer number có thể đã bị dùng lại cho file khác trong
+" lúc chuyển qua lại giữa các tab.  ':edit <path>' tự dùng lại buffer đã nạp
+" sẵn cùng đường dẫn nên không tạo buffer trùng.
+function! s:OpenSnapshotBuf(w) abort
+    if a:w.path !=# '' && filereadable(a:w.path)
+        silent! execute 'edit ' . fnameescape(a:w.path)
+        " xác nhận cửa sổ hiện tại thật sự đang hiển thị file đó
+        if fnamemodify(bufname('%'), ':p') ==# a:w.path
+            return 1
+        endif
+        " thử lại một lần: buffer đang giữ chỗ có thể bị sửa mà chưa ghi
+        silent! execute 'edit! ' . fnameescape(a:w.path)
+        return fnamemodify(bufname('%'), ':p') ==# a:w.path ? 1 : 0
+    endif
+    " buffer không tên ([No Name]) -> dùng số buffer, kiểm tra lại cho chắc
+    if a:w.nr > 0 && bufexists(a:w.nr) && bufname(a:w.nr) ==# ''
+        silent! execute 'buffer ' . a:w.nr
+        return bufnr('%') == a:w.nr ? 1 : 0
+    endif
+    return 0
+endfunction
+
+" Trả về winid của cửa sổ NỘI DUNG thứ n (1-based, bỏ qua panel
+" WinList/NERDTree).  Dùng winid chứ không dùng winnr vì có panel chen vào
+" thì số thứ tự cửa sổ không còn khớp với thứ tự cửa sổ con của tab cũ.
+function! s:NormalWinId(n) abort
+    let l:c = 0
+    for l:i in range(1, winnr('$'))
+        if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
+            let l:c += 1
+            if l:c == a:n
+                return win_getid(l:i)
+            endif
+        endif
+    endfor
+    return 0
+endfunction
+
+" Focus cửa sổ NỘI DUNG thứ n (1-based, bỏ qua panel WinList/NERDTree).
+function! s:FocusNormalWin(n) abort
+    if a:n <= 0 | return | endif
+    let l:wid = s:NormalWinId(a:n)
+    if l:wid != 0
+        silent! call win_gotoid(l:wid)
+    endif
+endfunction
+
+" Trả lại bề rộng (split dọc) / chiều cao (split ngang) đã ghi cho từng cửa
+" sổ con.  Chạy SAU khi WinList được dựng lại, vì lúc panel chen vào Vim sẽ
+" lấy bớt bề ngang của cửa sổ đầu tiên.
+function! s:ApplySnapshotSizes(snap) abort
+    if !exists('*win_execute') | return | endif
+    let l:j = 0
+    for l:w in a:snap.wins
+        let l:j += 1
+        let l:wid = s:NormalWinId(l:j)
+        if l:wid == 0 | continue | endif
+        let l:size = (a:snap.dir ==# 'col') ? l:w.h : l:w.w
+        if l:size <= 0 | continue | endif
+        let l:cmd = (a:snap.dir ==# 'col')
+            \ ? 'resize ' . l:size : 'vertical resize ' . l:size
+        silent! call win_execute(l:wid, l:cmd)
+    endfor
+endfunction
+
+function! ReopenLastClosedTab() abort
+    if empty(g:closed_tab_stack)
+        echo 'No recently closed tabs.'
+        return 0
+    endif
+
+    " Chỉ POP khi đã khôi phục xong — hỏng giữa chừng thì giữ lại để thử lại,
+    " tránh mất luôn tab vừa đóng.
+    let l:snap     = g:closed_tab_stack[0]
+    let l:n_before = tabpagenr('$')
+
+    call s:RestoreLog(printf('POP-TAB index=%d tid=%s wins=%s fe=%s',
+        \ get(l:snap, 'index', -1), get(l:snap, 'tid', '<none>'),
+        \ string(map(copy(l:snap.wins), 'fnamemodify(v:val.path, ":t")')),
+        \ empty(g:closed_file_stack) ? 'none'
+        \   : s:ClosedEntryPath(g:closed_file_stack[0])))
+
+    if get(g:, 'tab_restore_debug', 0)
+        echo printf('TAB RESTORE: index=%d dir=%s active=%d wins=%s',
+            \ l:snap.index, l:snap.dir, l:snap.active,
+            \ string(map(copy(l:snap.wins), 'fnamemodify(v:val.path, ":t")')))
+    endif
+
+    let g:panel_opening = 1
+    let l:newtab  = 0
+    let l:missing = []
+    try
+        silent! execute 'tabnew'
+
+        " Tab mới PHẢI được tạo thật.  Nếu không (vd bị autocmd/timer khác
+        " chặn), dừng ngay — trước đây lỗi này bị silent! nuốt mất nên các
+        " bước sau chạy nhầm vào tab đang mở, đẩy file sang tab khác.
+        if tabpagenr('$') != l:n_before + 1
+            echo 'Ctrl-Shift-T: không tạo được tab mới — giữ nguyên trạng thái.'
+            return 0
+        endif
+        let l:newtab = tabpagenr()
+
+        " Nhớ tab vừa dựng để lần bấm TIẾP THEO đưa cửa sổ file đã đóng vào
+        " đúng tab này (xem ReopenLastClosedFile).  Không phụ thuộc Tab-ID.
+        let g:last_restored_tab = {'tabnr': l:newtab, 'index': l:snap.index}
+
+        " Giữ nguyên Tab-ID CŨ cho tab vừa dựng lại.  Nhờ vậy nếu trước đó
+        " trong closed_file_stack còn entry của một cửa sổ thuộc tab này
+        " (file bị đóng TRƯỚC khi cả tab bị đóng), lần Ctrl-Shift-T sau
+        " WinListFindTabByID() vẫn tìm ra đúng tab này để mở lại đúng chỗ,
+        " thay vì tạo thêm một tab mới.
+        if get(l:snap, 'tid', '') !=# ''
+            silent! call settabvar(l:newtab, 'winlist_tab_id', l:snap.tid)
+        endif
+
+        " 1) dựng lại từng cửa sổ con, giữ đúng hướng chia của tab cũ
+        let l:i = 0
+        for l:w in l:snap.wins
+            " bảo đảm vẫn đang ở đúng tab mới trước mỗi bước
+            if tabpagenr() != l:newtab
+                silent! execute 'tabnext ' . l:newtab
+            endif
+            if l:i > 0
+                silent! execute 'belowright '
+                    \ . (l:snap.dir ==# 'col' ? 'split' : 'vsplit')
+            endif
+            if !s:OpenSnapshotBuf(l:w)
+                call add(l:missing, l:w.path ==# '' ? '[No Name]' : l:w.path)
+            endif
+            let l:i += 1
+        endfor
+
+        " Không mở được cửa sổ nào -> dọn tab vừa tạo, giữ snapshot để thử lại
+        if len(l:missing) == len(l:snap.wins)
+            if tabpagenr('$') > 1
+                silent! close
+            endif
+            echo 'Ctrl-Shift-T: không mở được file nào của tab vừa đóng — giữ trong stack.'
+            return 0
+        endif
+
+        " 2) về đúng vị trí tab cũ (':tabmove' đếm từ 0).  Kẹp lại trong
+        "    khoảng hợp lệ phòng khi vị trí cũ lớn hơn số tab hiện có.
+        let l:target = l:snap.index - 1
+        let l:target = max([0, min([l:target, tabpagenr('$') - 1])])
+        silent! execute 'tabmove ' . l:target
+    finally
+        let g:panel_opening = 0
+    endtry
+
+    " 3) Mở lại WinList — KHÔNG nằm trong snapshot và không được dựng từ
+    "    snapshot: bản chụp chỉ giữ cửa sổ NỘI DUNG (s:PruneLayout bỏ panel),
+    "    bề rộng panel luôn lấy theo s:PanelWidth() hiện tại, nên tab khôi
+    "    phục không mang theo bề rộng panel cũ.  Phải mở panel TRƯỚC khi
+    "    resize: khi panel chen vào, Vim lấy bớt bề ngang của cửa sổ bên cạnh.
+    silent! call CombinedPanelOpen()
+    silent! call s:ApplySnapshotSizes(l:snap)
+
+    " 4) focus đúng cửa sổ đang active như lúc trước khi đóng tab
+    silent! call s:FocusNormalWin(l:snap.active)
+    silent! call WinListRefreshAllTabs()
+
+    call s:RestoreLog(printf('RESTORED-TAB index=%d (%d cửa sổ)',
+        \ l:snap.index, len(l:snap.wins)))
+
+    echo printf('Ctrl-Shift-T: tab %d (%d cửa sổ: %s)',
+        \ l:snap.index, len(l:snap.wins),
+        \ join(map(copy(l:snap.wins), 'fnamemodify(v:val.path, ":t")'), ', '))
+
+    if !empty(l:missing)
+        echo 'Ctrl-Shift-T: không mở được ' . join(l:missing, ', ')
+    endif
+
+    " khôi phục xong mới bỏ snapshot khỏi ngăn xếp
+    call remove(g:closed_tab_stack, 0)
+    return 1
+endfunction
+
+" Ctrl-Shift-T: ưu tiên khôi phục TAB vừa đóng; nếu không có tab nào đã đóng
+" thì quay về hành vi cũ là mở lại FILE vừa đóng bằng Ctrl-W.
+function! ReopenLastClosed() abort
+    " Hết cả hai ngăn xếp -> chỉ báo info, KHÔNG đụng vào layout/buffer hiện
+    " tại (khôi phục rỗng).
+    if empty(g:closed_tab_stack) && empty(g:closed_file_stack)
+        echo 'Ctrl-Shift-T: không còn gì để khôi phục (ngăn xếp rỗng).'
+        call s:RestoreLog('EMPTY (không còn gì để khôi phục)')
+        return 0
+    endif
+
+    if !empty(g:closed_tab_stack)
+        call ReopenLastClosedTab()
+    else
+        silent! call ReopenLastClosedFile()
+    endif
+endfunction
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -2966,7 +3644,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.68  ·  2026-11-18')
+    call add(l:L, '  Version 6.84  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -3033,8 +3711,37 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `Enter Enter` (double-tap) Temporarily maximize current split')
     call add(l:L, '     width (others collapse to 1 col); Enter again restores layout')
     call add(l:L, '  • `Ctrl-Enter` Force-expand current window immediately')
-    call add(l:L, '  • `Ctrl-W`     Close window (pushes file path to reopen-stack)')
-    call add(l:L, '  • `Ctrl-Shift-T` Reopen last closed file (stack, max 20)')
+    call add(l:L, '  • `Ctrl-W`     Close window — đẩy vào stack: file + TAB (Tab-ID) +')
+    call add(l:L, '     vị trí cửa sổ trong tab + bề rộng của nó')
+    call add(l:L, '  • `Ctrl-Shift-T` Mỗi lần bấm khôi phục ĐÚNG MỘT thứ, giống')
+    call add(l:L, '     restore tab của browser: ưu tiên TAB vừa đóng (đúng vị trí,')
+    call add(l:L, '     đúng các cửa sổ con: hướng chia + bề rộng/chiều cao + cửa sổ')
+    call add(l:L, '     active); hết tab thì đến CỬA SỔ vừa đóng bằng Ctrl-W (stack,')
+    call add(l:L, '     max 20) — về ĐÚNG TAB cũ và ĐÚNG VỊ TRÍ (cửa sổ nội dung thứ')
+    call add(l:L, '     N), đúng bề rộng.  Tab chứa cửa sổ đó đã đóng hẳn thì DỰNG')
+    call add(l:L, '     LẠI TAB đó ở vị trí cũ, chỉ với cửa sổ đang khôi phục; các')
+    call add(l:L, '     cửa sổ khác của tab đó (nếu có) đến ở những lần bấm sau,')
+    call add(l:L, '     vào đúng tab đó nhờ g:last_restored_tab.')
+    call add(l:L, '  • Đóng 1 split rồi mở split khác ĐÚNG CHỖ ĐÓ rồi đóng: entry của')
+    call add(l:L, '     split mới GHI ĐÈ split cũ (cùng tabidx + cùng ord), nên chỉ')
+    call add(l:L, '     restore đúng 1 lần cho vị trí đó, không dồn thành 2 lần bấm.')
+    call add(l:L, '  • Hết ngăn xếp: chỉ báo "không còn gì để khôi phục", không đổi')
+    call add(l:L, '     layout/buffer hiện tại (khôi phục rỗng).')
+    call add(l:L, '     WinList KHÔNG tính vào phần khôi phục: bản chụp chỉ giữ')
+    call add(l:L, '     cửa sổ nội dung; panel tự mở lại như ở mọi tab khác.')
+    call add(l:L, '     Vị trí/cửa sổ active lấy ANCHOR từ nội dung WinList (dấu `>`,')
+    call add(l:L, '     tức g:winlist_last_active theo BUFFER NUMBER) chứ không dựa')
+    call add(l:L, '     vào tabpagewinnr — vì khi chuyển qua lại giữa các tab, hoặc')
+    call add(l:L, '     khi focus đang ở panel, index đó trỏ sai cửa sổ. Khi dựng')
+    call add(l:L, '     lại thì mở theo ĐƯỜNG DẪN, không theo buffer number.')
+    call add(l:L, '  • Nếu tab mới không tạo được, hoặc không mở được file nào, thì')
+    call add(l:L, '     báo lỗi và GIỮ tab vừa đóng trong stack để bấm lại; file nào')
+    call add(l:L, '  • Chẩn đoán: `:ClosedInfo` in 2 ngăn xếp (tab/file) + Tab-ID')
+    call add(l:L, '     các tab đang mở + restore_log (lịch sử push/pop từng lần)')
+    call add(l:L, '     Mỗi lần Ctrl-Shift-T cũng tự báo nó đã')
+    call add(l:L, '     khôi phục cái gì, ở tab nào, vị trí nào, rộng bao nhiêu')
+    call add(l:L, '     không mở được cũng được nêu tên. Đặt g:tab_restore_debug=1')
+    call add(l:L, '     để in snapshot (index/dir/active/danh sách file) khi restore.')
     call add(l:L, '')
 
     call add(l:L, '▶ SIDE PANEL — WinList (always on) + NERDTree (on demand)')
@@ -3050,13 +3757,22 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     `r` refreshes')
     call add(l:L, '  • NERDTree Enter/double-click opens file as a NEW right split')
     call add(l:L, '     (panel stays open, stable Tab-ID survives tab drag-reorder)')
+    call add(l:L, '  • NERDTree dùng phím mặc định: `o` mở/thu node, `O` mở đệ quy,')
+    call add(l:L, '     `x`/`X` đóng, `P` về root (không remap gì thêm)')
     call add(l:L, '  • Commands: `:WinList` `:WinListClose` `:WinListFix`')
     call add(l:L, '     `:WinListRefresh` `:WinListAllTabs` `:WinListFixH`')
     call add(l:L, '')
 
     call add(l:L, '▶ NETRW QUICK BROWSE')
-    call add(l:L, '  • `Ctrl-O`  Ẩn WinList + NERDTree, mở netrw (:E) toàn màn hình')
-    call add(l:L, '     Panel tự dựng lại đúng trạng thái cũ khi rời netrw')
+    call add(l:L, '  • `Ctrl-O`  Mở netrw (`:Explore`) ngay trong cửa sổ hiện tại —')
+    call add(l:L, '     KHÔNG ẩn panel, KHÔNG phóng to, layout tab giữ nguyên')
+    call add(l:L, '  • `Ctrl-O` lần 2 (khi đang trong netrw) Quay lại file vừa xem:')
+    call add(l:L, '     đúng buffer cũ -> mở lại theo path nếu buffer bị xoá -> cuối')
+    call add(l:L, '     cùng là alternate buffer. Không còn gì để quay lại thì báo lỗi.')
+    call add(l:L, '  • Chọn file -> file mở ra thay chỗ netrw (browse_split = 0),')
+    call add(l:L, '     panel vẫn nguyên; không có layout nào phải dựng lại')
+    call add(l:L, '  • `:E` giống `:e` — mở file theo đường dẫn (`:E <path>`, `:E!`')
+    call add(l:L, '     như `:e!`). Explorer là `:Explore`, KHÔNG phải `:E`')
     call add(l:L, '')
 
     call add(l:L, '▶ QUICK REPLACE / DELETE (whole buffer, literal text)')
@@ -3089,7 +3805,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `Alt-Z` Toggle line wrap')
     call add(l:L, '')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
-    return l:L 
+    return l:L
 endfunction
 
 function! ToggleVimrcManual() abort
