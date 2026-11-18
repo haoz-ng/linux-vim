@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.62                                                         ║
-" ║  Modified : 2026-11-17                                                   ║
+" ║  Version  : 6.63                                                         ║
+" ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
 " ║             [CL:TL], panel-aware tab label & window title, diff,         ║
@@ -1762,6 +1762,8 @@ endfunction
 
 
 " Ctrl-B: bật/tắt NERDTree. WinList không bị ảnh hưởng.
+" Khi BẬT: con trỏ nhảy thẳng vào cửa sổ NERDTree vừa mở.
+" Khi TẮT: con trỏ trả về cửa sổ soạn thảo gần nhất.
 function! NERDTreePanelToggle() abort
     if NERDTreeIsOpen()
         silent! NERDTreeClose
@@ -1774,6 +1776,7 @@ function! NERDTreePanelToggle() abort
         silent! call WinListRefreshAllTabs()
     else
         silent! call PanelOpenWithNERDTree()
+        call timer_start(80, {-> s:FocusNERDTreeWindow()})
     endif
 endfunction
 
@@ -1808,6 +1811,20 @@ function! s:FocusWinListPanel() abort
     if l:wl_wnr != -1
         execute l:wl_wnr . 'wincmd w'
     endif
+endfunction
+
+" Đặt con trỏ vào cửa sổ NERDTree ngay sau khi bật nó bằng Ctrl-B.
+" Phải chạy qua timer: PanelOpenWithNERDTree() kết thúc bằng việc trả focus
+" về cửa sổ soạn thảo, nên nếu focus ngay lập tức thì sẽ bị kéo ngược lại.
+" Dùng winnr của NERDTree tại thời điểm timer chạy (layout đã ổn định),
+" không dùng winnr tính trước đó.
+function! s:FocusNERDTreeWindow() abort
+    for l:i in range(1, winnr('$'))
+        if WinListIsNERDTree(winbufnr(l:i))
+            execute l:i . 'wincmd w'
+            return
+        endif
+    endfor
 endfunction
 
 
@@ -2850,7 +2867,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.62  ·  2026-11-18')
+    call add(l:L, '  Version 6.63  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -2924,7 +2941,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
     call add(l:L, '  • `wl`            Bật/tắt WinList (KHÔNG ảnh hưởng NERDTree)')
     call add(l:L, '  • `Ctrl-B`        Bật/tắt NERDTree. NERDTree mở ra ở NỬA DƯỚI')
-    call add(l:L, '     của cột trái (WinList giữ nửa trên). WinList KHÔNG bị ảnh hưởng.')
+    call add(l:L, '     của cột trái (WinList giữ nửa trên). WinList KHÔNG bị ảnh')
+    call add(l:L, '     hưởng; con trỏ nhảy vào NERDTree, tắt thì trả về cửa sổ code.')
     call add(l:L, '  • `<leader>W`   Fix/sync WinList panel width')
     call add(l:L, '  • `<leader>wa`  Open panel in ALL tabs')
     call add(l:L, '  • `<leader>wh`  Fix panel heights (50/50 split when NERDTree is up)')
