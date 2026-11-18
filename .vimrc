@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.63                                                         ║
+" ║  Version  : 6.67                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -336,20 +336,59 @@ vnoremap <silent> cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │               TOGGLE 'haoz' AT END OF LINE  ( hh )                      │
-" │ Description: Appends/removes a trailing "<comment_leader> haoz" marker  │
-" │ at the end of the current line — quick personal authorship/attention   │
-" │ tag toggle. Works in Normal and Visual mode via  hh .                  │
+" │               TOGGLE 'haozxje' AT END OF LINE  ( hh )                    │
+" │ Description: Appends/removes a trailing "<comment_leader>                │
+" │ [haozxje-YYYYMMDD-HHMM]" tag at the end of the current line — quick      │
+" │ authorship/attention tag toggle. Works in Normal and Visual mode via  hh.│
 " └──────────────────────────────────────────────────────────────────────────┘
-function! ToggleCommentSyntaxHaoz()
+
+" ── Timestamp cho mọi tag haozxje: ─────────────────────────────────────────
+" Định dạng YYYYMMDD-HHMM, tương đương `date "+%Y%m%d-%H%M"` của shell.
+" VD:  [haozxje-20261118-1136] lý do ngắn gọn
+function! HaozTimestamp() abort
+    return strftime('%Y%m%d-%H%M')
+endfunction
+
+" ── Tên tag comment ────────────────────────────────────────────────────────
+" Đổi tên tag chỉ cần sửa 2 biến dưới đây — mọi chỗ chèn tag và mọi pattern
+" nhận diện đều lấy từ chúng.
+" s:haoz_tag_legacy: các tên CŨ vẫn được nhận diện khi TẮT comment, để những
+" dòng đã ghi trước khi đổi tên (vd "// haoz: ...") vẫn toggle off được.
+let s:haoz_tag        = 'haozxje'
+let s:haoz_tag_legacy = ['haoz']
+
+" Chuỗi tag dùng để CHÈN: "[haozxje-YYYYMMDD-HHMM] " (có 1 space ở cuối
+" để gõ tiếp lý do).  Gom vào một hàm để mọi chỗ chèn đều ra cùng format.
+function! s:HaozTagText() abort
+    return '[' . s:haoz_tag . '-' . HaozTimestamp() . '] '
+endfunction
+
+" Pattern (ordinary magic) khớp tag NGAY SAU comment leader, gồm 2 dạng:
+"   dạng MỚI : [haozxje-YYYYMMDD-HHMM]        (dạng đang dùng)
+"   dạng CŨ  : haozxje:  /  haoz:  /  haoz: [YYYYMMDD-HHMM]
+" Các dạng cũ vẫn được nhận để những dòng đã ghi trước đây còn tắt/bỏ được.
+" Trả về pattern dùng lại được cho cả =~ , !~ và substitute(), nên không phải
+" viết pattern hai lần ở mỗi hàm.
+function! s:HaozTagPattern(cl) abort
+    let l:names   = [s:haoz_tag] + s:haoz_tag_legacy
+    let l:alt     = join(map(copy(l:names), 'escape(v:val, "/\\.*$^~[]")'), '\|')
+    let l:bracket = '\[\%(' . l:alt . '\)-\d\{8}-\d\{4\}\]'
+    let l:colon   = '\%(' . l:alt . '\):\%(\s*\[\d\{8}-\d\{4}\]\)\?'
+    return escape(a:cl, '/\.*$^~[]') . '\s*\%(' . l:bracket . '\|' . l:colon . '\)'
+endfunction
+
+function! ToggleCommentSyntaxHaoz() abort
     let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
     let l:comment = substitute(l:comment, '\\/\\/', '//', 'g')
-    let l:pattern = '\s*' . escape(l:comment, '/\.*$^~[]') . '\s* haoz: \s*$'
+    " Khớp tag + timestamp + phần lý do phía sau tới hết dòng: tag nằm cuối
+    " dòng nên mọi thứ sau nó đều thuộc comment -> tắt là xoá sạch.
+    let l:pattern = '\s*' . s:HaozTagPattern(l:comment) . '\s*.*$'
     let l:current_line = getline('.')
     if l:current_line =~ l:pattern
         silent! call setline('.', substitute(l:current_line, l:pattern, '', ''))
     else
-        silent! call setline('.', l:current_line . ' ' . l:comment . ' haoz: ')
+        silent! call setline('.', l:current_line . ' ' . l:comment
+            \ . ' ' . s:HaozTagText())
     endif
 endfunction
 
@@ -358,37 +397,39 @@ vnoremap <silent> hh :call ToggleCommentSyntaxHaoz()<CR>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │             TOGGLE 'haoz' AT BEGINNING OF LINE  ( ch )                  │
-" │ Description: Inserts/removes a leading "<comment_leader> haoz " marker  │
-" │ right after the indentation, before the actual code/text. Supports     │
-" │ single-line ( ch  Normal) and multi-line range toggling (Visual).      │
+" │             TOGGLE 'haozxje' AT BEGINNING OF LINE  ( ch )                │
+" │ Description: Inserts/removes a leading "<comment_leader>                 │
+" │ [haozxje-YYYYMMDD-HHMM]" marker right after the indentation, before      │
+" │ actual code/text. Supports single-line ( ch  Normal mode) and            │
+" │ multi-line range toggling (Visual mode).                                 │
 " └──────────────────────────────────────────────────────────────────────────┘
-function! ToggleHaozCommentAtBeginning()
+function! ToggleHaozCommentAtBeginning() abort
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
     let cl = substitute(cl, '\\/\\/', '//', 'g')
     let line = getline('.')
     let indent = matchstr(line, '^\s*')
     let content = substitute(line, '^\s*', '', '')
-    let pattern = '^' . escape(cl, '/\.*$^~[]') . '\s*haoz:\s\+'
+    let pattern = '^' . s:HaozTagPattern(cl) . '\s*'
     if content =~ pattern
         let new_content = substitute(content, pattern, '', '')
         silent! call setline('.', indent . new_content)
     else
         if content != ''
-            silent! call setline('.', indent . cl . ' haoz: ' . content)
+            silent! call setline('.', indent . cl
+                \ . ' ' . s:HaozTagText() . content)
         endif
     endif
 endfunction
 
-function! ToggleHaozCommentRangeAtBeginning(start, end)
+function! ToggleHaozCommentRangeAtBeginning(start, end) abort
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
     let cl = substitute(cl, '\\/\\/', '//', 'g')
+    let tag   = s:HaozTagPattern(cl)
+    let strip = '^' . tag . '\s*'
     let all_have_haoz = 1
-    let pattern = '^\s*' . escape(cl, '/\.*$^~[]') . '\s*haoz:\s\+'
     for lnum in range(a:start, a:end)
-        let line = getline(lnum)
-        let content = substitute(line, '^\s*', '', '')
-        if content != '' && content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz:\s\+'
+        let content = substitute(getline(lnum), '^\s*', '', '')
+        if content != '' && content !~ '^' . tag
             let all_have_haoz = 0
             break
         endif
@@ -399,12 +440,11 @@ function! ToggleHaozCommentRangeAtBeginning(start, end)
         let content = substitute(line, '^\s*', '', '')
         if content != ''
             if all_have_haoz
-                let new_content = substitute(content, '^' . escape(cl, '/\.*$^~[]') . '\s*haoz:\s\+', '', '')
-                silent! call setline(lnum, indent . new_content)
-            else
-                if content !~ '^' . escape(cl, '/\.*$^~[]') . '\s*haoz:\s\+'
-                    silent! call setline(lnum, indent . cl . ' haoz: ' . content)
-                endif
+                silent! call setline(lnum,
+                    \ indent . substitute(content, strip, '', ''))
+            elseif content !~ '^' . tag
+                silent! call setline(lnum, indent . cl
+                    \ . ' ' . s:HaozTagText() . content)
             endif
         endif
     endfor
@@ -1483,8 +1523,17 @@ function! WinListSetupHighlight() abort
     silent! highlight default WinListSplitCnt   guifg=#e5c07b ctermfg=180 gui=bold
     silent! highlight default WinListActivTab   guifg=#e06c75 ctermfg=204 gui=bold
     silent! highlight default WinListNumber     guifg=#98c379 ctermfg=114 gui=bold
-    silent! highlight default WinListActive     guifg=#00FFFF ctermfg=114 gui=bold
-    silent! highlight default WinListActiveMark guifg=#E06C75 ctermfg=204 gui=bold
+    " Dòng entry đang hoạt động (có marker '>') trong WinList: chữ TRẮNG trên
+    " nền xanh đậm #003366 — đúng bằng màu nền của nhóm Search, nên trông
+    " giống một match đang được search-highlight thay vì chữ cyan như trước.
+    " Ba nhóm ActiveNum/ActiveMod/ActiveMark là bản "contained" của
+    " Number/Modified/Mark: chúng PHẢI khai báo lại guibg, vì trong Vim một
+    " syntax item contained không thừa hưởng thuộc tính của nhóm bao ngoài —
+    " thiếu guibg thì chữ số / [+] / '>' sẽ bị khoét lỗ đen giữa thanh xanh.
+    silent! highlight default WinListActive     guifg=#ffffff guibg=#003366 ctermfg=231 ctermbg=DarkBlue gui=bold
+    silent! highlight default WinListActiveNum  guifg=#98c379 guibg=#003366 ctermfg=114 ctermbg=DarkBlue gui=bold
+    silent! highlight default WinListActiveMod  guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
+    silent! highlight default WinListActiveMark guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
     silent! highlight default WinListModified   guifg=#E06C75 ctermfg=204 gui=bold
     silent! highlight default WinListSpecial    guifg=#5C6370 ctermfg=59  gui=italic
     silent! highlight default WinListPath       guifg=#7a8a9a ctermfg=66
@@ -1521,10 +1570,15 @@ function! WinListApplySyntax() abort
 
     setlocal conceallevel=2 concealcursor=nvic
 
+    " Dòng entry đang hoạt động: nền xanh đậm phủ cả dòng, chữ trắng.
+    " Chỉ contains các nhóm riêng của dòng active (đều đã có guibg cùng màu),
+    " KHÔNG dùng WinListNumber/Modified/Path nữa vì các nhóm đó không có nền
+    " và chỉ dùng cho những dòng không active.
     syntax match WinListActive     /^>.*$/
-        \ contains=WinListActiveMark,WinListNumber,WinListModified,
-        \           WinListSpecial,WinListPath
+        \ contains=WinListActiveMark,WinListActiveNum,WinListActiveMod
     syntax match WinListActiveMark /^>/              contained
+    syntax match WinListActiveNum  /\d\+:/           contained
+    syntax match WinListActiveMod  /\[+\]/           contained
     syntax match WinListNumber     /\d\+:/           contained
     syntax match WinListNumber     /^\s\+\d\+:/
     syntax match WinListModified   /\[+\]/
@@ -2867,7 +2921,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.63  ·  2026-11-18')
+    call add(l:L, '  Version 6.67  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -2890,8 +2944,9 @@ function! s:VimrcManualContent() abort
 
     call add(l:L, '▶ COMMENT SYSTEM')
     call add(l:L, '  • `cc`        Toggle comment on line (Normal) / range (Visual)')
-    call add(l:L, '  • `hh`        Toggle trailing " <leader> haoz" tag at end of line')
-    call add(l:L, '  • `ch`        Toggle leading "<leader> haoz " tag at start of code')
+    call add(l:L, '  • `hh`        Toggle trailing haozxje tag at end of line')
+    call add(l:L, '  • `ch`        Toggle leading haozxje tag at start of code')
+    call add(l:L, '     Tag luôn kèm timestamp: `[haozxje-YYYYMMDD-HHMM] <lý do>`')
     call add(l:L, '     (leader auto-detected per filetype: // # % " ; >)')
     call add(l:L, '')
 
