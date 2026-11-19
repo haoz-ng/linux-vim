@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.28                                                         ║
+" ║  Version  : 7.30                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -25,11 +25,12 @@ endif
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │                           BASIC SETTINGS                                 │
+" │                           BASIC SETTINGS                                │
 " │ Description: Core editor behavior — UTF-8 encoding, search              │
 " │ (highlight + smartcase), auto-reload changed files, line numbers,       │
 " │ mouse support, tab labels, 4-space soft tabs, cursorline/column,        │
-" │ fold defaults, and performance tuning (lazyredraw, updatetime).         │
+" │ WRAP MẶC ĐỊNH BẬT (Alt-Z để tắt), fold defaults, and performance        │
+" │ tuning (lazyredraw, updatetime).                                        │
 " └──────────────────────────────────────────────────────────────────────────┘
 set hlsearch
 set encoding=utf-8
@@ -67,10 +68,18 @@ set tabstop=4
 set shiftwidth=4
 set expandtab
 set autoindent
-set nowrap
+" MẶC ĐỊNH WRAP: mọi file mở ra đều xuống dòng cho vừa bề ngang cửa sổ.
+" Đổi qua lại bằng <M-z> (xem BASIC KEYBINDINGS).  linebreak: chỉ ngắt ở
+" khoảng trắng; breakindent + showbreak: dòng bị wrap được thụt đúng lề và
+" có ký tự ↪ ở đầu để biết là dòng nối.
+" Panel (WinList / session picker / Vimrc Manual) tự đặt setlocal nowrap nên
+" không bị ảnh hưởng.
+set wrap
 set linebreak
 set breakindent
-set showbreak=↪\ 
+" (dùng let thay vì 'set showbreak=↪\ ' để dấu cách cuối không bị mất khi
+"  file bị trim/trailing-space-strip)
+let &showbreak = '↪ '
 set laststatus=2
 set cursorcolumn
 set cursorline
@@ -294,7 +303,7 @@ endif
 " │ StatusLinePos is linked to StatusLine so the position text always      │
 " │ matches the path colour.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.28]
+" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.30]
 "   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
 "   %=   = đệm, đẩy phần sau sang phải
 "   %l   = dòng hiện tại  (CL = current line)
@@ -661,6 +670,74 @@ endfunction
 
 nnoremap <silent> ch :call ToggleHaozCommentAtBeginning()<CR>
 vnoremap <silent> ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>
+
+
+" ┌──────────────────────────────────────────────────────────────────────────┐
+" │                       CHÈN CÂU MẪU (dd / dm — GVim)                     │
+" │ Description: dd = chèn NGAY câu đầu tiên; dm = hiện menu chọn câu rồi   │
+" │ Enter để chèn.  Câu được chèn thành DÒNG MỚI NGAY DƯỚI dòng con trỏ và  │
+" │ con trỏ nhảy xuống dòng vừa chèn; các dòng khác không bị sửa ký tự nào. │
+" │ Phím dd/dm nằm trong .gvimrc (ở đó 'd' đã bị disable nên không đụng gì; │
+" │ <S-Del> vẫn xoá dòng vì mapping đó dùng 'noremap').                     │
+" └──────────────────────────────────────────────────────────────────────────┘
+" Danh sách câu mẫu: sửa trực tiếp ở đây, hoặc :SentenceAdd <câu> trong phiên
+" làm việc.  dd luôn chèn câu ĐẦU TIÊN (g:haoz_sentences[0]).
+let g:haoz_sentences = get(g:, 'haoz_sentences', [
+    \ '$display("[haozxje][%t][%6d][x] - ", $realtime, `LINE` );',
+    \ ])
+
+" Chèn a:text thành dòng MỚI ngay dưới dòng con trỏ, con trỏ xuống dòng đó.
+" Dùng ':put =' (KHÔNG dùng setline(line('.'))+1) vì setline sẽ GHI ĐÈ dòng
+" phía dưới; append() chèn đúng nhưng con trỏ đứng yên.
+" ':put =' không dùng thanh ghi nên không phá yank/paste hiện có.
+" 1 lần 'u' là xoá lại đúng dòng vừa chèn.
+function! HaozInsertSentenceLine(text) abort
+    if a:text ==# ''
+        return
+    endif
+    if !&modifiable || &readonly
+        echo 'Buffer is not writable (readonly / nomodifiable)'
+        return
+    endif
+    execute 'put =' . string(a:text)
+endfunction
+
+" Menu chọn câu: GVim dùng popup_menu (↑↓ hoặc click chuột, Enter = chèn,
+" Esc = huỷ); nơi không có popup_menu thì dùng inputlist (gõ số).
+function! HaozSentenceMenu() abort
+    if empty(g:haoz_sentences)
+        echo 'g:haoz_sentences is empty'
+        return
+    endif
+    if exists('*popup_menu')
+        call popup_menu(g:haoz_sentences, {
+            \ 'title': ' Insert sentence ',
+            \ 'callback': {id, idx -> HaozSentenceMenuPick(idx)},
+            \ })
+    else
+        let l:menu = ['Pick a sentence to insert (Enter = cancel):']
+        for l:i in range(len(g:haoz_sentences))
+            call add(l:menu, (l:i + 1) . '. ' . g:haoz_sentences[l:i])
+        endfor
+        let l:pick = inputlist(l:menu)
+        if l:pick > 0
+            call HaozSentenceMenuPick(l:pick)
+        endif
+    endif
+endfunction
+
+" idx = 1..N (popup_menu/inputlist đều đếm từ 1), -1 = huỷ.
+function! HaozSentenceMenuPick(idx) abort
+    if a:idx < 1 || a:idx > len(g:haoz_sentences)
+        return
+    endif
+    call HaozInsertSentenceLine(g:haoz_sentences[a:idx - 1])
+endfunction
+
+" Thêm câu trong phiên làm việc hiện tại (muốn giữ lâu dài thì sửa list trên):
+command! -nargs=+ SentenceAdd  call add(g:haoz_sentences, <q-args>)
+command! -nargs=0 SentenceList echo join(map(copy(g:haoz_sentences),
+    \ 'v:key + 1 . ". " . v:val'), "\n")
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -1098,8 +1175,9 @@ nnoremap N Nzz
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          TOGGLE LINE WRAP                                │
-" │ Description: Alt-Z toggles soft line-wrap on/off.                       │
+" │                          TOGGLE LINE WRAP                               │
+" │ Description: Alt-Z toggles soft line-wrap.  MẶC ĐỊNH = WRAP BẬT cho mọi │
+" │ buffer file (xem BASIC SETTINGS); panel WinList/picker luôn nowrap.     │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <M-z> :set wrap!<CR>
 
@@ -2102,7 +2180,10 @@ augroup WinListHighlight
     autocmd ColorScheme * silent! call WinListSetupHighlight()
     augroup WinListBufSettings
         autocmd!
-        autocmd FileType winlist setlocal wrap nonumber norelativenumber nolist
+        " Panel WinList phải NOWRAP: dòng entry đang active được đệm space cho
+        " kín cả hàng, nếu wrap thì phần đệm đó đẩy sang dòng thứ hai.
+        " (Các buffer file thật thì wrap mặc định BẬT — xem BASIC SETTINGS.)
+        autocmd FileType winlist setlocal nowrap nonumber norelativenumber nolist
                                \ cursorline buftype=nofile noswapfile nobuflisted
                                \ winfixwidth winfixheight signcolumn=no
     augroup END
@@ -2376,7 +2457,7 @@ endfunction
 function! PanelOpenWithNERDTree() abort
     if g:panel_opening | return | endif
     if !exists(':NERDTree')
-        echo "NERDTree chưa được cài."
+        echo 'NERDTree is not installed.'
         return
     endif
     if NERDTreeIsOpen() && WinListIsOpen()
@@ -3081,7 +3162,7 @@ function! s:NetrwBack() abort
         return
     endif
 
-    echo 'Ctrl-O: không còn buffer nào để quay lại.'
+    echo 'Ctrl-O: no previous buffer to return to.'
 endfunction
 
 function! SmartCtrlO() abort
@@ -3096,7 +3177,7 @@ function! SmartCtrlO() abort
     " được bind cho Ctrl-O và hành xử như ':e' (mở file), nên ':Explore' là
     " cách gọi chắc chắn đúng explorer, không phụ thuộc alias/abbrev.
     if !exists(':Explore')
-        echo ':Explore (netrw) không có sẵn — không mở được explorer.'
+        echo ':Explore (netrw) not available - cannot open explorer.'
         return
     endif
 
@@ -3337,7 +3418,7 @@ function! ReopenLastClosedFile() abort
             endif
 
             silent! call WinListRefreshAllTabs()
-            echo printf('Ctrl-Shift-T: dựng lại tab %d với %s',
+            echo printf('Ctrl-Shift-T: rebuilding tab %d with %s',
                 \ tabpagenr(), fnamemodify(l:path, ':t'))
             return 1
         endif
@@ -3381,7 +3462,7 @@ function! ReopenLastClosedFile() abort
     endif
 
     silent! call WinListRefreshAllTabs()
-    echo printf('Ctrl-Shift-T: %s -> tab %d, vị trí %d, rộng %d',
+    echo printf('Ctrl-Shift-T: %s -> tab %d, position %d, width %d',
         \ fnamemodify(l:path, ':t'), tabpagenr(), l:ord, winwidth(0))
     return 1
 endfunction
@@ -3455,9 +3536,9 @@ endfunction
 " nào, entry đó mang tab/tabidx/ord gì, và trong ngăn xếp có entry cũ sót
 " lại từ lần thử trước hay không.
 function! ClosedInfo() abort
-    echomsg '── closed_tab_stack (mới nhất trước) ──'
+    echomsg '── closed_tab_stack (newest first) ──'
     if empty(g:closed_tab_stack)
-        echomsg '  (rỗng)'
+        echomsg '  (empty)'
     else
         let l:i = 0
         for l:s in g:closed_tab_stack
@@ -3469,9 +3550,9 @@ function! ClosedInfo() abort
                 \            'fnamemodify(v:val.path, ":t")')))
         endfor
     endif
-    echomsg '── closed_file_stack (mới nhất trước) ──'
+    echomsg '── closed_file_stack (newest first) ──'
     if empty(g:closed_file_stack)
-        echomsg '  (rỗng)'
+        echomsg '  (empty)'
     else
         let l:i = 0
         for l:e in g:closed_file_stack
@@ -3482,19 +3563,19 @@ function! ClosedInfo() abort
                     \ get(l:e, 'tabid', ''), get(l:e, 'tabidx', 0),
                     \ get(l:e, 'ord', 0), get(l:e, 'w', 0))
             else
-                echomsg printf('  %d) %s  (entry kiểu cũ)', l:i, l:e)
+                echomsg printf('  %d) %s  (legacy entry)', l:i, l:e)
             endif
         endfor
     endif
-    echomsg '── tab hiện có / Tab-ID ──'
+    echomsg '── open tabs / Tab-ID ──'
     for l:t in range(1, tabpagenr('$'))
         echomsg printf('  tab %d  tid=%s  wins=%s', l:t,
             \ gettabvar(l:t, 'winlist_tab_id', '?'),
             \ string(map(copy(tabpagebuflist(l:t)), 'fnamemodify(bufname(v:val), ":t")')))
     endfor
-    echomsg '── restore_log (cũ → mới) ──'
+    echomsg '── restore_log (old -> new) ──'
     if empty(g:restore_log)
-        echomsg '  (rỗng)'
+        echomsg '  (empty)'
     else
         for l:m in g:restore_log
             echomsg '  ' . l:m
@@ -3806,7 +3887,7 @@ function! ReopenLastClosedTab() abort
         " chặn), dừng ngay — trước đây lỗi này bị silent! nuốt mất nên các
         " bước sau chạy nhầm vào tab đang mở, đẩy file sang tab khác.
         if tabpagenr('$') != l:n_before + 1
-            echo 'Ctrl-Shift-T: không tạo được tab mới — giữ nguyên trạng thái.'
+            echo 'Ctrl-Shift-T: could not create a new tab - state kept.'
             return 0
         endif
         let l:newtab = tabpagenr()
@@ -3846,7 +3927,7 @@ function! ReopenLastClosedTab() abort
             if tabpagenr('$') > 1
                 silent! close
             endif
-            echo 'Ctrl-Shift-T: không mở được file nào của tab vừa đóng — giữ trong stack.'
+            echo 'Ctrl-Shift-T: could not open any file of the closed tab - kept in stack.'
             return 0
         endif
 
@@ -3874,12 +3955,12 @@ function! ReopenLastClosedTab() abort
     call s:RestoreLog(printf('RESTORED-TAB index=%d (%d cửa sổ)',
         \ l:snap.index, len(l:snap.wins)))
 
-    echo printf('Ctrl-Shift-T: tab %d (%d cửa sổ: %s)',
+    echo printf('Ctrl-Shift-T: tab %d (%d windows: %s)',
         \ l:snap.index, len(l:snap.wins),
         \ join(map(copy(l:snap.wins), 'fnamemodify(v:val.path, ":t")'), ', '))
 
     if !empty(l:missing)
-        echo 'Ctrl-Shift-T: không mở được ' . join(l:missing, ', ')
+        echo 'Ctrl-Shift-T: could not open ' . join(l:missing, ', ')
     endif
 
     " khôi phục xong mới bỏ snapshot khỏi ngăn xếp
@@ -3893,7 +3974,7 @@ function! ReopenLastClosed() abort
     " Hết cả hai ngăn xếp -> chỉ báo info, KHÔNG đụng vào layout/buffer hiện
     " tại (khôi phục rỗng).
     if empty(g:closed_tab_stack) && empty(g:closed_file_stack)
-        echo 'Ctrl-Shift-T: không còn gì để khôi phục (ngăn xếp rỗng).'
+        echo 'Ctrl-Shift-T: nothing left to restore (empty stack).'
         call s:RestoreLog('EMPTY (không còn gì để khôi phục)')
         return 0
     endif
@@ -4679,7 +4760,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.28  ·  2026-11-19')
+    call add(l:L, '  Version 7.30  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4687,7 +4768,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
     call add(l:L, '  • Thứ tự BỐN khối, SÁT nhau không dấu cách:')
-    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.28]`')
+    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.30]`')
     call add(l:L, '  • Khối 2 `[<indent>]` — dò từ NỘI DUNG buffer:')
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
@@ -4719,6 +4800,20 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `ch`        Toggle leading haozxje tag at start of code')
     call add(l:L, '     Tag luôn kèm timestamp: `[haozxje-YYYYMMDD-HHMM] <lý do>`')
     call add(l:L, '     (leader auto-detected per filetype: // # % " ; >)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ SENTENCE INSERT  (GVim: dd / dm)')
+    call add(l:L, '  • `dd`  Chèn NGAY câu đầu tiên của `g:haoz_sentences`')
+    call add(l:L, '  • `dm`  Menu chọn câu (↑↓ hoặc click chuột, Enter = chèn,')
+    call add(l:L, '     Esc = huỷ); nơi không có popup_menu thì dùng inputlist')
+    call add(l:L, '  • Câu được chèn thành DÒNG MỚI NGAY DƯỚI dòng con trỏ, con trỏ')
+    call add(l:L, '     nhảy xuống dòng vừa chèn; dòng trước/sau KHÔNG bị sửa ký tự')
+    call add(l:L, '     nào (chỉ dịch số dòng); `u` = undo 1 bước.')
+    call add(l:L, '  • Hàm: `HaozInsertSentenceLine()`, `HaozSentenceMenu()`,')
+    call add(l:L, '     `HaozSentenceMenuPick()`; phím map trong `.gvimrc` (ở đó `d`')
+    call add(l:L, '     đã disable nên dd/dm không giành mất lệnh nào).')
+    call add(l:L, '  • Sửa danh sách câu: trực tiếp trong `g:haoz_sentences`, hoặc')
+    call add(l:L, '     `:SentenceAdd <câu>` (trong phiên) / `:SentenceList` (xem).')
     call add(l:L, '')
 
     call add(l:L, '▶ AUTO-SAVE & AUTO-FEATURES')
@@ -4937,7 +5032,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `F10`  Toggle GVim menu bar + toolbar')
     call add(l:L, '  • `F11`  Toggle window maximize (wmctrl, Linux/X11)')
     call add(l:L, '  • `F12`  Copy full file path to clipboard')
-    call add(l:L, '  • `Alt-Z` Toggle line wrap')
+    call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH WRAP BẬT cho mọi file')
+    call add(l:L, '     (`set wrap` + `linebreak` + `breakindent`, dòng nối có `↪`;')
+    call add(l:L, '     panel WinList / session picker / Vimrc Manual luôn nowrap)')
     call add(l:L, '')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     return l:L
