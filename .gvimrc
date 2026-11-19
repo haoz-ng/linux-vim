@@ -1,5 +1,5 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
-" ║  Author   : haoz.ng                                                      ║
+" ║  Author   : haozxje                                                      ║
 " ║  Version  : 1.1                                                          ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Phần RIÊNG của GVim, nạp SAU .vimrc (nên thắng mọi mapping   ║
@@ -18,7 +18,7 @@
 " ║  bình thường (trừ x / <Del> / o đã bị disable sẵn trong .vimrc).         ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
-" ── Phím di chuyển / thao tác bị disable ở Normal mode ────────────────────
+" ── Phím di chuyển / thao tác bị disable ở Normal mode ──────────────────────
 nnoremap a <Nop>
 nnoremap h <Nop>
 nnoremap j <Nop>
@@ -29,17 +29,17 @@ nnoremap c <Nop>
 nnoremap v <Nop>
 nnoremap d <Nop>
 
-" ── Xoá / dán: disable cả Visual mode (dễ mất đoạn text khi bấm nhầm) ─────
+" ── Xoá / dán: disable cả Visual mode (dễ mất đoạn text khi bấm nhầm) ───────
 nnoremap x     <Nop>
 nnoremap p     <Nop>
 vnoremap p     <Nop>
 vnoremap d     <Nop>
 nnoremap <Del> <Nop>
 
-" ── Tạo dòng mới: disable ở Normal mode (xem cách thay thế ở header) ──────
+" ── Tạo dòng mới: disable ở Normal mode (xem cách thay thế ở header) ────────
 nnoremap o <Nop>
 
-" ── CHÈN CÂU MẪU (hàm nằm trong .vimrc) ──────────────────────────────────
+" ── CHÈN CÂU MẪU (hàm nằm trong .vimrc) ─────────────────────────────────────
 " Ở GVim 'd' đã bị disable nên dd/dm KHÔNG giành mất lệnh nào của Vim.
 "   dd  chèn NGAY câu đầu tiên của g:haoz_sentences vào DÒNG MỚI dưới con trỏ
 "   dm  hiện menu chọn câu (↑↓ hoặc click chuột, Enter = chèn, Esc = huỷ)
