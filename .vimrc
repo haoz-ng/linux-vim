@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.22                                                         ║
+" ║  Version  : 7.26                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -173,13 +173,10 @@ colorscheme haoz
 " không tên cũng bị nhận là md.
 filetype plugin on
 au BufNewFile,BufRead *.md setlocal ft=md
-" md#setup() ở BufReadPost là yêu cầu của plugin (đặt conceallevel, keymap…).
-" Tham số là LEADER dạng chuỗi.  Vimrc này KHÔNG đặt mapleader -> leader là
-" '\' mặc định, nên truyền "\\" (một dấu backslash).  Đừng chép nguyên
-" md#setup("q") từ README: khi đó plugin map thành q=, q-, ql, qx, qt, qz, qp
-" và biến q thành prefix -> mất record macro (qa, q:) và q bị trễ.
-" silent! để không báo E117 nếu plugin chưa cài.
-au BufReadPost *.md silent! call md#setup("\\")
+" KHÔNG gọi md#setup(): hàm đó chỉ tạo 7 mapping leader của plugin (\= \- \l
+" \x \t \z \p) — theo yêu cầu, buffer .md chỉ giữ phím fold (za/zo, xem mục
+" FOLDING) và các lệnh :MdFormat/:MdFormatTable/:MdAutoFormat bên dưới.
+" (conceallevel của plugin được đặt bằng autocmd riêng ở cuối khối này.)
 
 " Ngôn ngữ được tô màu bên trong khối ``` … ``` (plugin tự include syntax).
 " Dạng 'ext=ngôn-ngữ' cho fence ghi tắt, ví dụ ```sv.
@@ -189,13 +186,11 @@ let g:md_fenced_languages = [
       \ 'c', 'cpp', 'python', 'sh', 'tcl', 'make', 'json', 'yaml', 'vim',
       \ ]
 
-" Phím tắt của plugin (leader = \) — không trùng phím nào của vimrc:
-"   \=  thành h1     \-  thành h2      \l  đánh số lại ordered list
-"   \x  toggle task  \t  format bảng  \z  fold theo header
-"   \p  preview: chạy lệnh shell ':!mark %' -> CẦN cài 'mark' (không có thì
-"       Vim báo lỗi shell; bỏ qua được, không ảnh hưởng phần khác)
+" Phím của buffer .md: CHỈ 2 phím fold (za / zo — xem mục FOLDING).
+" 7 mapping leader của plugin (\= \- \l \x \t \z \p) đã bỏ theo yêu cầu;
+" việc format bảng/list giờ do chế độ tự format đảm nhiệm.
 "
-" Ngoài ra (bản ftplugin riêng, không cần phím):
+" Các lệnh (không cần phím):
 "   :MdFormat      format MỌI bảng trong buffer ngay
 "   :MdAutoFormat  bật/tắt tự format (mặc định BẬT: format bảng mỗi lần ghi
 "                  file và mỗi lần rời Insert khi con trỏ đang trong bảng)
@@ -372,14 +367,24 @@ function! s:DetectIndent() abort
 endfunction
 
 " Wrapper có cache cho statusline (%{...} gọi hàm này rất thường xuyên).
+" PERFORMANCE: khi đang gõ, b:changedtick đổi sau MỖI phím, nên cache theo
+" tick không cứu được — bản cũ vẫn quét tới 400 dòng cho mỗi phím để vẽ lại
+" statusline.  Trong Insert/Replace giờ chỉ tính lại tối đa 1 lần/giây; rời
+" Insert (Enter/ESC) là mode khác nên lần vẽ sau quét lại ngay.
 function! StatusIndent() abort
     let l:tick = get(b:, 'changedtick', 0)
     if get(b:, 'indent_cache_tick', -1) == l:tick
         \ && exists('b:indent_cache')
         return b:indent_cache
     endif
+    if mode() =~# '^[iR]' && exists('b:indent_cache')
+        \ && exists('b:indent_cache_rt')
+        \ && reltimefloat(reltime(b:indent_cache_rt)) < 1.0
+        return b:indent_cache
+    endif
     let b:indent_cache      = s:DetectIndent()
     let b:indent_cache_tick = l:tick
+    let b:indent_cache_rt   = reltime()
     return b:indent_cache
 endfunction
 
@@ -641,11 +646,62 @@ vnoremap <silent> ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), li
 " │ unset filetype to 'log' on read — useful for arbitrary/extension-less   │
 " │ log files.                                                              │
 " └──────────────────────────────────────────────────────────────────────────┘
+" ── PERFORMANCE ───────────────────────────────────────────────────────────
+" Bản cũ: `autocmd TextChanged,InsertLeave * if &modified | silent write`.
+" TextChanged bắn ra sau MỖI lệnh sửa ở Normal mode (x, dd, p, J, u, …), nên
+" mỗi phím = 1 lần ghi đĩa thật + ghi swap + BufWritePost + WinList dựng lại.
+" Trên NFS (/nobackup) mỗi lần ghi mất vài ms -> gõ phím thấy khựng.
+" Bản mới: hoãn ghi 800ms (gộp nhiều lần sửa thành 1 lần ghi), vẫn ghi NGAY
+" khi rời Insert và khi thoát Vim nên không mất dữ liệu.
+" Đổi độ trễ: let g:autosave_delay = 1500
 augroup autosave
     autocmd!
-    autocmd BufRead * if &filetype == "" | setlocal ft=log | endif
-    autocmd TextChanged,InsertLeave * if &readonly == 0 && &modified | silent write | endif
+    autocmd BufRead      * if &filetype == "" | setlocal ft=log | endif
+    autocmd TextChanged  * call s:AutoSaveSchedule()
+    " Ghi NGAY ở các mốc an toàn: rời Insert, rời buffer (chuyển file/tab/split
+    " — để buffer vừa sửa không bị bỏ lại chưa ghi), mất focus cửa sổ GVim, và
+    " thoát Vim.  Nhờ vậy việc hoãn 800ms ở TextChanged không thể mất dữ liệu.
+    autocmd InsertLeave  * call s:AutoSaveNow()
+    autocmd BufLeave     * call s:AutoSaveNow()
+    autocmd FocusLost    * call s:AutoSaveNow()
+    autocmd VimLeavePre  * call s:AutoSaveNow()
 augroup END
+
+let s:autosave_timer = -1
+
+" Chỉ ghi buffer thật sự ghi được: có tên, buftype rỗng, đang sửa, không RO.
+" (Bản cũ gọi 'write' cả trên buffer [No Name]/nofile -> E32 bị silent! nuốt,
+" nhưng vẫn tốn một lần gọi :write.)
+function! s:AutoSaveWritable() abort
+    return &modified && !&readonly && &modifiable
+        \ && &buftype ==# '' && bufname('%') !=# ''
+endfunction
+
+function! s:AutoSaveNow(...) abort
+    if s:autosave_timer != -1
+        call timer_stop(s:autosave_timer)
+        let s:autosave_timer = -1
+    endif
+    if !s:AutoSaveWritable()
+        return
+    endif
+    silent! write
+endfunction
+
+function! s:AutoSaveSchedule() abort
+    if !s:AutoSaveWritable()
+        return
+    endif
+    " Đang gõ dở (Insert/Replace) thì để InsertLeave lo, không hẹn ghi.
+    if mode() =~# '^[iR]'
+        return
+    endif
+    if s:autosave_timer != -1
+        call timer_stop(s:autosave_timer)
+    endif
+    let s:autosave_timer = timer_start(get(g:, 'autosave_delay', 800),
+        \ {-> s:AutoSaveNow()})
+endfunction
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -1026,32 +1082,49 @@ nnoremap <M-z> :set wrap!<CR>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                        DISABLE PROBLEMATIC KEYS                          │
-" │ Description: Disables  x  (char delete) and <Del> in Normal mode to     │
-" │ prevent accidental single-character deletions.                          │
+" │ Description: Disables  x  (char delete), <Del>, and  o  (open new line  │
+" │ below) in Normal mode to prevent accidental deletions / stray lines.    │
+" │ Dùng thay thế: xoá dòng `S-Del`, mở dòng mới `O` (phía trên) hoặc       │
+" │ `:call append(line('.'), '')` (phía dưới).                              │
+" │ Insert/Visual mode KHÔNG bị ảnh hưởng.                                  │
 " └──────────────────────────────────────────────────────────────────────────┘
 nnoremap x     <Nop>
 nnoremap <Del> <Nop>
+nnoremap o     <Nop>
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                              FOLDING                                     │
 " │ Description: indent-fold for Verilog/SystemVerilog (*.v, *.sv, *.svt)   │
-" │ and header-fold for Markdown (*.md) via HaozMdFoldLevel/HaozMdFoldText  │
-" │ below; and loads matchit.vim for % (matching pairs) navigation.         │
+" │ with foldlevel=3 (đọc được tổng quan), header-fold for Markdown (*.md)  │
+" │ with foldlevel=0 (đóng hết); phím fold RIÊNG cho từng loại buffer; và   │
+" │ loads matchit.vim for % (matching pairs) navigation.                   │
 " └──────────────────────────────────────────────────────────────────────────┘
+" Phím fold, tất cả đều là mapping <buffer> (chỉ buffer đang mở) và lệnh gốc
+" của Vim KHÔNG bị đổi ở nơi khác:
+"   za   toggle fold HIỆN TẠI                        (có sẵn của Vim)
+"   zo   toggle TẤT CẢ fold của file                 (map, mọi buffer có fold)
+"   zA   toggle fold hiện tại + TOÀN BỘ node con     (map, chỉ file .sv)
 augroup filtype_verilog
     autocmd!
-    autocmd FileType Verilog,verilog_systemverilog  setlocal foldmethod=indent
-    autocmd BufNewFile,BufRead *.v,*.sv,*.svh,*.svt setlocal foldmethod=indent
-    " Markdown: fold theo tiêu đề, dùng hàm viết ngay trong vimrc
-    " (HaozMdFoldLevel/HaozMdFoldText bên dưới) -> KHÔNG phụ thuộc
-    " ftplugin/md.vim. Toàn bộ đặt trong HaozMdFoldSetup():
-    "   • MẶC ĐỊNH ĐÓNG HẾT khi mở file (setlocal foldlevel=0);
-    "   • CHỈ 2 phím, và chỉ trong buffer .md:
-    "       za  toggle fold HIỆN TẠI   (lệnh gốc của Vim)
-    "       zo  toggle TẤT CẢ fold     (map sang HaozFoldToggleAll)
+    autocmd FileType Verilog,verilog_systemverilog call HaozSvFoldSetup()
+    autocmd BufNewFile,BufRead *.v,*.sv,*.svh,*.svt call HaozSvFoldSetup()
     autocmd FileType md call HaozMdFoldSetup()
 augroup END
+
+" Fold cho buffer Verilog/SystemVerilog: Vim tự fold theo độ THỤT LỀ.
+" foldlevel=3 -> các khối lồng tới cấp 3 vẫn mở, sâu hơn mới đóng, nên mở
+" file ra là đọc được tổng quan cấu trúc.
+function! HaozSvFoldSetup() abort
+    setlocal foldmethod=indent
+    setlocal foldenable
+    setlocal foldlevel=3
+    " Mức "đã fold tất cả" của file .sv = 3 (vẫn thấy 3 cấp đầu để đọc tổng
+    " quan).  'zo' đóng về đúng mức này, không đóng xuống 0.
+    let b:haoz_fold_home = 3
+    nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
+    nnoremap <buffer> <silent> zA :<C-U>call HaozFoldToggleRecursive()<CR>
+endfunction
 
 " Đặt fold + phím fold CHỈ cho buffer markdown (buffer-local mapping nên
 " không ảnh hưởng .sv/.v hay buffer khác).
@@ -1061,8 +1134,10 @@ function! HaozMdFoldSetup() abort
     setlocal foldtext=HaozMdFoldText()
     setlocal foldenable
     setlocal foldlevel=0            " mặc định: ĐÓNG tất cả khi mở file
+    let b:haoz_fold_home = 0        " md: 'zo' đóng về 0 = đóng hết
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
 endfunction
+" (za của buffer .md là lệnh gốc của Vim — không map.)
 
 " Fold cho markdown: 'foldmethod=expr' gọi hàm này cho TỪNG dòng và hỏi
 " "dòng này thuộc fold cấp mấy":
@@ -1132,22 +1207,77 @@ function! HaozMdFoldText() abort
     return '▸ ' . l:title . '  ⋯ ' . (v:foldend - v:foldstart + 1) . ' dòng '
 endfunction
 
-" 'zo' trong buffer .md = TOGGLE TẤT CẢ fold của file.  Vim gốc chỉ có một
-" chiều: zR = mở hết, zM = đóng hết.  Ở đây: còn fold nào đang đóng -> mở hết;
-" đang mở hết rồi -> đóng hết.  (za vẫn là toggle 1 fold, lệnh gốc của Vim.)
+" 'zA' = TOGGLE ĐỆ QUY: fold dưới con trỏ + TOÀN BỘ node con.
+" Vim có zo (mở 1 cấp), zO (mở hết cả cây con), zC (đóng hết cả cây con) —
+" nhưng không có toggle đệ quy.  Ở đây:
+"   • fold đang đóng (hoặc còn node con đang đóng) -> MỞ hết  (zO)
+"   • fold đang mở hết                              -> ĐÓNG hết (zC)
+" Muốn biết "còn node con nào đóng không" thì phải biết PHẠM VI fold hiện tại,
+" mà Vim chỉ cho biết phạm vi khi fold đang ĐÓNG (foldclosed/foldclosedend) —
+" nên: ghi lại các fold đang đóng, đóng thử fold hiện tại để lấy phạm vi, rồi
+" quyết định mở lại hay giữ đóng.
+function! HaozFoldToggleRecursive() abort
+    if foldlevel('.') == 0
+        return          " dòng này không nằm trong fold nào
+    endif
+    if foldclosed('.') != -1
+        normal! zO      " đang đóng -> mở hết cả cây con
+        return
+    endif
+    let l:closed = []
+    let l:n = 1
+    while l:n <= line('$')
+        if foldclosed(l:n) == l:n
+            call add(l:closed, l:n)
+        endif
+        let l:n = l:n + 1
+    endwhile
+    let l:cur = line('.')
+    normal! zc
+    let l:top = foldclosed(l:cur)
+    let l:bot = foldclosedend(l:cur)
+    if l:top == -1
+        return
+    endif
+    for l:s in l:closed
+        if l:s > l:top && l:s <= l:bot
+            normal! zO  " bên trong còn node đóng -> người dùng muốn mở hết
+            return
+        endif
+    endfor
+    " trước đó mở hết -> giữ đóng (zc vừa đóng cả cây con)
+endfunction
+
+" 'zo' = TOGGLE TẤT CẢ fold của file (map cho buffer .md và .sv).
+" Vim gốc chỉ có một chiều: zR = mở hết, zM = đóng hết.
+" Ở đây hai trạng thái là "mở hết" <-> "gập về mức home" (b:haoz_fold_home,
+" đặt trong HaozSvFoldSetup / HaozMdFoldSetup):
+"   • .sv  -> 3 : gập tới cấp 3, vẫn thấy 3 cấp đầu để đọc tổng quan
+"                 (không gập xuống 0)
+"   • .md  -> 0 : gập hết
+" Chiều toggle: đang ở mức home mà còn fold đóng (hoặc mới mở file) -> MỞ hết;
+" còn lại -> GẬP về mức home.  (za vẫn là toggle 1 fold của Vim.)
 function! HaozFoldToggleAll() abort
     if !&foldenable
         return
     endif
+    let l:home = get(b:, 'haoz_fold_home', 0)
+
+    let l:any_closed = 0
     let l:n = 1
     while l:n <= line('$')
         if foldclosed(l:n) == l:n
-            normal! zR      " có fold đang đóng -> mở hết
-            return
+            let l:any_closed = 1
+            break
         endif
         let l:n = l:n + 1
     endwhile
-    normal! zM              " đang mở hết -> đóng hết
+
+    if l:any_closed && &l:foldlevel <= l:home
+        normal! zR                      " đang là trạng thái "đã gập" -> mở hết
+    else
+        let &l:foldlevel = l:home       " đang mở -> gập về đúng mức home
+    endif
 endfunction
 
 runtime macros/matchit.vim
@@ -1538,6 +1668,22 @@ function! WinListIsOpen() abort
     return bufwinnr(WinListBufName()) != -1
 endfunction
 
+" Panel có hiển thị ở BẤT KỲ tab nào không.  Buffer WinList là MỘT buffer dùng
+" chung cho mọi tab, nên chỉ cần nó hiện ở đâu đó là nội dung phải đúng; còn
+" nếu không hiện ở đâu thì không cần dựng lại nội dung (đây là phần đắt nhất).
+function! WinListIsOpenAnywhere() abort
+    let l:bn = bufnr(WinListBufName())
+    if l:bn == -1
+        return 0
+    endif
+    for l:t in range(1, tabpagenr('$'))
+        if index(tabpagebuflist(l:t), l:bn) >= 0
+            return 1
+        endif
+    endfor
+    return 0
+endfunction
+
 function! NERDTreeIsOpen() abort
     for l:i in range(1, winnr('$'))
         if WinListIsNERDTree(winbufnr(l:i))
@@ -1716,15 +1862,32 @@ endfunction
 "  editable window's filename, modified flag, and shortened directory path.
 " ══════════════════════════════════════════════════════════════════════════
 
+" Rút gọn đường dẫn thư mục để hiện dưới mỗi entry.  PERFORMANCE: kết quả
+" được cache theo đường dẫn — panel được dựng lại rất nhiều lần nhưng cùng
+" một thư mục thì luôn ra cùng một chuỗi, nên không cần split/join lại.
+" Cache tự xoá khi vượt 500 mục (đường dẫn đổi liên tục thì cũng không phình).
+let s:shortpath_cache = {}
+
 function! WinListShortPath(fullpath) abort
     if a:fullpath ==# '' | return '[No Name]' | endif
+    let l:hit = get(s:shortpath_cache, a:fullpath, v:null)
+    if l:hit isnot v:null
+        return l:hit
+    endif
+
     let l:parts = split(a:fullpath, '/')
     if len(l:parts) > 5
         let l:parts = l:parts[-5:]
-        return '…/' . join(l:parts, '/')
+        let l:res = '…/' . join(l:parts, '/')
     else
-        return (a:fullpath[0] ==# '/' ? '/' : '') . join(l:parts, '/')
+        let l:res = (a:fullpath[0] ==# '/' ? '/' : '') . join(l:parts, '/')
     endif
+
+    if len(s:shortpath_cache) > 500
+        let s:shortpath_cache = {}
+    endif
+    let s:shortpath_cache[a:fullpath] = l:res
+    return l:res
 endfunction
 
 " Bề ngang text thực tế của buffer WinList (đã trừ cột number), dùng để đệm
@@ -1751,6 +1914,9 @@ endfunction
 function! WinListBuildAllTabLines() abort
     let l:cur_tab = tabpagenr()
     let l:lines   = []
+    " Tính bề ngang panel MỘT lần cho cả lần dựng (bản cũ gọi lại cho từng
+    " dòng active -> mỗi lần là bufwinnr + winwidth + getwinvar).
+    let l:textw   = s:WinListTextWidth()
 
     for l:t in range(1, tabpagenr('$'))
         call WinListEnsureTabID(l:t)
@@ -1813,7 +1979,7 @@ function! WinListBuildAllTabLines() abort
             " dòng.  Buffer là nofile và được dựng lại mỗi lần refresh
             " (WinListRefresh/RefreshAllTabs) nên đệm luôn khớp bề ngang mới.
             if l:prefix ==# '> '
-                let l:pad = s:WinListTextWidth() - strwidth(l:entry)
+                let l:pad = l:textw - strwidth(l:entry)
                 if l:pad > 0
                     let l:entry .= repeat(' ', l:pad)
                 endif
@@ -1919,6 +2085,15 @@ augroup WinListHighlight
 augroup END
 
 function! WinListApplySyntax() abort
+    " PERFORMANCE: các 'syntax match' dưới đây KHÔNG phụ thuộc nội dung nên
+    " chỉ cần đặt MỘT lần cho buffer panel.  Bản cũ chạy 'syntax clear' + 13
+    " lệnh ':syntax' ở mọi lần refresh (mỗi lần chuyển cửa sổ/ghi file), và
+    " 'syntax clear' còn ép tô lại toàn bộ cửa sổ panel.
+    " Điều kiện 'exists(b:current_syntax)' để nếu ai đó 'syntax clear' (đổi
+    " colorscheme, :syntax on…) thì ta đặt lại.
+    if get(b:, 'winlist_syntax_done', 0) && exists('b:current_syntax')
+        return
+    endif
     silent! syntax clear
 
     syntax match WinListHeader   /^=== Tab \d\+.*===/
@@ -1946,6 +2121,10 @@ function! WinListApplySyntax() abort
     syntax match WinListModified   /\[+\]/
     syntax match WinListSpecial    /\[[^\]+]\+\]/
     syntax match WinListPath       /^\s\+[…\/].*/
+
+    " Đánh dấu đã đặt xong (xem chú thích ở đầu hàm).
+    let b:current_syntax      = 'winlist'
+    let b:winlist_syntax_done = 1
 endfunction
 
 function! WinListApplyStatusLine() abort
@@ -2010,23 +2189,89 @@ function! WinListRefreshAllTabs() abort
         let g:winlist_last_active[l:cur_tab] = bufnr('%')
     endif
 
-    let l:lines  = WinListBuildAllTabLines()
-    let l:wl_buf = WinListBufName()
-    let l:wl_wnr = bufwinnr(l:wl_buf)
+    " Chụp layout MỌI tab cho tính năng khôi phục tab — việc này phải chạy kể
+    " cả khi panel đang ẩn (chính nó đã tự chặn 1 lần/200ms nên rất rẻ).
+    silent! call s:SnapshotAllTabLayouts()
 
-    if l:wl_wnr != -1
-        let l:restore_win = winnr()
-        execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
-        setlocal modifiable
-        silent! %delete _
-        silent! call setline(1, l:lines)
-        setlocal nomodifiable nomodified
-        setlocal statusline=%!WinListStatusLine()
-        silent! call WinListApplySyntax()
-        execute 'noautocmd ' . l:restore_win . 'wincmd w'
+    " Panel không hiển thị ở đâu cả -> bỏ qua phần ĐẮT NHẤT (dựng danh sách
+    " mọi tab/buffer + xoá và ghi lại cả buffer panel).
+    if WinListIsOpenAnywhere()
+        let l:lines  = WinListBuildAllTabLines()
+        let l:wl_buf = WinListBufName()
+        let l:wl_wnr = bufwinnr(l:wl_buf)
+
+        if l:wl_wnr != -1
+            let l:restore_win = winnr()
+            execute 'noautocmd ' . l:wl_wnr . 'wincmd w'
+            setlocal modifiable
+            silent! %delete _
+            silent! call setline(1, l:lines)
+            setlocal nomodifiable nomodified
+            setlocal statusline=%!WinListStatusLine()
+            silent! call WinListApplySyntax()
+            execute 'noautocmd ' . l:restore_win . 'wincmd w'
+        endif
     endif
 
     let &lazyredraw = l:save_lz
+endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  GỘP NHIỀU EVENT THÀNH MỘT LẦN DỰNG PANEL      (performance)
+"  Một thao tác của người dùng bắn ra nhiều event liền nhau: chuyển cửa sổ =
+"  WinEnter + BufEnter; mở file = BufReadPost + BufEnter + WinEnter; ghi file
+"  = BufWritePost (+ BufAdd khi tạo buffer mới)…  Bản cũ gọi
+"  WinListRefreshAllTabs() NGAY cho từng event -> 2-4 lần quét toàn bộ tab và
+"  ghi lại cả buffer panel cho MỘT thao tác.
+"  WinListRefreshSoon() thay vào đó:
+"    • cập nhật anchor (một phép gán) NGAY -> Ctrl-Shift-T vẫn đúng vị trí;
+"    • dựng panel ngay nếu lần trước đã cách > 40ms;
+"    • nếu vừa dựng xong thì hẹn MỘT lần dựng bù sau 60ms, để event cuối
+"      cùng vẫn được phản ánh (không bị mất trạng thái);
+"    • lần dựng bù chỉ chạy khi đang ở Normal mode (không đổi cửa sổ khi
+"      đang Insert / command-line).
+" ══════════════════════════════════════════════════════════════════════════
+let s:wl_last_refresh  = reltime()
+let s:wl_refresh_timer = -1
+
+function! WinListRefreshSoon() abort
+    if g:winlist_opening || g:panel_opening || g:netrw_expanding
+        return
+    endif
+
+    if !WinListIsSpecial() && !WinListIsNERDTree()
+        let g:winlist_last_active[tabpagenr()] = bufnr('%')
+    endif
+
+    if reltimefloat(reltime(s:wl_last_refresh)) >= 0.04
+        let s:wl_last_refresh = reltime()
+        silent! call WinListRefreshAllTabs()
+        return
+    endif
+
+    if s:wl_refresh_timer != -1
+        return
+    endif
+    let s:wl_refresh_timer = timer_start(60, {-> s:WinListRefreshTick()})
+endfunction
+
+function! s:WinListRefreshTick(...) abort
+    let s:wl_refresh_timer = -1
+    " Đổi cửa sổ khi đang gõ / đang ở command-line sẽ làm nháy màn hình và có
+    " thể cắt ngang thao tác -> hẹn lại.
+    if mode() !~# '^\%(n\|no\)$'
+        let s:wl_refresh_timer = timer_start(120, {-> s:WinListRefreshTick()})
+        return
+    endif
+    if g:winlist_opening || g:panel_opening || g:netrw_expanding
+        return
+    endif
+    if !WinListIsSpecial() && !WinListIsNERDTree()
+        let g:winlist_last_active[tabpagenr()] = bufnr('%')
+    endif
+    let s:wl_last_refresh = reltime()
+    silent! call WinListRefreshAllTabs()
 endfunction
 
 
@@ -2517,15 +2762,17 @@ endfunction
 
 augroup WinListAuto
     autocmd!
-    autocmd BufWritePost * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufReadPost  * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufAdd       * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufDelete    * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufWipeout   * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    " Tất cả cùng gọi WinListRefreshSoon(): nó gộp các event bắn liền nhau
+    " thành MỘT lần dựng lại panel (xem chú thích ở WinListRefreshSoon).
+    autocmd BufWritePost * silent! call WinListRefreshSoon()
+    autocmd BufReadPost  * silent! call WinListRefreshSoon()
+    autocmd BufAdd       * silent! call WinListRefreshSoon()
+    autocmd BufDelete    * silent! call WinListRefreshSoon()
+    autocmd BufWipeout   * silent! call WinListRefreshSoon()
 
     autocmd WinEnter * silent! call WinListCheckAutoCloseTab()
-    autocmd WinEnter * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
-    autocmd BufEnter * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd WinEnter * silent! call WinListRefreshSoon()
+    autocmd BufEnter * silent! call WinListRefreshSoon()
 
     autocmd TabEnter * silent! call WinListApplyStatusLine()
 
@@ -2536,7 +2783,7 @@ augroup WinListAuto
     " Đổi bề ngang cửa sổ (hoặc resize panel bằng <leader>W / Ctrl-w +) thì
     " phần đệm space của dòng active phải được tính lại, nếu không thanh nền
     " xanh sẽ hụt (hẹp lại) hoặc dư (rộng ra) so với bề ngang panel.
-    autocmd VimResized * if !g:winlist_opening && !g:panel_opening | silent! call WinListRefreshAllTabs() | endif
+    autocmd VimResized * silent! call WinListRefreshSoon()
 augroup END
 
 
@@ -4408,7 +4655,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.22  ·  2026-11-19')
+    call add(l:L, '  Version 7.26  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4447,9 +4694,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ AUTO-SAVE & AUTO-FEATURES')
-    call add(l:L, '  • Buffer auto-saves on TextChanged / InsertLeave (if writable)')
+    call add(l:L, '  • Buffer auto-saves (if writable): TextChanged HOÃN 800ms,')
+    call add(l:L, '     InsertLeave + VimLeavePre ghi NGAY (`g:autosave_delay`)')
     call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
-    call add(l:L, '  • `*.md` mang ft `md` + gọi `md#setup("\")` (silent! nếu chưa cài)')
+    call add(l:L, '  • `*.md` mang ft `md`, KHÔNG gọi `md#setup()` (7 phím leader')
+    call add(l:L, '     `\= \- \l \x \t \z \p` của plugin đã bỏ; chỉ giữ fold + lệnh)')
     call add(l:L, '     → plugin `hughbien/md-vim`; bản riêng của haozxje CHỈ 2 file:')
     call add(l:L, '     `~/.vim/syntax/md.vim` + `~/.vim/ftplugin/md.vim`')
     call add(l:L, '     (repo KHÔNG có autoload/ — md#setup nằm ngay trong ftplugin).')
@@ -4458,8 +4707,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     nên tô được cả khi xuống dòng; dòng thụt 4 space VẪN có syntax')
     call add(l:L, '     (tắt: `let g:md_indent_is_code = 0`); mục list chia 3 cấp màu')
     call add(l:L, '     theo độ thụt (0-3 / 4-7 / >=8 space).')
-    call add(l:L, '     Phím của plugin: `\=` h1, `\-` h2, `\l` số lại list, `\x` task,')
-    call add(l:L, '     `\t` format bảng, `\z` fold theo header, `\p` preview (cần mark)')
+    call add(l:L, '     Phím: CHỈ `za` (toggle fold hiện tại) + `zo` (toggle tất cả)')
     call add(l:L, '     TỰ FORMAT TOÀN BỘ NỘI DUNG mỗi lần ghi file: căn bảng, bỏ')
     call add(l:L, '     space cuối dòng, tiêu đề `#   X  ##` -> `# X`, `* `/`+ ` ->')
     call add(l:L, '     `- `, đánh số lại ordered list theo từng cấp, chèn/gộp dòng')
@@ -4476,14 +4724,16 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     FOLD của .md: mục FOLDING, dùng `HaozMdFoldLevel`/`HaozMdFold-')
     call add(l:L, '     Text` NGAY TRONG VIMRC (không phụ thuộc ftplugin, không đụng')
     call add(l:L, '     fold của Verilog — mỗi filetype `setlocal` riêng).')
-    call add(l:L, '     MẶC ĐỊNH: file .md mở ra là ĐÓNG HẾT fold (`foldlevel=0`),')
-    call add(l:L, '     khác `foldlevel=99` chung của vimrc (SV vẫn mở hết).')
-    call add(l:L, '     CHỈ 2 phím, chỉ trong buffer .md:')
-    call add(l:L, '       `za` = toggle fold HIỆN TẠI (lệnh gốc của Vim)')
-    call add(l:L, '       `zo` = toggle TẤT CẢ fold (đang đóng -> mở hết, đang mở')
-    call add(l:L, '              hết -> đóng hết; `HaozFoldToggleAll()`)')
-    call add(l:L, '     (mapping là `<buffer>` nên buffer .sv/.v hay diff KHÔNG bị')
-    call add(l:L, '     ảnh hưởng; `zc`/`zO`/`zC`/`zM`/`zR` vẫn là lệnh gốc của Vim.)')
+    call add(l:L, '     MẶC ĐỊNH: file .md mở ra là ĐÓNG HẾT fold (`foldlevel=0`).')
+    call add(l:L, '  • FOLD của .sv/.v (`foldmethod=indent`, `foldlevel=3` -> khối')
+    call add(l:L, '     lồng tới cấp 3 vẫn mở nên đọc được TỔNG QUAN file):')
+    call add(l:L, '     `za` = toggle fold hiện tại | `zo` = toggle TẤT CẢ fold |')
+    call add(l:L, '     `zA` = toggle fold hiện tại + TOÀN BỘ node con')
+    call add(l:L, '     `zo` toggle giữa MỞ HẾT <-> GẬP VỀ `foldlevel=3` (không gập')
+    call add(l:L, '     xuống 0) — với .md thì gập về 0 (`b:haoz_fold_home`).')
+    call add(l:L, '     .md chỉ có `za` + `zo` (không có `zA`).')
+    call add(l:L, '     (mọi mapping đều là `<buffer>`: `za`/`zo` của buffer loại khác,')
+    call add(l:L, '     `zc`/`zO`/`zC`/`zM`/`zR` vẫn là lệnh gốc của Vim.)')
     call add(l:L, '  • `autoread` + CursorHold auto :checktime (detect external changes)')
     call add(l:L, '  • SWAP FILE: vẫn bật (lưới an toàn cho auto-save), nhưng dồn về')
     call add(l:L, '     `~/.vim/swp/` — không rải *.swp trong cây source')
@@ -4491,6 +4741,21 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     "[O]pen Read-Only / (E)dit anyway ..."), vào thẳng EDIT')
     call add(l:L, '  • Cursor position restored on reopening a file')
     call add(l:L, '  • Auto-comment continuation disabled (fo-=c,r,o)')
+    call add(l:L, '')
+
+    call add(l:L, '▶ PERFORMANCE (các chỗ đã tối ưu)')
+    call add(l:L, '  • AUTO-SAVE: TextChanged chỉ HẸN ghi sau 800ms')
+    call add(l:L, '     (`let g:autosave_delay = 1500`); InsertLeave/VimLeavePre ghi')
+    call add(l:L, '     ngay -> không còn 1 lần ghi đĩa cho MỖI phím sửa')
+    call add(l:L, '  • WINLIST: mọi event đều đi qua `WinListRefreshSoon()` — gộp')
+    call add(l:L, '     nhiều event liền nhau thành 1 lần dựng (40ms) + 1 lần dựng bù')
+    call add(l:L, '     (60ms); panel ẩn thì KHÔNG dựng nội dung; `syntax match` của')
+    call add(l:L, '     panel chỉ đặt 1 lần/buffer; bề ngang panel + đường dẫn rút')
+    call add(l:L, '     gọn được cache theo lần dựng')
+    call add(l:L, '  • STATUSLINE `[Nsp]`: đang Insert thì quét tối đa 1 lần/giây')
+    call add(l:L, '     (trước: quét 400 dòng cho mỗi phím); rời Insert quét lại ngay')
+    call add(l:L, '  • Snapshot layout cho Ctrl-Shift-T vẫn chạy, tự chặn 1 lần/200ms')
+    call add(l:L, '  • Đo startup: `gvim --startuptime /tmp/st.log` rồi xem /tmp/st.log')
     call add(l:L, '')
 
     call add(l:L, '▶ CLIPBOARD / EDITING')
@@ -4501,7 +4766,12 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `Ctrl-D`   Select word under cursor + set search')
     call add(l:L, '  • `Ctrl-F`   Search word under cursor / visual selection')
     call add(l:L, '  • `V`        Enter BLOCKWISE visual (remapped from linewise)')
-    call add(l:L, '  • `x` / `Del` disabled (prevent accidental char delete)')
+    call add(l:L, '  • `x` / `Del` / `o` disabled in Normal mode (no accidental')
+    call add(l:L, '     char delete / stray new line; thay bằng `dd` `S-Del` `cc` `O`)')
+    call add(l:L, '  • TRONG GVIM, `.gvimrc` (version 1.0, nạp SAU file này) disable')
+    call add(l:L, '     THÊM: `a h j k l s c v d x p o` (Normal) và `p d` (Visual)')
+    call add(l:L, '     -> điều hướng bằng phím mũi tên/chuột.  `vim` trong terminal')
+    call add(l:L, '     KHÔNG nạp .gvimrc nên các phím đó vẫn dùng bình thường.')
     call add(l:L, '  • `S-Del`    Delete current line (dd)')
     call add(l:L, '  • `S-l`      Clear search highlight (:nohlsearch)')
     call add(l:L, '')
