@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.04                                                         ║
+" ║  Version  : 7.05                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -2092,6 +2092,36 @@ autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'scope':    'FileNode',
       \ 'callback': 'OpenSmart',
       \ 'override': 1 })
+" T (shift-t) mặc định của NERDTree mở file trong tab mới NGAY SAU tab hiện tại;
+" ở đây đổi thành: tab mới nhưng đặt ở VỊ TRÍ CUỐI thanh tab, và vẫn giữ focus
+" ở tab đang đứng (giống hành vi "silent" gốc của T).
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
+      \ 'key':      'T',
+      \ 'scope':    'FileNode',
+      \ 'callback': 'OpenInNewTabAtEnd',
+      \ 'override': 1 })
+
+function! OpenInNewTabAtEnd(node) abort
+    let l:path  = a:node.path.str()
+    let l:cur   = tabpagenr()
+    let l:ntabs = tabpagenr('$')
+
+    silent! execute 'tabnew ' . fnameescape(l:path)
+    if tabpagenr('$') != l:ntabs + 1
+        echo 'T: cannot open a new tab for ' . fnamemodify(l:path, ':t')
+        return
+    endif
+
+    " đưa tab vừa mở xuống CUỐI thanh tab
+    silent! execute 'tabmove ' . (tabpagenr('$') - 1)
+
+    " giữ focus ở tab ban đầu như T mặc định (tab mới vẫn có WinList riêng)
+    if tabpagenr() != l:cur && l:cur <= tabpagenr('$')
+        silent! execute 'tabnext ' . l:cur
+    endif
+
+    silent! call WinListRefreshAllTabs()
+endfunction
 
 function! OpenSmart(node)
     let l:path = a:node.path.str()
@@ -4180,7 +4210,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.04  ·  2026-11-18')
+    call add(l:L, '  Version 7.05  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4305,6 +4335,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     `r` refreshes')
     call add(l:L, '  • NERDTree Enter/double-click opens file as a NEW right split')
     call add(l:L, '     (panel stays open, stable Tab-ID survives tab drag-reorder)')
+    call add(l:L, '  • NERDTree `T` mở file ở TAB MỚI nhưng đặt ở VỊ TRÍ CUỐI thanh')
+    call add(l:L, '     tab (focus vẫn ở tab đang đứng, như hành vi gốc của T)')
     call add(l:L, '  • NERDTree dùng phím mặc định: `o` mở/thu node, `O` mở đệ quy,')
     call add(l:L, '     `x`/`X` đóng, `P` về root (không remap gì thêm)')
     call add(l:L, '  • Commands: `:WinList` `:WinListClose` `:WinListFix`')
