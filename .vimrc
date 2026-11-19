@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.01                                                         ║
+" ║  Version  : 7.03                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -39,6 +39,26 @@ set guifont=Consolas\ Regular\ 9
 set ignorecase
 set smartcase
 set autoread
+" ── Swap file ─────────────────────────────────────────────────────────────
+" GIỮ swap file (KHÔNG dùng 'noswapfile'): nó là lưới an toàn cho auto-save /
+" autoread — khi buffer không ghi được (file [RO], đĩa đầy, process khác giữ
+" file) thì swap là thứ duy nhất còn giữ thay đổi.
+"
+" Bỏ hộp thoại ATTENTION khi file đã có swap (đúng ca "chính tôi đang dùng
+" file nên nó có swap"):
+"   Swap file "...swp" already exists!
+"   [O]pen Read-Only, (E)dit anyway, (R)ecover, (D)elete it, (Q)uit, (A)bort
+" Cờ 'A' trong 'shortmess' = không hỏi, Vim coi như chọn (E)dit anyway và mở
+" luôn để SỬA (không thành read-only).
+set shortmess+=A
+
+" Dồn swap về ~/.vim/swp để *.swp không rải trong cây source (/rsc/...).
+" Hai dấu '//' = Vim dùng cả đường dẫn đầy đủ khi đặt tên .swp, tránh trùng
+" tên giữa hai file cùng tên ở hai thư mục khác nhau.  /tmp// là chỗ dự phòng.
+if !isdirectory(expand('~/.vim/swp'))
+    silent! call mkdir(expand('~/.vim/swp'), 'p')
+endif
+set directory=~/.vim/swp//,/tmp//
 set number
 set mouse=a
 set showtabline=2
@@ -4145,7 +4165,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.01  ·  2026-11-18')
+    call add(l:L, '  Version 7.03  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4186,6 +4206,10 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Buffer auto-saves on TextChanged / InsertLeave (if writable)')
     call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
     call add(l:L, '  • `autoread` + CursorHold auto :checktime (detect external changes)')
+    call add(l:L, '  • SWAP FILE: vẫn bật (lưới an toàn cho auto-save), nhưng dồn về')
+    call add(l:L, '     `~/.vim/swp/` — không rải *.swp trong cây source')
+    call add(l:L, '  • `shortmess+=A`: gặp file đã có swap thì KHÔNG hỏi')
+    call add(l:L, '     "[O]pen Read-Only / (E)dit anyway ..."), vào thẳng EDIT')
     call add(l:L, '  • Cursor position restored on reopening a file')
     call add(l:L, '  • Auto-comment continuation disabled (fo-=c,r,o)')
     call add(l:L, '')
