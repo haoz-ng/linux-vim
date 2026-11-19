@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.39                                                         ║
+" ║  Version  : 7.42                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -72,8 +72,8 @@ set autoindent
 " Đổi qua lại bằng <M-z> (xem BASIC KEYBINDINGS).  linebreak: chỉ ngắt ở
 " khoảng trắng; breakindent + showbreak: dòng bị wrap được thụt đúng lề và
 " có ký tự ↪ ở đầu để biết là dòng nối.
-" Panel (WinList / session picker / Vimrc Manual) tự đặt setlocal nowrap nên
-" không bị ảnh hưởng.
+" Panel: WinList đặt riêng `wrap linebreak` (tên test dài thì xuống dòng);
+" session picker và Vimrc Manual đặt `nowrap` (mỗi mục 1 dòng cho gọn).
 set wrap
 set linebreak
 set breakindent
@@ -307,7 +307,7 @@ endif
 " │ StatusLinePos is linked to StatusLine so the position text always        │
 " │ matches the path colour.                                                 │
 " └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.39]
+" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.42]
 "   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
 "   %=   = đệm, đẩy phần sau sang phải
 "   %l   = dòng hiện tại  (CL = current line)
@@ -687,7 +687,7 @@ vnoremap <silent> ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), li
 " Danh sách câu mẫu: sửa trực tiếp ở đây, hoặc :SentenceAdd <câu> trong phiên
 " làm việc.  dd luôn chèn câu ĐẦU TIÊN (g:haoz_sentences[0]).
 let g:haoz_sentences = get(g:, 'haoz_sentences', [
-    \ '$display("[haozxje][%t][%6d][x] - ", $realtime, `LINE` );',
+    \ '$display("[haozxje][%t][%6d][x] - ", $realtime, `__LINE__ );',
     \ ])
 
 " Chèn a:text thành dòng MỚI ngay dưới dòng con trỏ, con trỏ xuống dòng đó.
@@ -769,6 +769,10 @@ endfunction
 command! -nargs=+ SentenceAdd  call add(g:haoz_sentences, <q-args>)
 command! -nargs=0 SentenceList echo join(map(copy(g:haoz_sentences),
     \ 'v:key + 1 . ". " . v:val'), "\n")
+" :SentenceShow  -> in ra dạng ESCAPE (string()) của từng câu: thấy rõ từng
+" space, từng dấu ` " \ nên kiểm tra "đúng từng ký tự" được ngay trong Vim.
+command! -nargs=0 SentenceShow echo join(map(copy(g:haoz_sentences),
+    \ 'v:key + 1 . ". " . string(v:val)'), "\n")
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -2112,7 +2116,9 @@ function! WinListBuildAllTabLines() abort
             " dòng.  Buffer là nofile và được dựng lại mỗi lần refresh
             " (WinListRefresh/RefreshAllTabs) nên đệm luôn khớp bề ngang mới.
             if l:prefix ==# '> '
-                let l:pad = l:textw - strwidth(l:entry)
+                " Đệm tới textw-1 (không phải textw): panel đang 'wrap', đệm
+                " đúng bằng bề ngang sẽ bị đẩy 1 space sang dòng thứ hai.
+                let l:pad = l:textw - 1 - strwidth(l:entry)
                 if l:pad > 0
                     let l:entry .= repeat(' ', l:pad)
                 endif
@@ -2211,10 +2217,12 @@ augroup WinListHighlight
     autocmd ColorScheme * silent! call WinListSetupHighlight()
     augroup WinListBufSettings
         autocmd!
-        " Panel WinList phải NOWRAP: dòng entry đang active được đệm space cho
-        " kín cả hàng, nếu wrap thì phần đệm đó đẩy sang dòng thứ hai.
-        " (Các buffer file thật thì wrap mặc định BẬT — xem BASIC SETTINGS.)
-        autocmd FileType winlist setlocal nowrap nonumber norelativenumber nolist
+        " Panel WinList WRAP: tên test/file dài thì xuống dòng, KHÔNG bị cắt cụt
+        " ở mép panel.  linebreak: chỉ ngắt ở khoảng trắng cho dễ đọc.
+        " (Dòng entry đang active được đệm space tới textw-1 chứ không phải
+        "  đúng textw, nên phần đệm không bao giờ đẩy sang dòng thứ hai.)
+        autocmd FileType winlist setlocal wrap linebreak
+                               \ nonumber norelativenumber nolist
                                \ cursorline buftype=nofile noswapfile nobuflisted
                                \ winfixwidth winfixheight signcolumn=no
     augroup END
@@ -2427,7 +2435,9 @@ function! s:SetupWinListWindow() abort
     setlocal winfixwidth
     setlocal buftype=nofile bufhidden=hide
     setlocal noswapfile nobuflisted
-    setlocal nowrap number norelativenumber
+    " wrap: tên dài xuống dòng thay vì bị cắt ở mép panel (xem thêm
+    " WinListBufSettings — FileType winlist cũng đặt wrap linebreak).
+    setlocal wrap linebreak number norelativenumber
     setlocal cursorline filetype=winlist signcolumn=no
     setlocal statusline=%!WinListStatusLine()
 
@@ -4837,7 +4847,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haozxje custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.39  ·  2026-11-19')
+    call add(l:L, '  Version 7.42  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4845,7 +4855,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
     call add(l:L, '  • Thứ tự BỐN khối, SÁT nhau không dấu cách:')
-    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.39]`')
+    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.42]`')
     call add(l:L, '  • Khối 2 `[<indent>]` — dò từ NỘI DUNG buffer:')
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
@@ -5038,6 +5048,9 @@ function! s:VimrcManualContent() abort
 
     call add(l:L, '▶ SIDE PANEL — WinList (always on) + NERDTree (on demand)')
     call add(l:L, '  • WinList         LUÔN hiển thị ở mọi tab (cột trái, full height)')
+    call add(l:L, '     Panel WRAP (`wrap linebreak`): tên test/file dài thì xuống')
+    call add(l:L, '     dòng, không bị cắt cụt ở mép panel.  Dòng active được đệm')
+    call add(l:L, '     space tới textw-1 nên nền xanh phủ kín hàng mà không tràn.')
     call add(l:L, '  • `wl`            Bật/tắt WinList (KHÔNG ảnh hưởng NERDTree)')
     call add(l:L, '  • `Ctrl-B`        Bật/tắt NERDTree. NERDTree mở ra ở NỬA DƯỚI')
     call add(l:L, '     của cột trái (WinList giữ nửa trên). WinList KHÔNG bị ảnh')
