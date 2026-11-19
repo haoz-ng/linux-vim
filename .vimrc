@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.27                                                         ║
+" ║  Version  : 7.28                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -294,7 +294,7 @@ endif
 " │ StatusLinePos is linked to StatusLine so the position text always      │
 " │ matches the path colour.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.27]
+" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.28]
 "   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
 "   %=   = đệm, đẩy phần sau sang phải
 "   %l   = dòng hiện tại  (CL = current line)
@@ -331,7 +331,7 @@ set statusline+=%=
 set statusline+=%#StatusLinePos#\ [CL%l:TL%L]
 set statusline+=%#StatusLinePos#%{StatusIndent()}
 set statusline+=%#StatusLinePos#%{StatusFiletype()}
-set statusline+=%#StatusLinePos#\ [%{g:haoz_vimrc_version}]
+set statusline+=%#StatusLinePos#[%{g:haoz_vimrc_version}]
 set statusline+=%#CursorColumn#
 
 " ── Indent thật của buffer, hiện NGAY SAU [CL:TL] ─────────────────────────
@@ -4679,7 +4679,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.27  ·  2026-11-19')
+    call add(l:L, '  Version 7.28  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4687,7 +4687,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
     call add(l:L, '  • Thứ tự BỐN khối, SÁT nhau không dấu cách:')
-    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.27]`')
+    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.28]`')
     call add(l:L, '  • Khối 2 `[<indent>]` — dò từ NỘI DUNG buffer:')
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
