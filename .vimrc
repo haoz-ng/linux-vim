@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.03                                                         ║
+" ║  Version  : 7.04                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -258,7 +258,9 @@ set statusline+=%#CursorColumn#
 " Kết quả CACHE theo b:changedtick, nên statusline không quét lại mỗi lần vẽ
 " (nếu quét mỗi lần thì file lớn sẽ chậm thấy rõ).
 function! s:DetectIndent() abort
-    let l:last    = min([line('$'), 2000])
+    " 400 dòng đầu là quá đủ để biết file thụt bằng tab hay dấu cách; quét ít
+    " lại thì mỗi lần gõ (changedtick đổi -> cache mất) không bị khựng.
+    let l:last    = min([line('$'), 400])
     let l:tabs    = 0
     let l:spaces  = 0
     let l:gcd     = 0
@@ -2922,6 +2924,10 @@ endif
 
 let g:closed_tab_stack_max = 10
 
+" Mốc thời gian của lần chụp layout gần nhất — dùng để chặn tần suất (xem
+" s:SnapshotAllTabLayouts).
+let g:tab_snapshot_last = reltime()
+
 " ── restore_log: nhật ký push/pop của cơ chế khôi phục ────────────────────
 " Ghi lại MỌI quyết định (đẩy tab, đẩy cửa sổ, pop, có gộp file vào tab hay
 " không) kèm giờ.  Chỉ để chẩn đoán: :ClosedInfo in 40 dòng gần nhất, nhờ vậy
@@ -3165,6 +3171,15 @@ endfunction
 " Chụp layout mọi tab + phát hiện tab vừa đóng.  Được gọi ở cuối
 " WinListBuildAllTabLines() nên chạy theo mọi lần panel refresh.
 function! s:SnapshotAllTabLayouts() abort
+    " Hàm này được gọi từ MỌI lần WinList refresh (BufEnter/WinEnter/TabEnter...)
+    " nên rất hay chạy; mỗi lần lại quét mọi tab.  Chặn còn tối đa 1 lần/200ms —
+    " dò "tab vừa đóng" không cần nhanh hơn thế, mà mở nhiều file liên tiếp thì
+    " đỡ hẳn chi phí.
+    if reltimefloat(reltime(g:tab_snapshot_last)) < 0.2
+        return
+    endif
+    let g:tab_snapshot_last = reltime()
+
     let l:live = {}
     for l:t in range(1, tabpagenr('$'))
         call WinListEnsureTabID(l:t)
@@ -4165,7 +4180,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.03  ·  2026-11-18')
+    call add(l:L, '  Version 7.04  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
