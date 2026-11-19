@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
-" ║  Author   : haoz.ng                                                      ║ 
-" ║  Version  : 7.00                                                         ║
+" ║  Author   : haoz.ng                                                      ║
+" ║  Version  : 7.01                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -3485,6 +3485,10 @@ endfunction
 "   • Ctrl-C               -> huỷ (input() bị ngắt nên hàm abort, không lưu)
 function! s:AskNameAndSave() abort
     let l:label = input('Session name (Enter = default, Ctrl-C = cancel): ')
+    " input() để lại nguyên dòng prompt (kể cả tên vừa gõ) trên command line;
+    " xoá đi rồi mới in "Session saved: ..." để thông báo đứng riêng một dòng.
+    echo ''
+    silent! redraw
     call s:SaveSession(l:label)
 endfunction
 
@@ -4141,7 +4145,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.00  ·  2026-11-18')
+    call add(l:L, '  Version 7.01  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
