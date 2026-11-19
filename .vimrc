@@ -1,5 +1,5 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
-" ║  Author   : haoz.ng                                                      ║
+" ║  Author   : haoz.ng                                                      ║ 
 " ║  Version  : 7.00                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
