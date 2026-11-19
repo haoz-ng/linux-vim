@@ -1,7 +1,7 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.08                                                         ║
-" ║  Modified : 2026-11-18                                                   ║
+" ║  Version  : 7.22                                                         ║
+" ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
 " ║             [CL:TL], panel-aware tab label & window title, diff,         ║
@@ -139,6 +139,73 @@ syntax enable
 syntax on
 set background=dark
 colorscheme haoz
+
+" ── Markdown: 2 file riêng (dựa trên hughbien/md-vim, BSD) ────────────────
+" Cài bằng cách copy ĐÚNG 2 file (repo gốc không có autoload/ — md#setup()
+" nằm ngay trong ftplugin/md.vim):
+"   syntax.md.vim   ->  ~/.vim/syntax/md.vim     (bản riêng: chữ thường TRẮNG,
+"                       heading/link/code theo palette haoz, đậm/nghiêng là
+"                       REGION nên xuống dòng vẫn tô, dòng thụt 4 space vẫn
+"                       có syntax, mục list 3 cấp màu theo độ thụt lề)
+"   ftplugin.md.vim ->  ~/.vim/ftplugin/md.vim   (bản riêng: sửa lỗi dò biên
+"                       bảng của MdFixTable + TỰ FORMAT TOÀN BỘ NỘI DUNG khi
+"                       ghi file + indentexpr cho mục con)
+" Bảng: cột tính theo strdisplaywidth (tiếng Việt có dấu không lệch cột),
+" nhận cả bảng thiếu '|' ở đầu dòng, và TỰ CHÈN dòng phân cách '| --- |'
+" nếu bảng viết thiếu (tắt: let g:md_table_guess = 0).
+" FOLD của file .md: nằm ở mục FOLDING, dùng 2 hàm NGAY TRONG VIMRC này
+" (HaozMdFoldLevel/HaozMdFoldText) -> không phụ thuộc ftplugin/md.vim, và
+" không ảnh hưởng fold của Verilog (mỗi filetype setlocal riêng).
+" Mặc định khi mở file .md: ĐÓNG HẾT fold (setlocal foldlevel=0) — khác
+" foldlevel=99 chung của vimrc.  CHỈ 2 phím, chỉ trong buffer .md:
+"   za = toggle fold HIỆN TẠI (lệnh gốc của Vim)
+"   zo = toggle TẤT CẢ fold (đang đóng -> mở hết; đang mở hết -> đóng hết)
+" Tùy chọn ở vimrc (đặt TRƯỚC khi mở file .md):
+"   let g:md_indent_is_code = 0       " 4 space đầu dòng KHÔNG phải code block
+"   let g:md_autoformat = 0           " tắt tự format khi ghi file
+"   let g:md_trim_trailing_space = 0  " giữ space/tab cuối dòng
+"   let g:md_table_guess = 0          " không tự chèn dòng phân cách bảng
+" Lệnh trong buffer .md:  :MdFormat  (toàn bộ nội dung)
+"                         :MdFormatTable  (chỉ căn bảng)
+"                         :MdAutoFormat  (bật/tắt cho buffer đang mở)
+" 'au ... setlocal ft=md' là BẮT BUỘC (không có ftdetect/ trong 2 file này).
+" setlocal thay vì 'set ft=md': 'set' ghi cả giá trị GLOBAL, làm buffer mới
+" không tên cũng bị nhận là md.
+filetype plugin on
+au BufNewFile,BufRead *.md setlocal ft=md
+" md#setup() ở BufReadPost là yêu cầu của plugin (đặt conceallevel, keymap…).
+" Tham số là LEADER dạng chuỗi.  Vimrc này KHÔNG đặt mapleader -> leader là
+" '\' mặc định, nên truyền "\\" (một dấu backslash).  Đừng chép nguyên
+" md#setup("q") từ README: khi đó plugin map thành q=, q-, ql, qx, qt, qz, qp
+" và biến q thành prefix -> mất record macro (qa, q:) và q bị trễ.
+" silent! để không báo E117 nếu plugin chưa cài.
+au BufReadPost *.md silent! call md#setup("\\")
+
+" Ngôn ngữ được tô màu bên trong khối ``` … ``` (plugin tự include syntax).
+" Dạng 'ext=ngôn-ngữ' cho fence ghi tắt, ví dụ ```sv.
+let g:md_fenced_languages = [
+      \ 'systemverilog', 'sv=systemverilog',
+      \ 'verilog',       'v=verilog',
+      \ 'c', 'cpp', 'python', 'sh', 'tcl', 'make', 'json', 'yaml', 'vim',
+      \ ]
+
+" Phím tắt của plugin (leader = \) — không trùng phím nào của vimrc:
+"   \=  thành h1     \-  thành h2      \l  đánh số lại ordered list
+"   \x  toggle task  \t  format bảng  \z  fold theo header
+"   \p  preview: chạy lệnh shell ':!mark %' -> CẦN cài 'mark' (không có thì
+"       Vim báo lỗi shell; bỏ qua được, không ảnh hưởng phần khác)
+"
+" Ngoài ra (bản ftplugin riêng, không cần phím):
+"   :MdFormat      format MỌI bảng trong buffer ngay
+"   :MdAutoFormat  bật/tắt tự format (mặc định BẬT: format bảng mỗi lần ghi
+"                  file và mỗi lần rời Insert khi con trỏ đang trong bảng)
+
+" conceal của plugin cần 'conceallevel' > 0.  Vimrc này chỉ đặt option đó cho
+" panel WinList và session picker, nên buffer .md phải đặt riêng; concealcursor
+" =nc: ẩn dấu khi ở Normal/Command, hiện lại khi Insert.
+if has('conceal')
+  au FileType md setlocal conceallevel=2 concealcursor=nc
+endif
 
 highlight Normal      ctermbg=black guibg=#000000
 highlight LineNr      ctermbg=black guibg=#000000
@@ -968,15 +1035,121 @@ nnoremap <Del> <Nop>
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
 " │                              FOLDING                                     │
-" │ Description: Sets indent-based folding for Verilog/SystemVerilog files  │
-" │ (*.v, *.sv, *.svh, *.svt) and loads matchit.vim for extended %          │
-" │ (matching pairs) navigation.                                            │
+" │ Description: indent-fold for Verilog/SystemVerilog (*.v, *.sv, *.svt)   │
+" │ and header-fold for Markdown (*.md) via HaozMdFoldLevel/HaozMdFoldText  │
+" │ below; and loads matchit.vim for % (matching pairs) navigation.         │
 " └──────────────────────────────────────────────────────────────────────────┘
 augroup filtype_verilog
     autocmd!
     autocmd FileType Verilog,verilog_systemverilog  setlocal foldmethod=indent
     autocmd BufNewFile,BufRead *.v,*.sv,*.svh,*.svt setlocal foldmethod=indent
+    " Markdown: fold theo tiêu đề, dùng hàm viết ngay trong vimrc
+    " (HaozMdFoldLevel/HaozMdFoldText bên dưới) -> KHÔNG phụ thuộc
+    " ftplugin/md.vim. Toàn bộ đặt trong HaozMdFoldSetup():
+    "   • MẶC ĐỊNH ĐÓNG HẾT khi mở file (setlocal foldlevel=0);
+    "   • CHỈ 2 phím, và chỉ trong buffer .md:
+    "       za  toggle fold HIỆN TẠI   (lệnh gốc của Vim)
+    "       zo  toggle TẤT CẢ fold     (map sang HaozFoldToggleAll)
+    autocmd FileType md call HaozMdFoldSetup()
 augroup END
+
+" Đặt fold + phím fold CHỈ cho buffer markdown (buffer-local mapping nên
+" không ảnh hưởng .sv/.v hay buffer khác).
+function! HaozMdFoldSetup() abort
+    setlocal foldmethod=expr
+    setlocal foldexpr=HaozMdFoldLevel(v:lnum)
+    setlocal foldtext=HaozMdFoldText()
+    setlocal foldenable
+    setlocal foldlevel=0            " mặc định: ĐÓNG tất cả khi mở file
+    nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
+endfunction
+
+" Fold cho markdown: 'foldmethod=expr' gọi hàm này cho TỪNG dòng và hỏi
+" "dòng này thuộc fold cấp mấy":
+"   '>N' = mở fold cấp N tại dòng này (dòng tiêu đề cấp N)
+"   '='  = cùng cấp với dòng phía trên -> dòng thân nằm trong fold của tiêu
+"          đề gần nhất phía trên
+" Nhận: front-matter '--- … ---' ở đầu file, tiêu đề ATX ('#', '##', …) và
+" setext (dòng dưới là '===' hoặc '---').  Đường kẻ ngang đứng một mình
+" ('===', '---', '***', '___' ở mục "Separators") KHÔNG bị coi là tiêu đề.
+function! HaozMdFoldLevel(lnum) abort
+    let l:line = getline(a:lnum)
+
+    " 1) front-matter YAML ở đầu file -> cả khối là MỘT fold cấp 1
+    "    (chỉ xét 200 dòng đầu cho rẻ; front-matter luôn nằm ở đầu file)
+    if a:lnum <= 202 && getline(1) =~# '^---\s*$'
+        let l:end = 0
+        let l:i = 2
+        while l:i <= line('$') && l:i <= 200
+            if getline(l:i) =~# '^---\s*$'
+                let l:end = l:i
+                break
+            endif
+            let l:i = l:i + 1
+        endwhile
+        if l:end > 0
+            if a:lnum == 1
+                return '>1'
+            elseif a:lnum <= l:end
+                return '1'
+            elseif a:lnum == l:end + 1
+                return '0'  " dòng ngay sau front-matter: đóng fold
+            endif
+        endif
+    endif
+
+    " 2) đường kẻ ngang (cũng là gạch dưới của setext) -> không mở fold
+    if l:line =~# '^\%(=\+\|-\+\|\*\*\*\+\|___\+\)\s*$'
+        return '='
+    endif
+
+    " 3) tiêu đề ATX: số dấu # = cấp fold
+    if l:line =~# '^#\{1,6}\s'
+        return '>' . strlen(matchstr(l:line, '^#*'))
+    endif
+
+    " 4) tiêu đề setext: dòng kế tiếp là '===' (h1) hoặc '---' (h2)
+    let l:next = getline(a:lnum + 1)
+    if l:next =~# '^=\+\s*$'
+        return '>1'
+    elseif l:next =~# '^-\+\s*$' && l:line =~# '^\S' && l:line !~# '^[|#>]'
+        return '>2'
+    endif
+    return '='
+endfunction
+
+" Chữ hiện trên dòng fold đang đóng: bỏ dấu # cho gọn, kèm số dòng.
+function! HaozMdFoldText() abort
+    let l:line = getline(v:foldstart)
+    if l:line =~# '^---\s*$'
+        let l:title = '[front-matter]'      " khối --- … --- ở đầu file
+    else
+        let l:title = substitute(l:line, '^#\+\s*', '', '')
+        if empty(l:title)
+            let l:title = l:line
+        endif
+    endif
+    return '▸ ' . l:title . '  ⋯ ' . (v:foldend - v:foldstart + 1) . ' dòng '
+endfunction
+
+" 'zo' trong buffer .md = TOGGLE TẤT CẢ fold của file.  Vim gốc chỉ có một
+" chiều: zR = mở hết, zM = đóng hết.  Ở đây: còn fold nào đang đóng -> mở hết;
+" đang mở hết rồi -> đóng hết.  (za vẫn là toggle 1 fold, lệnh gốc của Vim.)
+function! HaozFoldToggleAll() abort
+    if !&foldenable
+        return
+    endif
+    let l:n = 1
+    while l:n <= line('$')
+        if foldclosed(l:n) == l:n
+            normal! zR      " có fold đang đóng -> mở hết
+            return
+        endif
+        let l:n = l:n + 1
+    endwhile
+    normal! zM              " đang mở hết -> đóng hết
+endfunction
+
 runtime macros/matchit.vim
 
 " ── Markdown: bỏ highlight lỗi của syntax mặc định ────────────────────────
@@ -988,7 +1161,8 @@ runtime macros/matchit.vim
 " đặt trong FileType (và lặp lại ở Syntax nếu filetype đổi muộn).
 augroup markdown_fix
     autocmd!
-    autocmd FileType markdown hi! link markdownError NONE
+    " 'markdown' (mặc định Vim) VÀ 'md' (*.md, đặt ở BASIC SETTINGS)
+    autocmd FileType markdown,md hi! link markdownError NONE
 augroup END
 
 
@@ -4234,7 +4408,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.08  ·  2026-11-18')
+    call add(l:L, '  Version 7.22  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4275,6 +4449,41 @@ function! s:VimrcManualContent() abort
     call add(l:L, '▶ AUTO-SAVE & AUTO-FEATURES')
     call add(l:L, '  • Buffer auto-saves on TextChanged / InsertLeave (if writable)')
     call add(l:L, '  • Unset filetype auto-defaults to "log" on read')
+    call add(l:L, '  • `*.md` mang ft `md` + gọi `md#setup("\")` (silent! nếu chưa cài)')
+    call add(l:L, '     → plugin `hughbien/md-vim`; bản riêng của haozxje CHỈ 2 file:')
+    call add(l:L, '     `~/.vim/syntax/md.vim` + `~/.vim/ftplugin/md.vim`')
+    call add(l:L, '     (repo KHÔNG có autoload/ — md#setup nằm ngay trong ftplugin).')
+    call add(l:L, '     Ngôn ngữ trong fence: `g:md_fenced_languages` (sv, v, c, …)')
+    call add(l:L, '     Bản riêng: chữ thường TRẮNG; **đậm**/*nghiêng* đổi sang REGION')
+    call add(l:L, '     nên tô được cả khi xuống dòng; dòng thụt 4 space VẪN có syntax')
+    call add(l:L, '     (tắt: `let g:md_indent_is_code = 0`); mục list chia 3 cấp màu')
+    call add(l:L, '     theo độ thụt (0-3 / 4-7 / >=8 space).')
+    call add(l:L, '     Phím của plugin: `\=` h1, `\-` h2, `\l` số lại list, `\x` task,')
+    call add(l:L, '     `\t` format bảng, `\z` fold theo header, `\p` preview (cần mark)')
+    call add(l:L, '     TỰ FORMAT TOÀN BỘ NỘI DUNG mỗi lần ghi file: căn bảng, bỏ')
+    call add(l:L, '     space cuối dòng, tiêu đề `#   X  ##` -> `# X`, `* `/`+ ` ->')
+    call add(l:L, '     `- `, đánh số lại ordered list theo từng cấp, chèn/gộp dòng')
+    call add(l:L, '     trống trước header/bảng/list/fence (bỏ qua ``` … ``` và')
+    call add(l:L, '     front-matter --- … ---). Rời Insert chỉ căn bảng đang đứng.')
+    call add(l:L, '     `:MdFormat` = format toàn bộ, `:MdFormatTable` = chỉ bảng,')
+    call add(l:L, '     `:MdAutoFormat` = bật/tắt cho buffer này, `let g:md_autoformat')
+    call add(l:L, '     = 0` = tắt toàn cục, `let g:md_trim_trailing_space = 0` =')
+    call add(l:L, '     giữ space cuối dòng. `indentexpr` giữ lề mục con; `<Tab>`')
+    call add(l:L, '     (sw=4) để lùi thêm 1 cấp. Bảng viết thiếu dòng phân cách')
+    call add(l:L, '     `| --- |` sẽ được TỰ CHÈN (`let g:md_table_guess = 0` tắt);')
+    call add(l:L, '     bảng thiếu `|` đầu dòng vẫn căn được; độ rộng cột tính theo')
+    call add(l:L, '     số ô màn hình nên tiếng Việt có dấu không bị lệch cột.')
+    call add(l:L, '     FOLD của .md: mục FOLDING, dùng `HaozMdFoldLevel`/`HaozMdFold-')
+    call add(l:L, '     Text` NGAY TRONG VIMRC (không phụ thuộc ftplugin, không đụng')
+    call add(l:L, '     fold của Verilog — mỗi filetype `setlocal` riêng).')
+    call add(l:L, '     MẶC ĐỊNH: file .md mở ra là ĐÓNG HẾT fold (`foldlevel=0`),')
+    call add(l:L, '     khác `foldlevel=99` chung của vimrc (SV vẫn mở hết).')
+    call add(l:L, '     CHỈ 2 phím, chỉ trong buffer .md:')
+    call add(l:L, '       `za` = toggle fold HIỆN TẠI (lệnh gốc của Vim)')
+    call add(l:L, '       `zo` = toggle TẤT CẢ fold (đang đóng -> mở hết, đang mở')
+    call add(l:L, '              hết -> đóng hết; `HaozFoldToggleAll()`)')
+    call add(l:L, '     (mapping là `<buffer>` nên buffer .sv/.v hay diff KHÔNG bị')
+    call add(l:L, '     ảnh hưởng; `zc`/`zO`/`zC`/`zM`/`zR` vẫn là lệnh gốc của Vim.)')
     call add(l:L, '  • `autoread` + CursorHold auto :checktime (detect external changes)')
     call add(l:L, '  • SWAP FILE: vẫn bật (lưới an toàn cho auto-save), nhưng dồn về')
     call add(l:L, '     `~/.vim/swp/` — không rải *.swp trong cây source')
