@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.05                                                         ║
+" ║  Version  : 7.08                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -232,23 +232,23 @@ endif
 " │ StatusLinePos is linked to StatusLine so the position text always      │
 " │ matches the path colour.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc            [4sp][CL81:TL1793][c]
+" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][c]
 "   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
 "   %=   = đệm, đẩy phần sau sang phải
 "   %l   = dòng hiện tại  (CL = current line)
 "   %L   = tổng số dòng   (TL = total lines)
-"   %{StatusIndent()}   = indent của buffer, đặt TRƯỚC [CL:TL]
-"   %{StatusFiletype()} = filetype/syntax của buffer, đặt SAU [CL:TL]
-" Ba khối [indent][CL:TL][syntax] đứng SÁT nhau, không có dấu cách giữa chúng.
+"   %{StatusIndent()}   = indent của buffer, đặt SAU [CL:TL]
+"   %{StatusFiletype()} = filetype/syntax của buffer, đặt CUỐI
+" Thứ tự: [CL:TL][indent][syntax] — đứng SÁT nhau, không dấu cách.
 set statusline=%F
 set statusline+=%#LineNr#
 set statusline+=%=
-set statusline+=%#StatusLinePos#\ %{StatusIndent()}
-set statusline+=%#StatusLinePos#[CL%l:TL%L]
+set statusline+=%#StatusLinePos#\ [CL%l:TL%L]
+set statusline+=%#StatusLinePos#%{StatusIndent()}
 set statusline+=%#StatusLinePos#%{StatusFiletype()}
 set statusline+=%#CursorColumn#
 
-" ── Indent thật của buffer, hiện TRƯỚC [CL:TL] ────────────────────────────
+" ── Indent thật của buffer, hiện NGAY SAU [CL:TL] ─────────────────────────
 " Định dạng: <cỡ><tb|sp>  — vd  [4sp]  [8tb]  [mix]
 " Không chỉ đọc option mà DÒ NỘI DUNG (N dòng đầu):
 "   • đếm số dòng thụt bằng TAB và số dòng thụt bằng DẤU CÁCH
@@ -2095,9 +2095,22 @@ autocmd VimEnter * silent! call NERDTreeAddKeyMap({
 " T (shift-t) mặc định của NERDTree mở file trong tab mới NGAY SAU tab hiện tại;
 " ở đây đổi thành: tab mới nhưng đặt ở VỊ TRÍ CUỐI thanh tab, và vẫn giữ focus
 " ở tab đang đứng (giống hành vi "silent" gốc của T).
+" Đăng ký cho CẢ 3 scope vì mỗi bản NERDTree gắn 'T' vào scope khác nhau; nếu
+" chỉ đăng ký FileNode thì bản dùng 'Node'/'DirNode' vẫn chạy mapping gốc và
+" tab sẽ nằm ngay cạnh tab hiện tại (đúng lỗi đã gặp).
 autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'key':      'T',
       \ 'scope':    'FileNode',
+      \ 'callback': 'OpenInNewTabAtEnd',
+      \ 'override': 1 })
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
+      \ 'key':      'T',
+      \ 'scope':    'DirNode',
+      \ 'callback': 'OpenInNewTabAtEnd',
+      \ 'override': 1 })
+autocmd VimEnter * silent! call NERDTreeAddKeyMap({
+      \ 'key':      'T',
+      \ 'scope':    'Node',
       \ 'callback': 'OpenInNewTabAtEnd',
       \ 'override': 1 })
 
@@ -2106,21 +2119,32 @@ function! OpenInNewTabAtEnd(node) abort
     let l:cur   = tabpagenr()
     let l:ntabs = tabpagenr('$')
 
+    " ':tabnew' chèn tab mới NGAY SAU tab hiện tại, nên muốn nó ở cuối thì
+    " trước hết đứng ở tab cuối đã.  Cách này chắc chắn hơn ':tabmove' và
+    " không phụ thuộc việc tính lại số hiệu tab.
+    if tabpagenr() != l:ntabs
+        silent! execute 'tabnext ' . l:ntabs
+    endif
+
     silent! execute 'tabnew ' . fnameescape(l:path)
     if tabpagenr('$') != l:ntabs + 1
+        " không tạo được tab (vd E37: buffer đang sửa mà không ghi được)
         echo 'T: cannot open a new tab for ' . fnamemodify(l:path, ':t')
+        silent! execute 'tabnext ' . l:cur
         return
     endif
 
-    " đưa tab vừa mở xuống CUỐI thanh tab
-    silent! execute 'tabmove ' . (tabpagenr('$') - 1)
-
-    " giữ focus ở tab ban đầu như T mặc định (tab mới vẫn có WinList riêng)
+    " về lại tab ban đầu như T gốc (tab mới vẫn tự có WinList riêng)
     if tabpagenr() != l:cur && l:cur <= tabpagenr('$')
         silent! execute 'tabnext ' . l:cur
     endif
 
     silent! call WinListRefreshAllTabs()
+
+    " thông báo ngắn để biết override CÓ chạy (không thấy dòng này = NERDTree
+    " vẫn dùng mapping gốc)
+    echo printf('T: %s -> tab %d/%d (last)',
+        \ fnamemodify(l:path, ':t'), l:ntabs + 1, l:ntabs + 1)
 endfunction
 
 function! OpenSmart(node)
@@ -4210,19 +4234,20 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.05  ·  2026-11-18')
+    call add(l:L, '  Version 7.08  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
     call add(l:L, '▶ STATUSLINE')
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
-    call add(l:L, '  • Ba khối đứng SÁT nhau, không dấu cách: `[4sp][CL12:TL431][c]`')
-    call add(l:L, '  • Trước `[CL:TL]` là `[<indent>]` — dò từ NỘI DUNG buffer:')
+    call add(l:L, '  • Thứ tự ba khối, SÁT nhau không dấu cách:')
+    call add(l:L, '     `[CL12:TL431][4sp][systemverilog]`')
+    call add(l:L, '  • Khối 2 `[<indent>]` — dò từ NỘI DUNG buffer:')
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
     call add(l:L, '     Khuôn: `<cỡ><tb|sp>`')
-    call add(l:L, '  • Sau `[CL:TL]` là `[<filetype>]` — filetype/syntax của buffer')
+    call add(l:L, '  • Khối 3 `[<filetype>]` — filetype/syntax của buffer')
     call add(l:L, '     Buffer RỖNG (chưa có nội dung) hiện `[none]`, kể cả khi')
     call add(l:L, '     filetype chỉ là `log` do autocmd đặt mặc định.')
     call add(l:L, '  • Màu chữ vị trí bám theo màu path (highlight link StatusLinePos)')
