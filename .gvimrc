@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 1.0                                                          ║
+" ║  Version  : 1.1                                                          ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Phần RIÊNG của GVim, nạp SAU .vimrc (nên thắng mọi mapping   ║
 " ║             trùng trong .vimrc).  Nội dung: disable các phím Normal /    ║
@@ -10,6 +10,7 @@
 " ║  Điều hướng thay thế : phím mũi tên, chuột, hoặc <C-Left/Right>…         ║
 " ║  Xoá / sửa           : <S-Del> (xoá dòng = dd), cc (toggle comment)      ║
 " ║  Mở dòng mới         : O (phía trên) / :call append(line('.'), '')       ║
+" ║  Chèn câu mẫu        : dd (chèn ngay câu đầu tiên) / dm (menu chọn câu)  ║
 " ║  Xem đầy đủ phím     : F1 trong GVim (manual nằm trong .vimrc)           ║
 " ║                                                                          ║
 " ║  Lưu ý: file này CHỈ có hiệu lực với GVim (gvim).  Chạy vim trong        ║
@@ -37,6 +38,16 @@ nnoremap <Del> <Nop>
 
 " ── Tạo dòng mới: disable ở Normal mode (xem cách thay thế ở header) ──────
 nnoremap o <Nop>
+
+" ── CHÈN CÂU MẪU (hàm nằm trong .vimrc) ──────────────────────────────────
+" Ở GVim 'd' đã bị disable nên dd/dm KHÔNG giành mất lệnh nào của Vim.
+"   dd  chèn NGAY câu đầu tiên của g:haoz_sentences vào DÒNG MỚI dưới con trỏ
+"   dm  hiện menu chọn câu (↑↓ hoặc click chuột, Enter = chèn, Esc = huỷ)
+" Sau khi chèn, con trỏ nằm ở dòng vừa chèn; 'u' = undo 1 bước.
+" <S-Del> vẫn xoá dòng: mapping đó dùng 'nnoremap' nên 'dd' trong RHS chạy
+" đúng lệnh gốc của Vim, không bị 2 mapping dưới đây bắt.
+nnoremap <silent> dd :call HaozInsertSentenceLine(get(g:haoz_sentences, 0, ''))<CR>
+nnoremap <silent> dm :call HaozSentenceMenu()<CR>
 
 " (dòng dưới là ghi chú cũ, giữ lại để tham khảo)
 " nnoremap i a
