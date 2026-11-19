@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 7.26                                                         ║
+" ║  Version  : 7.27                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -294,20 +294,44 @@ endif
 " │ StatusLinePos is linked to StatusLine so the position text always      │
 " │ matches the path colour.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][c]
+" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.27]
 "   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
 "   %=   = đệm, đẩy phần sau sang phải
 "   %l   = dòng hiện tại  (CL = current line)
 "   %L   = tổng số dòng   (TL = total lines)
 "   %{StatusIndent()}   = indent của buffer, đặt SAU [CL:TL]
-"   %{StatusFiletype()} = filetype/syntax của buffer, đặt CUỐI
-" Thứ tự: [CL:TL][indent][syntax] — đứng SÁT nhau, không dấu cách.
+"   %{StatusFiletype()} = filetype/syntax của buffer
+"   [V…]  = VERSION của chính file .vimrc này, đặt CUỐI
+" Thứ tự: [CL:TL][indent][syntax][Vx] — đứng SÁT nhau, không dấu cách.
+
+" ── Version của vimrc (dùng cho statusline) ───────────────────────────────
+" Lấy TỪ CHÍNH header của file này (dòng `Version  : X.Y`) nên mỗi lần bump
+" Version chỉ phải sửa header, statusline tự đổi theo.  Đọc tối đa 20 dòng
+" đầu của file đang được source (fallback: $MYVIMRC).
+let g:haoz_vimrc_version = 'V?'         " dự phòng nếu không đọc được header
+let s:haoz_self = expand('<sfile>:p')
+if !filereadable(s:haoz_self) && exists('$MYVIMRC')
+    let s:haoz_self = $MYVIMRC
+endif
+if filereadable(s:haoz_self)
+    for s:haoz_line in readfile(s:haoz_self, '', 20)
+        let s:haoz_v = matchstr(s:haoz_line, 'Version\s*:\s*\zs\d\+\.\d\+')
+        if s:haoz_v !=# ''
+            let g:haoz_vimrc_version = 'V' . s:haoz_v
+            break
+        endif
+    endfor
+    unlet! s:haoz_line s:haoz_v
+endif
+unlet! s:haoz_self
+
 set statusline=%F
 set statusline+=%#LineNr#
 set statusline+=%=
 set statusline+=%#StatusLinePos#\ [CL%l:TL%L]
 set statusline+=%#StatusLinePos#%{StatusIndent()}
 set statusline+=%#StatusLinePos#%{StatusFiletype()}
+set statusline+=%#StatusLinePos#\ [%{g:haoz_vimrc_version}]
 set statusline+=%#CursorColumn#
 
 " ── Indent thật của buffer, hiện NGAY SAU [CL:TL] ─────────────────────────
@@ -4655,15 +4679,15 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.26  ·  2026-11-19')
+    call add(l:L, '  Version 7.27  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
     call add(l:L, '▶ STATUSLINE')
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
-    call add(l:L, '  • Thứ tự ba khối, SÁT nhau không dấu cách:')
-    call add(l:L, '     `[CL12:TL431][4sp][systemverilog]`')
+    call add(l:L, '  • Thứ tự BỐN khối, SÁT nhau không dấu cách:')
+    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.27]`')
     call add(l:L, '  • Khối 2 `[<indent>]` — dò từ NỘI DUNG buffer:')
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
@@ -4671,6 +4695,10 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Khối 3 `[<filetype>]` — filetype/syntax của buffer')
     call add(l:L, '     Buffer RỖNG (chưa có nội dung) hiện `[none]`, kể cả khi')
     call add(l:L, '     filetype chỉ là `log` do autocmd đặt mặc định.')
+    call add(l:L, '  • Khối 4 `[Vx]` — VERSION của chính file .vimrc này, đọc từ')
+    call add(l:L, '     header (`Version  : X.Y`) lúc khởi động -> bump header là')
+    call add(l:L, '     statusline tự đổi, không phải sửa thêm chỗ nào.')
+    call add(l:L, '     (`g:haoz_vimrc_version`; không đọc được file -> `[V?]`)')
     call add(l:L, '  • Màu chữ vị trí bám theo màu path (highlight link StatusLinePos)')
     call add(l:L, '  • Nền statusline đổi theo mode: xanh đậm (Normal), cam (Insert),')
     call add(l:L, '     xanh lá (Replace) — tự động qua DynamicStatusLine')
