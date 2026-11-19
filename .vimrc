@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haoz.ng                                                      ║
-" ║  Version  : 6.84                                                         ║
+" ║  Version  : 7.00                                                         ║
 " ║  Modified : 2026-11-18                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -212,16 +212,107 @@ endif
 " │ StatusLinePos is linked to StatusLine so the position text always      │
 " │ matches the path colour.                                                │
 " └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc                                        [CL81:TL1793]
+" Bố cục:  ~/.vimrc            [4sp][CL81:TL1793][c]
 "   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
 "   %=   = đệm, đẩy phần sau sang phải
 "   %l   = dòng hiện tại  (CL = current line)
 "   %L   = tổng số dòng   (TL = total lines)
+"   %{StatusIndent()}   = indent của buffer, đặt TRƯỚC [CL:TL]
+"   %{StatusFiletype()} = filetype/syntax của buffer, đặt SAU [CL:TL]
+" Ba khối [indent][CL:TL][syntax] đứng SÁT nhau, không có dấu cách giữa chúng.
 set statusline=%F
 set statusline+=%#LineNr#
 set statusline+=%=
-set statusline+=%#StatusLinePos#\ [CL%l:TL%L]
+set statusline+=%#StatusLinePos#\ %{StatusIndent()}
+set statusline+=%#StatusLinePos#[CL%l:TL%L]
+set statusline+=%#StatusLinePos#%{StatusFiletype()}
 set statusline+=%#CursorColumn#
+
+" ── Indent thật của buffer, hiện TRƯỚC [CL:TL] ────────────────────────────
+" Định dạng: <cỡ><tb|sp>  — vd  [4sp]  [8tb]  [mix]
+" Không chỉ đọc option mà DÒ NỘI DUNG (N dòng đầu):
+"   • đếm số dòng thụt bằng TAB và số dòng thụt bằng DẤU CÁCH
+"   • bên nào nhiều hơn thì lấy bên đó; cả hai đều >= 10% -> [mix]
+"   • cỡ bước: dấu cách -> gcd các mức thụt gặp được (thường ra 4);
+"     tab -> &tabstop; không dò được gì -> theo option của buffer
+" Kết quả CACHE theo b:changedtick, nên statusline không quét lại mỗi lần vẽ
+" (nếu quét mỗi lần thì file lớn sẽ chậm thấy rõ).
+function! s:DetectIndent() abort
+    let l:last    = min([line('$'), 2000])
+    let l:tabs    = 0
+    let l:spaces  = 0
+    let l:gcd     = 0
+
+    for l:lnum in range(1, l:last)
+        let l:lead = matchstr(getline(l:lnum), '^\s\+')
+        if l:lead ==# '' | continue | endif
+
+        if stridx(l:lead, "\t") >= 0
+            let l:tabs += 1
+        else
+            let l:spaces += 1
+            " gcd của các mức thụt bằng dấu cách
+            let l:n = strlen(l:lead)
+            let l:a = l:gcd
+            let l:b = l:n
+            while l:b != 0
+                let [l:a, l:b] = [l:b, l:a % l:b]
+            endwhile
+            let l:gcd = l:a
+        endif
+    endfor
+
+    let l:total = l:tabs + l:spaces
+    if l:total == 0
+        " không có dòng nào thụt -> theo option
+        return &expandtab ? printf('[%dsp]', &shiftwidth)
+                          \ : printf('[%dtb]', &tabstop)
+    endif
+
+    if l:tabs > 0 && l:spaces > 0
+        \ && l:tabs * 10 >= l:total && l:spaces * 10 >= l:total
+        return '[mix]'
+    endif
+
+    if l:tabs > l:spaces
+        return printf('[%dtb]', &tabstop)
+    endif
+
+    let l:step = (l:gcd >= 2) ? l:gcd : &shiftwidth
+    return printf('[%dsp]', l:step)
+endfunction
+
+" Wrapper có cache cho statusline (%{...} gọi hàm này rất thường xuyên).
+function! StatusIndent() abort
+    let l:tick = get(b:, 'changedtick', 0)
+    if get(b:, 'indent_cache_tick', -1) == l:tick
+        \ && exists('b:indent_cache')
+        return b:indent_cache
+    endif
+    let b:indent_cache      = s:DetectIndent()
+    let b:indent_cache_tick = l:tick
+    return b:indent_cache
+endfunction
+
+" Filetype/syntax hiện trên statusline, sau [CL:TL].
+" Lưu ý: '%{...}' chỉ gọi được hàm PUBLIC (không phải s:), giống GuiTitle().
+" - Buffer RỖNG (chưa có nội dung) thì hiện [none], kể cả khi filetype chỉ là
+"   'log' do autocmd đặt mặc định cho file không rõ loại (augroup autosave).
+" - filetype rỗng thì lấy tên syntax đang nạp, không có nữa thì 'none'.
+function! StatusFiletype() abort
+    let l:ft = &filetype
+
+    if line('$') == 1 && getline(1) ==# ''
+        if l:ft ==# '' || l:ft ==# 'log'
+            return '[none]'
+        endif
+    endif
+
+    if l:ft ==# ''
+        let l:ft = exists('b:current_syntax') ? b:current_syntax : 'none'
+    endif
+    return '[' . l:ft . ']'
+endfunction
 
 highlight StatusLine   guifg=#00ffff guibg=#001933
 highlight StatusLineNC guifg=#888888 guibg=#001933
@@ -1272,6 +1363,19 @@ endfunction
 "  quits Vim if it's the last tab) after a short debounce delay.
 " ══════════════════════════════════════════════════════════════════════════
 
+" Tab này có chứa buffer session picker không?  Picker là buffer nofile nên bị
+" tính là "không phải cửa sổ thật" -> nếu không loại trừ, tab picker vừa mở
+" sẽ bị auto-close đóng lại sau ~200ms.
+function! s:TabHasSessionPicker() abort
+    let l:pbuf = get(g:, 'session_picker_buf', '__SessionPicker__')
+    for l:i in range(1, winnr('$'))
+        if bufname(winbufnr(l:i)) ==# l:pbuf
+            return 1
+        endif
+    endfor
+    return 0
+endfunction
+
 function! WinListCheckAutoCloseTab() abort
     if g:winlist_opening      | return | endif
     if g:winlist_file_opening | return | endif
@@ -1279,6 +1383,8 @@ function! WinListCheckAutoCloseTab() abort
     " Đang xem netrw bằng Ctrl-O: panel bị ẩn và buffer netrw là nofile nên
     " "số cửa sổ thật" có thể bằng 0 — không được đóng tab lúc này.
     if get(g:, 'netrw_expanding', 0) | return | endif
+    " Tab đang hiện session picker: coi như có nội dung
+    if s:TabHasSessionPicker()        | return | endif
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
@@ -1301,6 +1407,8 @@ function! s:DelayedAutoClose() abort
     if g:winlist_file_opening | return | endif
     if g:panel_opening        | return | endif
     if get(g:, 'netrw_expanding', 0) | return | endif
+    " tab đang hiện session picker (buffer nofile) -> coi như có nội dung
+    if s:TabHasSessionPicker()        | return | endif
 
     let l:real = 0
     for l:i in range(1, winnr('$'))
@@ -2936,11 +3044,34 @@ function! s:SnapshotTabLayout(tabnr) abort
             let l:apath = l:name ==# '' ? '' : fnamemodify(l:name, ':p')
             call add(l:wins, {
                 \ 'nr':   l:bn,
-                \ 'path': l:apath,
+                \ 'path': l:apath,                     " FULL PATH (tuyệt đối)
+                \ 'name': l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t'),
                 \ 'w':    winwidth(l:wid),
                 \ 'h':    winheight(l:wid),
                 \ })
         endfor
+
+        " ── Fallback ──────────────────────────────────────────────────────
+        " winlayout()/winbufnr(winid) không dùng được (Vim cũ, hoặc trả về
+        " rỗng) -> lấy danh sách buffer của tab bằng tabpagebuflist().  Khi đó
+        " không biết bề rộng/chiều cao từng cửa sổ (để 0, lúc dựng lại
+        " s:ApplySnapshotSizes sẽ bỏ qua) và hướng chia lấy mặc định.
+        if empty(l:wins)
+            for l:bn in tabpagebuflist(a:tabnr)
+                if l:bn <= 0 | continue | endif
+                if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn) | continue | endif
+                if WinListIsSpecial(l:bn) | continue | endif
+                let l:name  = bufname(l:bn)
+                let l:apath = l:name ==# '' ? '' : fnamemodify(l:name, ':p')
+                call add(l:wins, {
+                    \ 'nr':   l:bn,
+                    \ 'path': l:apath,
+                    \ 'name': l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t'),
+                    \ 'w':    0,
+                    \ 'h':    0,
+                    \ })
+            endfor
+        endif
 
         if empty(l:wins) | return {} | endif
 
@@ -3040,20 +3171,27 @@ endfunction
 " lúc chuyển qua lại giữa các tab.  ':edit <path>' tự dùng lại buffer đã nạp
 " sẵn cùng đường dẫn nên không tạo buffer trùng.
 function! s:OpenSnapshotBuf(w) abort
-    if a:w.path !=# '' && filereadable(a:w.path)
-        silent! execute 'edit ' . fnameescape(a:w.path)
+    let l:nr   = get(a:w, 'nr', -1)
+    let l:path = get(a:w, 'path', '')
+    " Session lưu FULL PATH; phòng khi file session cũ/bị sửa tay chỉ ghi
+    " đường dẫn tương đối thì quy về tuyệt đối trước khi mở.
+    if l:path !=# '' && l:path !~# '^\%(/\|\a:[/\\]\)'
+        let l:path = fnamemodify(l:path, ':p')
+    endif
+    if l:path !=# '' && filereadable(l:path)
+        silent! execute 'edit ' . fnameescape(l:path)
         " xác nhận cửa sổ hiện tại thật sự đang hiển thị file đó
-        if fnamemodify(bufname('%'), ':p') ==# a:w.path
+        if fnamemodify(bufname('%'), ':p') ==# l:path
             return 1
         endif
         " thử lại một lần: buffer đang giữ chỗ có thể bị sửa mà chưa ghi
-        silent! execute 'edit! ' . fnameescape(a:w.path)
-        return fnamemodify(bufname('%'), ':p') ==# a:w.path ? 1 : 0
+        silent! execute 'edit! ' . fnameescape(l:path)
+        return fnamemodify(bufname('%'), ':p') ==# l:path ? 1 : 0
     endif
     " buffer không tên ([No Name]) -> dùng số buffer, kiểm tra lại cho chắc
-    if a:w.nr > 0 && bufexists(a:w.nr) && bufname(a:w.nr) ==# ''
-        silent! execute 'buffer ' . a:w.nr
-        return bufnr('%') == a:w.nr ? 1 : 0
+    if l:nr > 0 && bufexists(l:nr) && bufname(l:nr) ==# ''
+        silent! execute 'buffer ' . l:nr
+        return bufnr('%') == l:nr ? 1 : 0
     endif
     return 0
 endfunction
@@ -3232,6 +3370,365 @@ function! ReopenLastClosed() abort
         silent! call ReopenLastClosedFile()
     endif
 endfunction
+
+
+" ══════════════════════════════════════════════════════════════════════════
+"  SESSION SAVE / RESTORE
+"  Description: lưu toàn bộ phiên (mọi tab + mọi split, đúng thứ tự, đúng
+"  hướng chia, đúng bề rộng, đúng cửa sổ active) ra file JSON trong
+"  ~/.gvim_sessions/session-YYYYmmdd-HHMMSS.json.
+"   • Khi thoát GVim mà có NHIỀU tab hoặc có SPLIT: hiện hộp thoại 2 nút
+"     "Save-exit" / "Exit" (confirm() của GVim).  Save-exit -> ghi file rồi
+"     thoát; Exit -> thoát không lưu; Esc -> thoát, không lưu.
+"   • `:SaveSession` lưu tay bất cứ lúc nào.
+"   • `<F2>` = TOGGLE danh sách session NGAY TRONG CỬA SỔ HIỆN TẠI (không mở
+"     tab mới — đây là thao tác hay dùng khi vừa mở một GVim trống): tên
+"     session = ngày giờ lưu, kèm danh sách tab/split của từng session; Enter
+"     (hoặc double click) để khôi phục, q đóng, r đọc lại thư mục.  Bấm F2
+"     lần nữa (dù con trỏ đang ở cửa sổ khác) cũng đóng picker.
+"     Toàn bộ chữ trong picker là TIẾNG ANH.
+"     Vì sao không dùng Ctrl-Shift-O: trong Vim, với CHỮ CÁI thì Shift bị bỏ
+"     qua khi đi cùng Ctrl -> <C-S-o> chính là <C-o>, map nó sẽ ghi đè phím
+"     Ctrl-O (explorer) của SmartCtrlO().
+"  Kỹ thuật dựng lại tab dùng chung với TAB RESTORE ở trên
+"  (s:OpenSnapshotBuf / s:ApplySnapshotSizes): panel WinList không nằm trong
+"  bản lưu, mỗi tab luôn tự mở lại panel như bình thường.
+" ══════════════════════════════════════════════════════════════════════════
+
+let g:session_max         = 20
+let g:session_picker_buf  = '__SessionPicker__'
+
+function! s:SessionsDir() abort
+    let l:dir = expand('~/.gvim_sessions')
+    if !isdirectory(l:dir)
+        silent! call mkdir(l:dir, 'p')
+    endif
+    return l:dir
+endfunction
+
+" Danh sách file session, MỚI NHẤT TRƯỚC.
+" Sắp theo THỜI GIAN SỬA FILE (getftime) chứ không theo tên: khi người dùng
+" đặt tên session, tên file thành session-<tên>-<timestamp>.json nên sort
+" theo tên sẽ nhóm lộn xộn.
+function! s:SessionFiles() abort
+    let l:files = glob(s:SessionsDir() . '/session-*.json', 1, 1)
+    if empty(l:files) | return [] | endif
+    return sort(l:files, {a, b -> getftime(b) - getftime(a)})
+endfunction
+
+function! s:SessionRead(path) abort
+    try
+        return json_decode(join(readfile(a:path), "\n"))
+    catch
+        return {}
+    endtry
+endfunction
+
+" Giữ tối đa g:session_max file, xoá các file cũ nhất.
+function! s:PruneSessions() abort
+    let l:files = s:SessionFiles()
+    if len(l:files) <= g:session_max | return | endif
+    for l:f in l:files[g:session_max :]
+        silent! call delete(l:f)
+    endfor
+endfunction
+
+" Chụp toàn bộ phiên hiện tại thành dict {saved, tabs:[{wins,dir,active}]}.
+function! s:SessionSnapshot() abort
+    let l:tabs = []
+    for l:t in range(1, tabpagenr('$'))
+        let l:s = s:SnapshotTabLayout(l:t)
+        if empty(l:s) | continue | endif
+        call add(l:tabs, {
+            \ 'wins':   l:s.wins,
+            \ 'dir':    l:s.dir,
+            \ 'active': l:s.active,
+            \ })
+    endfor
+    return {'saved': strftime('%Y-%m-%d %H:%M:%S'), 'tabs': l:tabs}
+endfunction
+
+" Lưu session.  {label} là tuỳ chọn: rỗng -> tên mặc định
+" session-YYYYmmdd-HHMMSS.json; có tên -> session-<tên>-YYYYmmdd-HHMMSS.json
+" (tên được làm sạch ký tự lạ để không hỏng tên file).
+function! s:SaveSession(...) abort
+    let l:label = a:0 > 0 ? substitute(a:1, '[^0-9A-Za-z._-]', '-', 'g') : ''
+    let l:label = substitute(l:label, '^-\+\|-\+$', '', 'g')
+
+    let l:data = s:SessionSnapshot()
+    if empty(l:data.tabs)
+        " Kèm vài số liệu để biết vì sao: winlayout có sẵn không, đang có mấy
+        " tab, buffer của tab hiện tại là gì.
+        echo printf('SaveSession: nothing to save (winlayout=%d tabs=%d bufs=%s)',
+            \ exists('*winlayout'), tabpagenr('$'), string(tabpagebuflist()))
+        return ''
+    endif
+
+    let l:data.label = l:label
+    let l:stamp = strftime('%Y%m%d-%H%M%S')
+    let l:name  = 'session-' . (l:label ==# '' ? '' : l:label . '-') . l:stamp . '.json'
+    let l:path  = s:SessionsDir() . '/' . l:name
+    try
+        call writefile([json_encode(l:data)], l:path)
+    catch
+        echo 'SaveSession: cannot write ' . l:path
+        return ''
+    endtry
+    call s:PruneSessions()
+    echo 'Session saved: ' . l:name . '  (' . len(l:data.tabs) . ' tabs)'
+    return l:path
+endfunction
+
+" <F3>: echo hỏi tên rồi lưu.
+"   • Enter (không gõ gì)  -> lưu với tên mặc định session-<ngày giờ>.json
+"   • gõ tên               -> lưu thành session-<tên>-<ngày giờ>.json
+"   • Ctrl-C               -> huỷ (input() bị ngắt nên hàm abort, không lưu)
+function! s:AskNameAndSave() abort
+    let l:label = input('Session name (Enter = default, Ctrl-C = cancel): ')
+    call s:SaveSession(l:label)
+endfunction
+
+" Dựng lại 1 tab từ snapshot {wins, dir, active} rồi đưa về vị trí index.
+function! s:BuildTabFromSnapshot(snap, index) abort
+    let l:n_before = tabpagenr('$')
+    silent! execute 'tabnew'
+    if tabpagenr('$') != l:n_before + 1
+        return 0
+    endif
+    let l:newtab = tabpagenr()
+
+    let l:i   = 0
+    let l:any = 0
+    for l:w in get(a:snap, 'wins', [])
+        if tabpagenr() != l:newtab
+            silent! execute 'tabnext ' . l:newtab
+        endif
+        if l:i > 0
+            silent! execute 'belowright '
+                \ . (get(a:snap, 'dir', 'row') ==# 'col' ? 'split' : 'vsplit')
+        endif
+        if s:OpenSnapshotBuf(l:w) | let l:any = 1 | endif
+        let l:i += 1
+    endfor
+
+    if !l:any
+        if tabpagenr('$') > 1 | silent! close | endif
+        return 0
+    endif
+
+    silent! call CombinedPanelOpen()
+    silent! call s:ApplySnapshotSizes(a:snap)
+    silent! call s:FocusNormalWin(get(a:snap, 'active', 0))
+
+    let l:target = max([0, min([a:index - 1, tabpagenr('$') - 1])])
+    silent! execute 'tabmove ' . l:target
+    return 1
+endfunction
+
+" Khôi phục toàn bộ session (đúng thứ tự tab/split đã lưu).
+function! s:RestoreSession(sess) abort
+    if type(a:sess) != type({}) | return 0 | endif
+    let l:tabs = get(a:sess, 'tabs', [])
+    if empty(l:tabs)
+        echo 'Session: the file has no tab.'
+        return 0
+    endif
+
+    " tab đang đứng trước khi khôi phục: nếu chỉ là scratch ([No Name] /
+    " picker / netrw) thì dọn sau khi dựng xong, để không để lại tab rác
+    let l:old_tid     = WinListGetTabID()
+    let l:old_special = (WinListIsSpecial() || bufname('%') ==# '') ? 1 : 0
+
+    let l:restored = 0
+    let l:i = 0
+    for l:t in l:tabs
+        let l:i += 1
+        if s:BuildTabFromSnapshot(l:t, l:i) | let l:restored += 1 | endif
+    endfor
+
+    if l:restored == 0
+        echo 'Session: could not open any tab.'
+        return 0
+    endif
+
+    if l:old_special && l:old_tid !=# '' && tabpagenr('$') > 1
+        let l:oldt = WinListFindTabByID(l:old_tid)
+        if l:oldt != -1
+            silent! execute 'tabnext ' . l:oldt
+            silent! execute 'tabclose'
+        endif
+    endif
+
+    silent! execute 'tabnext 1'
+    silent! call WinListRefreshAllTabs()
+    echo printf('Session restored: %d tab(s) (%s).', l:restored,
+        \ get(a:sess, 'saved', '?'))
+    return 1
+endfunction
+
+" ── Chọn session (<F2> / :SessionPicker) ────────────────────────────────
+function! s:SessionPickerLines() abort
+    let l:L = []
+    let l:files = s:SessionFiles()
+    if empty(l:files)
+        call add(l:L, 'No saved sessions yet.')
+        call add(l:L, 'Press <F3> to save the current session, then <F2> to revisit it.')
+        call add(l:L, 'Directory: ' . s:SessionsDir())
+        return l:L
+    endif
+
+    for l:f in l:files
+        let l:s    = s:SessionRead(l:f)
+        let l:tabs = get(l:s, 'tabs', [])
+        let l:nw   = 0
+        for l:t in l:tabs
+            let l:nw += len(get(l:t, 'wins', []))
+        endfor
+        " '§path' ở cuối dòng bị conceal; dùng để biết dòng thuộc session nào
+        let l:label = get(l:s, 'label', '')
+        call add(l:L, printf('=== %s%s   (%d tabs, %d windows) ===§%s',
+            \ get(l:s, 'saved', fnamemodify(l:f, ':t:r')),
+            \ l:label ==# '' ? '' : '   [' . l:label . ']',
+            \ len(l:tabs), l:nw, l:f))
+        let l:i = 0
+        for l:t in l:tabs
+            let l:i += 1
+            let l:names = []
+            for l:w in get(l:t, 'wins', [])
+                " ưu tiên 'name' đã lưu; file session cũ thì lấy tên từ path
+                call add(l:names, get(l:w, 'name',
+                    \ fnamemodify(get(l:w, 'path', ''), ':t')))
+            endfor
+            call add(l:L, printf('   Tab %d  [%d split%s]  %s', l:i,
+                \ len(l:names), len(l:names) == 1 ? '' : 's',
+                \ join(l:names, '  →  ')))
+        endfor
+    endfor
+    return l:L
+endfunction
+
+function! s:SessionPickerSetup() abort
+    setlocal buftype=nofile bufhidden=hide noswapfile nobuflisted
+    setlocal nowrap nolist nonumber norelativenumber
+    setlocal cursorline signcolumn=no
+    setlocal filetype=sessions
+    setlocal conceallevel=2 concealcursor=nvic
+
+    silent! highlight default SessionHeader guifg=#61AFEF ctermfg=75  gui=bold
+    silent! highlight default SessionTab    guifg=#98c379 ctermfg=114 gui=NONE
+    silent! highlight default SessionHint   guifg=#5c6370 ctermfg=59  gui=italic
+
+    silent! syntax clear
+    silent! syntax match SessionHeader /^=== .*===/
+    silent! syntax match SessionHeaderHide /§.*$/   conceal
+    silent! syntax match SessionTab    /^\s\+Tab \d\+.*$/
+
+    nnoremap <silent> <nowait> <buffer> <CR>          :call <SID>SessionPickRestore()<CR>
+    nnoremap <silent> <nowait> <buffer> <2-LeftMouse> :call <SID>SessionPickRestore()<CR>
+    nnoremap <silent> <nowait> <buffer> q             :call <SID>SessionPickerClose()<CR>
+    nnoremap <silent> <nowait> <buffer> r             :call <SID>SessionPickerFill()<CR>
+endfunction
+
+function! s:SessionPickerFill() abort
+    setlocal modifiable
+    silent! %delete _
+    silent! call setline(1, s:SessionPickerLines())
+    setlocal nomodifiable nomodified
+    silent! call s:SessionPickerSetup()
+endfunction
+
+" Đóng picker: trả lại buffer đã hiển thị trước đó trong cửa sổ này.
+function! s:SessionPickerClose() abort
+    if bufname('%') !=# g:session_picker_buf
+        let l:wnr = bufwinnr(g:session_picker_buf)
+        if l:wnr == -1 | return | endif
+        execute l:wnr . 'wincmd w'
+    endif
+
+    let l:prev = get(b:, 'picker_prev_buf', -1)
+    if l:prev > 0 && bufexists(l:prev) && bufname(l:prev) !=# g:session_picker_buf
+        silent! execute 'buffer ' . l:prev
+    else
+        silent! enew
+    endif
+endfunction
+
+" Mở danh sách session NGAY TRONG CỬA SỔ HIỆN TẠI (không mở tab mới) — đây
+" là thao tác hay dùng khi vừa mở một GVim trống, nên chiếm luôn cửa sổ đó.
+function! SessionPicker() abort
+    " TOGGLE: picker đang hiện ở bất kỳ cửa sổ nào -> đóng (trả lại buffer cũ);
+    " chưa mở -> mở trong cửa sổ hiện tại.
+    if bufwinnr(g:session_picker_buf) != -1
+        call s:SessionPickerClose()
+        return
+    endif
+
+    let l:prev = bufnr('%')
+    silent! execute 'keepalt edit ' . fnameescape(g:session_picker_buf)
+    if bufname('%') !=# g:session_picker_buf
+        " :edit thất bại (vd buffer hiện tại đang sửa mà không ghi được)
+        silent! enew
+        silent! execute 'file ' . g:session_picker_buf
+        if bufname('%') !=# g:session_picker_buf
+            echo 'SessionPicker: cannot open the picker buffer.'
+            return
+        endif
+    endif
+    let b:picker_prev_buf = l:prev
+
+    silent! call s:SessionPickerFill()
+    setlocal statusline=\ 【Sessions】\ Enter:\ restore\ ·\ q:\ close\ ·\ r:\ reload
+    echo 'Pick a session and press Enter (double-click also works); q to close.'
+endfunction
+
+" Restore the session on the cursor line (header line or one of its Tab lines).
+function! s:SessionPickRestore() abort
+    let l:path = ''
+    for l:lnum in range(line('.'), 1, -1)
+        let l:m = matchlist(getline(l:lnum), '§\(.\+\)$')
+        if !empty(l:m)
+            let l:path = l:m[1]
+            break
+        endif
+    endfor
+
+    if l:path ==# ''
+        echo 'Session: this line does not belong to any session.'
+        return
+    endif
+    if !filereadable(l:path)
+        echo 'Session: file no longer exists: ' . l:path
+        return
+    endif
+
+    let l:sess = s:SessionRead(l:path)
+    if empty(l:sess)
+        echo 'Session: cannot read ' . fnamemodify(l:path, ':t')
+        return
+    endif
+
+    silent! call s:RestoreSession(l:sess)
+endfunction
+
+" Hai phím của tính năng session (trong GVim F2/F3 chưa dùng — pastetoggle bên
+" dưới chỉ đặt cho Vim trong terminal):
+"   <F2> = TOGGLE session picker (chọn session để restore)
+"   <F3> = hỏi TÊN rồi lưu: Enter = tên mặc định (session-<ngày giờ>.json),
+"          gõ tên = session-<tên>-<ngày giờ>.json, Ctrl-C = huỷ
+" TUYỆT ĐỐI không map <C-S-o>: trong Vim, với CHỮ CÁI phần Shift bị bỏ qua khi
+" đi cùng Ctrl, nên <C-S-o> chính là <C-o> — map nó sẽ GHI ĐÈ mapping <C-o>
+" của SmartCtrlO() (explorer), và Ctrl-O sẽ mở nhầm session picker.
+if has('gui_running')
+    nnoremap <silent> <F2> :call SessionPicker()<CR>
+    inoremap <silent> <F2> <Esc>:call SessionPicker()<CR>
+    nnoremap <silent> <F3> :call <SID>AskNameAndSave()<CR>
+    inoremap <silent> <F3> <Esc>:call <SID>AskNameAndSave()<CR>
+endif
+command! -nargs=? SaveSession call <SID>SaveSession(<q-args>)
+command! SessionPicker call SessionPicker()
+
+" KHÔNG có autocmd VimLeavePre: đóng bằng X hay :q đều im lặng, không hỏi,
+" không tự lưu.  Việc lưu là do người dùng bấm <F3>.
 
 
 " ┌──────────────────────────────────────────────────────────────────────────┐
@@ -3644,13 +4141,21 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haoz.ng custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 6.84  ·  2026-11-18')
+    call add(l:L, '  Version 7.00  ·  2026-11-18')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
     call add(l:L, '▶ STATUSLINE')
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
+    call add(l:L, '  • Ba khối đứng SÁT nhau, không dấu cách: `[4sp][CL12:TL431][c]`')
+    call add(l:L, '  • Trước `[CL:TL]` là `[<indent>]` — dò từ NỘI DUNG buffer:')
+    call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
+    call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
+    call add(l:L, '     Khuôn: `<cỡ><tb|sp>`')
+    call add(l:L, '  • Sau `[CL:TL]` là `[<filetype>]` — filetype/syntax của buffer')
+    call add(l:L, '     Buffer RỖNG (chưa có nội dung) hiện `[none]`, kể cả khi')
+    call add(l:L, '     filetype chỉ là `log` do autocmd đặt mặc định.')
     call add(l:L, '  • Màu chữ vị trí bám theo màu path (highlight link StatusLinePos)')
     call add(l:L, '  • Nền statusline đổi theo mode: xanh đậm (Normal), cam (Insert),')
     call add(l:L, '     xanh lá (Replace) — tự động qua DynamicStatusLine')
@@ -3796,8 +4301,31 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • All diff windows auto-unfold on VimEnter')
     call add(l:L, '')
 
+    call add(l:L, '▶ SESSION — lưu / khôi phục phiên làm việc (tab + split)')
+    call add(l:L, '  • `<F3>`  Hỏi tên rồi lưu: `Enter` = tên mặc định')
+    call add(l:L, '     (session-<ngày giờ>.json), gõ tên = session-<tên>-<ngày')
+    call add(l:L, '     giờ>.json, `Ctrl-C` = huỷ. Tên hiện trong ngoặc [] ở picker.')
+    call add(l:L, '  • Thoát GVim (nút X hay `:q`) KHÔNG hỏi và KHÔNG tự lưu gì —')
+    call add(l:L, '     việc lưu là do anh bấm F3')
+    call add(l:L, '  • `:SaveSession [tên]`  Lưu tay, có thể kèm tên')
+    call add(l:L, '  • Session lưu trong `~/.gvim_sessions/session-YYYYmmdd-HHMMSS.json`')
+    call add(l:L, '     gồm mọi tab + mọi split: đúng thứ tự, hướng chia, bề rộng,')
+    call add(l:L, '     chiều cao, cửa sổ active. Mỗi cửa sổ lưu FULL PATH của file')
+    call add(l:L, '     (kèm `name` để hiển thị) — WinList không nằm trong bản lưu')
+    call add(l:L, '  • `<F2>`  TOGGLE danh sách session NGAY TRONG CỬA SỔ HIỆN TẠI')
+    call add(l:L, '     (không mở tab mới — thao tác này hay dùng khi vừa mở GVim')
+    call add(l:L, '     trống). Bấm F2 lần nữa để đóng. Tên session = ngày giờ lưu,')
+    call add(l:L, '     kèm danh sách tab/split; `Enter`/double-click khôi phục,')
+    call add(l:L, '     `q` đóng, `r` đọc lại. Chữ trong picker là TIẾNG ANH.')
+    call add(l:L, '     KHÔNG map Ctrl-Shift-O: với chữ cái, Vim bỏ qua Shift khi đi')
+    call add(l:L, '     cùng Ctrl nên <C-S-o> chính là <C-o> (sẽ đè phím Ctrl-O')
+    call add(l:L, '     explorer). Giữ tối đa 20 session.')
+    call add(l:L, '')
+
     call add(l:L, '▶ MISC / FUNCTION KEYS')
     call add(l:L, '  • `F1`   Toggle this manual (you are here)')
+    call add(l:L, '  • `F2`   Toggle the session picker (see SESSION section above)')
+    call add(l:L, '  • `F3`   Save session (asks for a name; Enter = default)')
     call add(l:L, '  • `F5`   Reload current file (:edit!)')
     call add(l:L, '  • `F10`  Toggle GVim menu bar + toolbar')
     call add(l:L, '  • `F11`  Toggle window maximize (wmctrl, Linux/X11)')
