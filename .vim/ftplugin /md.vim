@@ -889,6 +889,23 @@ function! s:FenceBgApply() abort
   silent! redraw
 endfunction
 
+function! s:MdFormatOnOpen() abort
+  if get(b:, 'md_fmt_on_open_done', 0)
+    call s:FenceBgApply()
+    return
+  endif
+  let b:md_fmt_on_open_done = 1
+  if !s:AutoFormatOn() || !&modifiable
+        \ || line('$') > get(g:, 'md_autoformat_maxlines', 4000)
+    call s:FenceBgApply()
+    return
+  endif
+  silent! call s:FormatBuffer()
+  setlocal nomodified
+  call s:FenceBgApply()
+  silent! redraw
+endfunction
+
 function! s:FenceBgInfo() abort
   let l:pos = []
   call s:BgAddRanges(l:pos, s:FenceContentRanges())
@@ -938,7 +955,9 @@ endfunction
 let s:fbg_aug = 'md_fence_bg_' . bufnr('')
 execute 'augroup ' . s:fbg_aug
   autocmd!
-  autocmd BufEnter,BufWinEnter,WinEnter,BufReadPost <buffer> call <SID>FenceBgApply()
+  autocmd BufEnter,WinEnter           <buffer> call <SID>FenceBgApply()
+  autocmd BufWinEnter                 <buffer> call <SID>MdFormatOnOpen()
+  autocmd BufReadPost                 <buffer> call <SID>FenceBgApply()
   autocmd CursorHold,VimEnter         <buffer> call <SID>FenceBgSchedule(10)
   autocmd TextChanged                 <buffer> call <SID>FenceBgSchedule(150)
   autocmd TextChangedI                <buffer> call <SID>FenceBgSchedule(600)
