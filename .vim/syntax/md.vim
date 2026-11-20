@@ -215,6 +215,7 @@ function! s:MdColors() abort
   let l:dim     = '#5c6370'
   let l:purple  = '#bf65cf'
   let l:orange  = '#d19a66'   " cam (One Dark) — dùng cho DẤU FENCE ```
+  let l:grid    = '#8a8f98'   " xám SÁNG cho dấu | của bảng (nền bảng là #363636)
 
   " ── Dấu FENCE ``` ───────────────────────────────────────────────────────
   " mdFence   = dòng mở/đóng (kể cả tên ngôn ngữ) -> CAM, KHÔNG nền.
@@ -268,7 +269,7 @@ function! s:MdColors() abort
   " Dòng phân cách bảng '| --- |' -> cùng màu với PATH (`code` chứa '/') theo
   " yêu cầu (trước là vàng #e5c07b).
   execute 'highlight mdTableHead   guifg=' . l:blue . ' guibg=NONE gui=bold'
-  execute 'highlight mdTableBorder guifg=' . l:dim   . ' guibg=NONE gui=NONE'
+  execute 'highlight mdTableBorder guifg=' . l:grid  . ' guibg=NONE gui=NONE'
   execute 'highlight mdSeparator   guifg=' . l:magenta . ' guibg=NONE gui=bold'
 
   " ── HTML lẫn trong markdown ─────────────────────────────────────────────
