@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.42                                                         ║
+" ║  Version  : 7.63                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -8,13 +8,6 @@
 " ║             folding, auto-save, quick replace/delete, mark highlight.    ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                         GVIM AUTO FULLSCREEN                             │
-" │ Description: Automatically maximizes the GVim window (vertical +         │
-" │ horizontal) on startup via wmctrl, and binds F11 to manually toggle      │
-" │ maximize/restore. Linux/X11 only (uses wmctrl).                          │
-" └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     autocmd GUIEnter * silent! call system("wmctrl -ir " . v:windowid . " -b add,maximized_vert,maximized_horz")
 endif
@@ -23,15 +16,6 @@ if has('gui_running')
     map <silent> <F11> :silent! call system("wmctrl -ir " . v:windowid . " -b toggle,maximized_vert,maximized_horz")<CR>
 endif
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                           BASIC SETTINGS                                 │
-" │ Description: Core editor behavior — UTF-8 encoding, search               │
-" │ (highlight + smartcase), auto-reload changed files, line numbers,        │
-" │ mouse support, tab labels, 4-space soft tabs, cursorline/column,         │
-" │ WRAP MẶC ĐỊNH BẬT (Alt-Z để tắt), fold defaults, and performance         │
-" │ tuning (lazyredraw, updatetime).                                         │
-" └──────────────────────────────────────────────────────────────────────────┘
 set hlsearch
 set encoding=utf-8
 set fileencoding=utf-8
@@ -40,22 +24,8 @@ set guifont=Consolas\ Regular\ 9
 set ignorecase
 set smartcase
 set autoread
-" ── Swap file ───────────────────────────────────────────────────────────────
-" GIỮ swap file (KHÔNG dùng 'noswapfile'): nó là lưới an toàn cho auto-save /
-" autoread — khi buffer không ghi được (file [RO], đĩa đầy, process khác giữ
-" file) thì swap là thứ duy nhất còn giữ thay đổi.
-"
-" Bỏ hộp thoại ATTENTION khi file đã có swap (đúng ca "chính tôi đang dùng
-" file nên nó có swap"):
-"   Swap file "...swp" already exists!
-"   [O]pen Read-Only, (E)dit anyway, (R)ecover, (D)elete it, (Q)uit, (A)bort
-" Cờ 'A' trong 'shortmess' = không hỏi, Vim coi như chọn (E)dit anyway và mở
-" luôn để SỬA (không thành read-only).
 set shortmess+=A
 
-" Dồn swap về ~/.vim/swp để *.swp không rải trong cây source (/rsc/...).
-" Hai dấu '//' = Vim dùng cả đường dẫn đầy đủ khi đặt tên .swp, tránh trùng
-" tên giữa hai file cùng tên ở hai thư mục khác nhau.  /tmp// là chỗ dự phòng.
 if !isdirectory(expand('~/.vim/swp'))
     silent! call mkdir(expand('~/.vim/swp'), 'p')
 endif
@@ -68,33 +38,19 @@ set tabstop=4
 set shiftwidth=4
 set expandtab
 set autoindent
-" MẶC ĐỊNH WRAP: mọi file mở ra đều xuống dòng cho vừa bề ngang cửa sổ.
-" Đổi qua lại bằng <M-z> (xem BASIC KEYBINDINGS).  linebreak: chỉ ngắt ở
-" khoảng trắng; breakindent + showbreak: dòng bị wrap được thụt đúng lề và
-" có ký tự ↪ ở đầu để biết là dòng nối.
-" Panel: WinList đặt riêng `wrap linebreak` (tên test dài thì xuống dòng);
-" session picker và Vimrc Manual đặt `nowrap` (mỗi mục 1 dòng cho gọn).
 set wrap
 set linebreak
 set breakindent
-" (dùng let thay vì 'set showbreak=↪\ ' để dấu cách cuối không bị mất khi
-"  file bị trim/trailing-space-strip)
 let &showbreak = '↪ '
 set laststatus=2
 set cursorcolumn
 set cursorline
 set foldlevel=99
 set lazyredraw
-" timeoutlen ngắn: 'mh' và 'ml' là mapping có tiền tố chung 'm' nên Vim phải
-" chờ một chút để biết bạn gõ 'mh' hay 'ml'.  300ms đủ nhanh mà vẫn phân biệt
-" được (cũng làm các phím có tiền tố như '\' phản hồi nhanh hơn).
+set synmaxcol=500
 set timeoutlen=300
 set updatetime=1000
 
-" Builds the tab label text: filename + [M] (modified) + [RO] (readonly)
-" Bỏ qua các cửa sổ panel (WinList / NERDTree / netrw): nếu cửa sổ đang
-" focus là panel thì vẫn lấy tên file thật đang mở trong tab, không hiện
-" "__WindowList__".  Ưu tiên cửa sổ đang focus nếu nó là cửa sổ nội dung.
 function! s:IsPanelBuf(bufnr) abort
     let l:name = bufname(a:bufnr)
     let l:bt   = getbufvar(a:bufnr, '&buftype')
@@ -110,7 +66,6 @@ function! GuiTabLabel() abort
     let l:winnr   = tabpagewinnr(v:lnum)
     let l:cur     = l:buflist[l:winnr - 1]
 
-    " Nếu cửa sổ focus là panel, tìm cửa sổ nội dung đầu tiên trong tab
     let l:bufnr = l:cur
     if s:IsPanelBuf(l:cur)
         for l:bn in l:buflist
@@ -128,18 +83,8 @@ function! GuiTabLabel() abort
     return l:name . l:mod . l:ro
 endfunction
 
-" Auto-detect external file changes when cursor idles (works with autoread)
 au CursorHold,CursorHoldI * silent! checktime
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          THEME AND COLORS                                │
-" │ Description: Loads the custom 'haoz' dark colorscheme and overrides      │
-" │ core highlight groups (Normal, LineNr, CursorLine/Column, Cursor,        │
-" │ Visual, Folded, Search, VertSplit, SpecialKey, TabLineSel) to enforce    │
-" │ the black background / cyan accent visual identity.                      │
-" └──────────────────────────────────────────────────────────────────────────┘
-" Use GUI (true-color) highlights in terminal Vim so colors match GVim
 if !has('gui_running') && has('termguicolors')
     if &term =~# 'tmux\|screen' || $COLORTERM =~# 'truecolor\|24bit'
         let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
@@ -153,64 +98,141 @@ syntax on
 set background=dark
 colorscheme haoz
 
-" ── Markdown: 2 file riêng (dựa trên hughbien/md-vim, BSD) ──────────────────
-" Cài bằng cách copy ĐÚNG 2 file (repo gốc không có autoload/ — md#setup()
-" nằm ngay trong ftplugin/md.vim):
-"   syntax.md.vim   ->  ~/.vim/syntax/md.vim     (bản riêng: chữ thường TRẮNG,
-"                       heading/link/code theo palette haoz, đậm/nghiêng là
-"                       REGION nên xuống dòng vẫn tô, dòng thụt 4 space vẫn
-"                       có syntax, mục list 3 cấp màu theo độ thụt lề)
-"   ftplugin.md.vim ->  ~/.vim/ftplugin/md.vim   (bản riêng: sửa lỗi dò biên
-"                       bảng của MdFixTable + TỰ FORMAT TOÀN BỘ NỘI DUNG khi
-"                       ghi file + indentexpr cho mục con)
-" Bảng: cột tính theo strdisplaywidth (tiếng Việt có dấu không lệch cột),
-" nhận cả bảng thiếu '|' ở đầu dòng, và TỰ CHÈN dòng phân cách '| --- |'
-" nếu bảng viết thiếu (tắt: let g:md_table_guess = 0).
-" FOLD của file .md: nằm ở mục FOLDING, dùng 2 hàm NGAY TRONG VIMRC này
-" (HaozMdFoldLevel/HaozMdFoldText) -> không phụ thuộc ftplugin/md.vim, và
-" không ảnh hưởng fold của Verilog (mỗi filetype setlocal riêng).
-" Mặc định khi mở file .md: ĐÓNG HẾT fold (setlocal foldlevel=0) — khác
-" foldlevel=99 chung của vimrc.  CHỈ 2 phím, chỉ trong buffer .md:
-"   za = toggle fold HIỆN TẠI (lệnh gốc của Vim)
-"   zo = toggle TẤT CẢ fold (đang đóng -> mở hết; đang mở hết -> đóng hết)
-" Tùy chọn ở vimrc (đặt TRƯỚC khi mở file .md):
-"   let g:md_indent_is_code = 0       " 4 space đầu dòng KHÔNG phải code block
-"   let g:md_autoformat = 0           " tắt tự format khi ghi file
-"   let g:md_trim_trailing_space = 0  " giữ space/tab cuối dòng
-"   let g:md_table_guess = 0          " không tự chèn dòng phân cách bảng
-" Lệnh trong buffer .md:  :MdFormat  (toàn bộ nội dung)
-"                         :MdFormatTable  (chỉ căn bảng)
-"                         :MdAutoFormat  (bật/tắt cho buffer đang mở)
-" 'au ... setlocal ft=md' là BẮT BUỘC (không có ftdetect/ trong 2 file này).
-" setlocal thay vì 'set ft=md': 'set' ghi cả giá trị GLOBAL, làm buffer mới
-" không tên cũng bị nhận là md.
 filetype plugin on
 au BufNewFile,BufRead *.md setlocal ft=md
-" KHÔNG gọi md#setup(): hàm đó chỉ tạo 7 mapping leader của plugin (\= \- \l
-" \x \t \z \p) — theo yêu cầu, buffer .md chỉ giữ phím fold (za/zo, xem mục
-" FOLDING) và các lệnh :MdFormat/:MdFormatTable/:MdAutoFormat bên dưới.
-" (conceallevel của plugin được đặt bằng autocmd riêng ở cuối khối này.)
 
-" Ngôn ngữ được tô màu bên trong khối ``` … ``` (plugin tự include syntax).
-" Dạng 'ext=ngôn-ngữ' cho fence ghi tắt, ví dụ ```sv.
+function! s:MdLeadCodes(text) abort
+    let l:out = []
+    for l:c in split(strcharpart(a:text, 0, 8), '\zs')
+        if l:c ==# ' '
+            call add(l:out, 'sp')
+        elseif l:c ==# "\t"
+            call add(l:out, 'TAB')
+        else
+            call add(l:out, printf('U+%04X', char2nr(l:c)))
+        endif
+    endfor
+    return '[' . join(l:out, ' ') . ']'
+endfunction
+
+command! -nargs=0 MdSyn call s:MdSynShow()
+function! s:MdSynShow() abort
+    let l:lnum = line('.')
+    let l:col  = col('.')
+    let l:txt  = getline(l:lnum)
+    echo printf('line %d col %d  ft=%s  b:current_syntax=%s',
+          \ l:lnum, l:col, &filetype, get(b:, 'current_syntax', '<none>'))
+    echo printf('  char=%-14s syn=%-16s fg=%s',
+          \ strtrans(l:txt[l:col - 1]),
+          \ synIDattr(synID(l:lnum, l:col, 1), 'name'),
+          \ synIDattr(synIDtrans(synID(l:lnum, l:col, 1)), 'fg#'))
+    echo printf('  indent()=%d  lead=%s', indent(l:lnum), s:MdLeadCodes(l:txt))
+    echo printf('  text=%s', strpart(l:txt, 0, 70))
+endfunction
+
+function! s:MdSlug(text) abort
+    let l:t = tolower(a:text)
+    let l:t = substitute(l:t, '\s*{[^}]*}\s*$', '', '')
+    let l:t = substitute(l:t, '^\s*#\+\s*', '', '')
+    let l:t = substitute(l:t, '\[\([^]]*\)\]([^)]*)', '\1', 'g')
+    let l:t = substitute(l:t, '[`*_~]', '', 'g')
+    let l:t = substitute(l:t, '[^[:alnum:]]\+', '-', 'g')
+    let l:t = substitute(l:t, '^-*', '', '')
+    return substitute(l:t, '-*$', '', '')
+endfunction
+
+function! s:MdSlugLoose(text) abort
+    return substitute(tolower(s:MdSlug(a:text)), '[^a-z0-9]\+', '', 'g')
+endfunction
+
+function! s:MdLinksOnLine(line) abort
+    let l:out = []
+    let l:start = 0
+    while 1
+        let [l:m, l:s, l:e] = matchstrpos(a:line, '\[[^]]*\]([^)]\+)', l:start)
+        if l:s == -1
+            break
+        endif
+        call add(l:out, [matchstr(l:m, '(\zs[^)]\+\ze)'), l:s, l:e])
+        let l:start = l:s + 1
+    endwhile
+    return l:out
+endfunction
+
+function! s:MdGoHeader(lnum) abort
+    if mode() =~# "[vV\<C-v>]"
+        silent! execute "normal! \<Esc>"
+    endif
+    call cursor(a:lnum, 1)
+    silent! normal! zv
+    normal! zz
+    silent! call feedkeys("\<Esc>", 'n')
+endfunction
+
+function! MdFollowLink() abort
+    let l:line = getline('.')
+    let l:pos = col('.') - 1
+    let l:links = s:MdLinksOnLine(l:line)
+    let l:target = ''
+    for [l:t, l:s, l:e] in l:links
+        if l:pos >= l:s && l:pos < l:e
+            let l:target = l:t
+            break
+        endif
+    endfor
+    if l:target ==# '' && len(l:links) == 1
+        let l:target = l:links[0][0]
+    endif
+    if l:target ==# ''
+        echo 'No link under cursor'
+        return
+    endif
+    if l:target !~# '^#'
+        echo 'Only in-file links (#anchor): ' . l:target
+        return
+    endif
+
+    let l:raw   = substitute(l:target, '^#', '', '')
+    let l:raw   = substitute(l:raw, '%\(\x\x\)', '\=nr2char(str2nr(submatch(1), 16))', 'g')
+    let l:want  = s:MdSlug(l:raw)
+    let l:loose = s:MdSlugLoose(l:raw)
+    let l:bare  = substitute(l:loose, '-*[0-9]\+$', '', '')
+    let l:found = 0
+    let l:n = 1
+    while l:n <= line('$')
+        let l:l = getline(l:n)
+        if l:l =~# '^\s*#\{1,6}\s'
+            let l:s1 = s:MdSlug(l:l)
+            let l:s2 = s:MdSlugLoose(l:l)
+            if l:s1 ==# l:want || l:s2 ==# l:loose
+                let l:found = l:n
+                break
+            endif
+            if l:found == 0 && strlen(l:bare) > 2 && strlen(l:s2) > 2
+                        \ && (stridx(l:s2, l:bare) == 0 || stridx(l:bare, l:s2) == 0)
+                let l:found = l:n
+            endif
+        endif
+        let l:n = l:n + 1
+    endwhile
+    if l:found > 0
+        call s:MdGoHeader(l:found)
+        return
+    endif
+    echo 'No header matches: [' . l:want . ']'
+endfunction
+
+command! -nargs=0 MdLink call MdFollowLink()
+autocmd FileType md nnoremap <buffer> <silent> <C-]> :<C-U>call MdFollowLink()<CR>
+autocmd FileType md nnoremap <buffer> <silent> <2-LeftMouse>
+      \ <LeftMouse>:<C-U>call MdFollowLink()<CR><Esc>
+
 let g:md_fenced_languages = [
       \ 'systemverilog', 'sv=systemverilog',
       \ 'verilog',       'v=verilog',
       \ 'c', 'cpp', 'python', 'sh', 'tcl', 'make', 'json', 'yaml', 'vim',
       \ ]
 
-" Phím của buffer .md: CHỈ 2 phím fold (za / zo — xem mục FOLDING).
-" 7 mapping leader của plugin (\= \- \l \x \t \z \p) đã bỏ theo yêu cầu;
-" việc format bảng/list giờ do chế độ tự format đảm nhiệm.
-"
-" Các lệnh (không cần phím):
-"   :MdFormat      format MỌI bảng trong buffer ngay
-"   :MdAutoFormat  bật/tắt tự format (mặc định BẬT: format bảng mỗi lần ghi
-"                  file và mỗi lần rời Insert khi con trỏ đang trong bảng)
-
-" conceal của plugin cần 'conceallevel' > 0.  Vimrc này chỉ đặt option đó cho
-" panel WinList và session picker, nên buffer .md phải đặt riêng; concealcursor
-" =nc: ẩn dấu khi ở Normal/Command, hiện lại khi Insert.
 if has('conceal')
   au FileType md setlocal conceallevel=2 concealcursor=nc
 endif
@@ -237,14 +259,6 @@ highlight TabLineSel ctermfg=159   ctermbg=0 guifg=#afffff guibg=#000000 cterm=N
 highlight TabLine     ctermfg=245  ctermbg=0 guifg=#888888 guibg=#000000 cterm=NONE gui=NONE
 highlight TabLineFill ctermfg=0   ctermbg=0 guifg=#000000 guibg=#000000 cterm=NONE gui=NONE
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                       NETRW ( :Explore ) STYLING                         │
-" │ Description: Configures netrw's built-in file explorer (tree-style       │
-" │ listing, horizontal size hints) and applies a custom cyan/dark syntax    │
-" │ highlight palette (directories, links, executables, hidden files,        │
-" │ marks, banner, etc.) re-applied on every colorscheme change.             │
-" └──────────────────────────────────────────────────────────────────────────┘
 let g:netrw_liststyle    = 1
 let g:netrw_banner       = 1
 let g:netrw_browse_split = 0
@@ -281,14 +295,6 @@ augroup NetrwColors
     autocmd ColorScheme *  call s:NetrwHighlights()
 augroup END
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                           CURSOR SHAPE                                   │
-" │ Description: Sets distinct cursor shapes per mode in GUI (vertical bar   │
-" │ for normal/visual/cmdline, blinking bar for insert, blinking underline   │
-" │ for replace). Falls back to terminal escape codes (t_SI/t_EI) for        │
-" │ console Vim to switch cursor shape between insert/normal mode.           │
-" └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guicursor=n-v-c:ver25-blinkon0,i:ver25-blinkon500-blinkoff500,r:hor20-blinkon500-blinkoff500
 else
@@ -296,32 +302,7 @@ else
     let &t_EI = "\e[2 q"
 endif
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                            STATUS LINE                                   │
-" │ Description: Custom statusline showing filename (left) and padding       │
-" │ (right), plus cursor position as [CL current:TL total] on the right.     │
-" │ Dynamically recolors the StatusLine highlight group based on current     │
-" │ mode: cyan/dark-blue (Normal), cyan/orange (Insert), cyan/green          │
-" │ (Replace) — updated automatically via InsertEnter/Change/Leave.          │
-" │ StatusLinePos is linked to StatusLine so the position text always        │
-" │ matches the path colour.                                                 │
-" └──────────────────────────────────────────────────────────────────────────┘
-" Bố cục:  ~/.vimrc            [CL81:TL1793][4sp][md][V7.42]
-"   %F   = đường dẫn đầy đủ              (trái, đã có sẵn)
-"   %=   = đệm, đẩy phần sau sang phải
-"   %l   = dòng hiện tại  (CL = current line)
-"   %L   = tổng số dòng   (TL = total lines)
-"   %{StatusIndent()}   = indent của buffer, đặt SAU [CL:TL]
-"   %{StatusFiletype()} = filetype/syntax của buffer
-"   [V…]  = VERSION của chính file .vimrc này, đặt CUỐI
-" Thứ tự: [CL:TL][indent][syntax][Vx] — đứng SÁT nhau, không dấu cách.
-
-" ── Version của vimrc (dùng cho statusline) ─────────────────────────────────
-" Lấy TỪ CHÍNH header của file này (dòng `Version  : X.Y`) nên mỗi lần bump
-" Version chỉ phải sửa header, statusline tự đổi theo.  Đọc tối đa 20 dòng
-" đầu của file đang được source (fallback: $MYVIMRC).
-let g:haoz_vimrc_version = 'V?'         " dự phòng nếu không đọc được header
+let g:haoz_vimrc_version = 'V?'
 let s:haoz_self = expand('<sfile>:p')
 if !filereadable(s:haoz_self) && exists('$MYVIMRC')
     let s:haoz_self = $MYVIMRC
@@ -347,18 +328,7 @@ set statusline+=%#StatusLinePos#%{StatusFiletype()}
 set statusline+=%#StatusLinePos#[%{g:haoz_vimrc_version}]
 set statusline+=%#CursorColumn#
 
-" ── Indent thật của buffer, hiện NGAY SAU [CL:TL] ───────────────────────────
-" Định dạng: <cỡ><tb|sp>  — vd  [4sp]  [8tb]  [mix]
-" Không chỉ đọc option mà DÒ NỘI DUNG (N dòng đầu):
-"   • đếm số dòng thụt bằng TAB và số dòng thụt bằng DẤU CÁCH
-"   • bên nào nhiều hơn thì lấy bên đó; cả hai đều >= 10% -> [mix]
-"   • cỡ bước: dấu cách -> gcd các mức thụt gặp được (thường ra 4);
-"     tab -> &tabstop; không dò được gì -> theo option của buffer
-" Kết quả CACHE theo b:changedtick, nên statusline không quét lại mỗi lần vẽ
-" (nếu quét mỗi lần thì file lớn sẽ chậm thấy rõ).
 function! s:DetectIndent() abort
-    " 400 dòng đầu là quá đủ để biết file thụt bằng tab hay dấu cách; quét ít
-    " lại thì mỗi lần gõ (changedtick đổi -> cache mất) không bị khựng.
     let l:last    = min([line('$'), 400])
     let l:tabs    = 0
     let l:spaces  = 0
@@ -372,7 +342,6 @@ function! s:DetectIndent() abort
             let l:tabs += 1
         else
             let l:spaces += 1
-            " gcd của các mức thụt bằng dấu cách
             let l:n = strlen(l:lead)
             let l:a = l:gcd
             let l:b = l:n
@@ -385,7 +354,6 @@ function! s:DetectIndent() abort
 
     let l:total = l:tabs + l:spaces
     if l:total == 0
-        " không có dòng nào thụt -> theo option
         return &expandtab ? printf('[%dsp]', &shiftwidth)
                           \ : printf('[%dtb]', &tabstop)
     endif
@@ -403,11 +371,6 @@ function! s:DetectIndent() abort
     return printf('[%dsp]', l:step)
 endfunction
 
-" Wrapper có cache cho statusline (%{...} gọi hàm này rất thường xuyên).
-" PERFORMANCE: khi đang gõ, b:changedtick đổi sau MỖI phím, nên cache theo
-" tick không cứu được — bản cũ vẫn quét tới 400 dòng cho mỗi phím để vẽ lại
-" statusline.  Trong Insert/Replace giờ chỉ tính lại tối đa 1 lần/giây; rời
-" Insert (Enter/ESC) là mode khác nên lần vẽ sau quét lại ngay.
 function! StatusIndent() abort
     let l:tick = get(b:, 'changedtick', 0)
     if get(b:, 'indent_cache_tick', -1) == l:tick
@@ -425,11 +388,6 @@ function! StatusIndent() abort
     return b:indent_cache
 endfunction
 
-" Filetype/syntax hiện trên statusline, sau [CL:TL].
-" Lưu ý: '%{...}' chỉ gọi được hàm PUBLIC (không phải s:), giống GuiTitle().
-" - Buffer RỖNG (chưa có nội dung) thì hiện [none], kể cả khi filetype chỉ là
-"   'log' do autocmd đặt mặc định cho file không rõ loại (augroup autosave).
-" - filetype rỗng thì lấy tên syntax đang nạp, không có nữa thì 'none'.
 function! StatusFiletype() abort
     let l:ft = &filetype
 
@@ -447,8 +405,6 @@ endfunction
 
 highlight StatusLine   guifg=#00ffff guibg=#001933
 highlight StatusLineNC guifg=#888888 guibg=#001933
-" Màu vị trí bám theo StatusLine (giống hệt màu path, kể cả khi đổi
-" màu nền theo mode Insert/Replace nhờ DynamicStatusLine).
 highlight link StatusLinePos StatusLine
 
 function! StatusLineSetNormal() abort
@@ -478,14 +434,6 @@ augroup DynamicStatusLine
     autocmd InsertLeave  * call StatusLineSetNormal()
 augroup END
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                           COMMENT SYSTEM                                 │
-" │ Description: Filetype-aware line-comment toggling. Detects the correct   │
-" │ comment leader (//, #, %, ", ;, >) per filetype/extension and provides   │
-" │ CommentLine/UncommentLine/Range helpers. Bound to  cc  in Normal mode    │
-" │ (single line) and Visual mode (range) to toggle comment on/off.          │
-" └──────────────────────────────────────────────────────────────────────────┘
 autocmd FileType c,cpp,java,scala                           let b:comment_leader = '\/\/'
 autocmd FileType sh,csh,ruby,python,tcsh                    let b:comment_leader = '#'
 autocmd FileType conf,fstab                                 let b:comment_leader = '#'
@@ -493,7 +441,7 @@ autocmd FileType tex                                        let b:comment_leader
 autocmd FileType mail                                       let b:comment_leader = '>'
 autocmd FileType vim                                        let b:comment_leader = '"'
 autocmd FileType nasm                                       let b:comment_leader = ';'
-autocmd BufReadPre,FileReadPre *.v,*.sv,*.svh,*.svt         let b:comment_leader = '\/\/'
+autocmd BufReadPre,FileReadPre *.v,*.sv,*.svh,*.svt,*.svti let b:comment_leader = '\/\/'
 autocmd BufReadPre,FileReadPre *.csh,*.txt,*.config         let b:comment_leader = '#'
 
 function! CommentLine()
@@ -556,41 +504,17 @@ endfunction
 nnoremap <silent> cc :call ToggleCommentLine()<CR>
 vnoremap <silent> cc :<C-u>call ToggleCommentRange(line("'<"), line("'>"))<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │               TOGGLE 'haozxje' AT END OF LINE  ( hh )                    │
-" │ Description: Appends/removes a trailing "<comment_leader>                │
-" │ [haozxje-YYYYMMDD-HHMM]" tag at the end of the current line — quick      │
-" │ authorship/attention tag toggle. Works in Normal and Visual mode via  hh.│
-" └──────────────────────────────────────────────────────────────────────────┘
-
-" ── Timestamp cho mọi tag haozxje: ──────────────────────────────────────────
-" Định dạng YYYYMMDD-HHMM, tương đương `date "+%Y%m%d-%H%M"` của shell.
-" VD:  [haozxje-20261118-1136] lý do ngắn gọn
 function! HaozTimestamp() abort
     return strftime('%Y%m%d-%H%M')
 endfunction
 
-" ── Tên tag comment ─────────────────────────────────────────────────────────
-" Đổi tên tag chỉ cần sửa 2 biến dưới đây — mọi chỗ chèn tag và mọi pattern
-" nhận diện đều lấy từ chúng.
-" s:haoz_tag_legacy: các tên CŨ vẫn được nhận diện khi TẮT comment, để những
-" dòng đã ghi trước khi đổi tên (vd "// haoz: ...") vẫn toggle off được.
 let s:haoz_tag        = 'haozxje'
 let s:haoz_tag_legacy = ['haoz']
 
-" Chuỗi tag dùng để CHÈN: "[haozxje-YYYYMMDD-HHMM] " (có 1 space ở cuối
-" để gõ tiếp lý do).  Gom vào một hàm để mọi chỗ chèn đều ra cùng format.
 function! s:HaozTagText() abort
     return '[' . s:haoz_tag . '-' . HaozTimestamp() . '] '
 endfunction
 
-" Pattern (ordinary magic) khớp tag NGAY SAU comment leader, gồm 2 dạng:
-"   dạng MỚI : [haozxje-YYYYMMDD-HHMM]        (dạng đang dùng)
-"   dạng CŨ  : haozxje:  /  haoz:  /  haoz: [YYYYMMDD-HHMM]
-" Các dạng cũ vẫn được nhận để những dòng đã ghi trước đây còn tắt/bỏ được.
-" Trả về pattern dùng lại được cho cả =~ , !~ và substitute(), nên không phải
-" viết pattern hai lần ở mỗi hàm.
 function! s:HaozTagPattern(cl) abort
     let l:names   = [s:haoz_tag] + s:haoz_tag_legacy
     let l:alt     = join(map(copy(l:names), 'escape(v:val, "/\\.*$^~[]")'), '\|')
@@ -602,8 +526,6 @@ endfunction
 function! ToggleCommentSyntaxHaoz() abort
     let l:comment = exists('b:comment_leader') ? b:comment_leader : '//'
     let l:comment = substitute(l:comment, '\\/\\/', '//', 'g')
-    " Khớp tag + timestamp + phần lý do phía sau tới hết dòng: tag nằm cuối
-    " dòng nên mọi thứ sau nó đều thuộc comment -> tắt là xoá sạch.
     let l:pattern = '\s*' . s:HaozTagPattern(l:comment) . '\s*.*$'
     let l:current_line = getline('.')
     if l:current_line =~ l:pattern
@@ -617,14 +539,6 @@ endfunction
 nnoremap <silent> hh :call ToggleCommentSyntaxHaoz()<CR>
 vnoremap <silent> hh :call ToggleCommentSyntaxHaoz()<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │             TOGGLE 'haozxje' AT BEGINNING OF LINE  ( ch )                │
-" │ Description: Inserts/removes a leading "<comment_leader>                 │
-" │ [haozxje-YYYYMMDD-HHMM]" marker right after the indentation, before      │
-" │ actual code/text. Supports single-line ( ch  Normal mode) and            │
-" │ multi-line range toggling (Visual mode).                                 │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleHaozCommentAtBeginning() abort
     let cl = exists('b:comment_leader') ? b:comment_leader : '//'
     let cl = substitute(cl, '\\/\\/', '//', 'g')
@@ -675,34 +589,10 @@ endfunction
 nnoremap <silent> ch :call ToggleHaozCommentAtBeginning()<CR>
 vnoremap <silent> ch :<C-u>call ToggleHaozCommentRangeAtBeginning(line("'<"), line("'>"))<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                       CHÈN CÂU MẪU (dd / dm — GVim)                      │
-" │ Description: dd = chèn NGAY câu đầu tiên; dm = hiện menu chọn câu rồi    │
-" │ Enter để chèn.  Câu được chèn thành DÒNG MỚI NGAY DƯỚI dòng con trỏ và   │
-" │ con trỏ nhảy xuống dòng vừa chèn; các dòng khác không bị sửa ký tự nào.  │
-" │ Phím dd/dm nằm trong .gvimrc (ở đó 'd' đã bị disable nên không đụng gì;  │
-" │ <S-Del> vẫn xoá dòng vì mapping đó dùng 'noremap').                      │
-" └──────────────────────────────────────────────────────────────────────────┘
-" Danh sách câu mẫu: sửa trực tiếp ở đây, hoặc :SentenceAdd <câu> trong phiên
-" làm việc.  dd luôn chèn câu ĐẦU TIÊN (g:haoz_sentences[0]).
 let g:haoz_sentences = get(g:, 'haoz_sentences', [
     \ '$display("[haozxje][%t][%6d][x] - ", $realtime, `__LINE__ );',
     \ ])
 
-" Chèn a:text thành dòng MỚI ngay dưới dòng con trỏ, con trỏ xuống dòng đó.
-" Dòng mới LẤY ĐÚNG LỀ của dòng đang đứng (space/tab như file), nên câu chèn
-" vào thẳng hàng với code xung quanh.
-"
-" VÌ SAO KHÔNG dùng ':put =string(text)':  ':execute' chạy chuỗi đó như một
-" DÒNG LỆNH Ex, mà dấu '"' trong câu (vd  $display("...  ) bị Vim hiểu là
-" BẮT ĐẦU COMMENT -> lệnh bị cắt ngay tại đó, biểu thức thành thiếu dấu đóng:
-"     Insert failed: Vim(put):E115: Missing quote: '$display(
-" Đó chính là lỗi với câu $display(...) có ngoặc kép.
-" => Dùng append(): hàm Vimscript, không qua parser của Ex, nên mọi ký tự
-"    " | ` \ % đều an toàn; sau đó tự đưa con trỏ xuống dòng vừa chèn.
-" append() không đụng thanh ghi nào (không phá yank/paste); 1 lần 'u' là xoá
-" lại đúng dòng vừa chèn.
 function! HaozInsertSentenceLine(text) abort
     if a:text ==# ''
         echo 'Sentence is empty - nothing inserted'
@@ -712,9 +602,6 @@ function! HaozInsertSentenceLine(text) abort
         echo 'Buffer is not writable (readonly / nomodifiable)'
         return
     endif
-    " Lề của DÒNG HIỆN TẠI: chép nguyên phần thụt đầu dòng (space/tab y như
-    " file đang dùng) rồi ghép vào đầu câu, để dòng chèn vào thẳng hàng với
-    " code xung quanh.  Câu trong g:haoz_sentences không cần chứa lề.
     let l:indent = matchstr(getline('.'), '^\s*')
     let l:text   = l:indent . substitute(a:text, '^\s\+', '', '')
     try
@@ -723,18 +610,12 @@ function! HaozInsertSentenceLine(text) abort
         echo 'Insert failed: ' . v:exception
         return
     endtry
-    " Con trỏ xuống dòng vừa chèn, đặt ở ký tự đầu tiên của câu (sau lề).
     call cursor(line('.') + 1, strlen(l:indent) + 1)
-    " 'zv': mở vừa đủ fold để lộ dòng con trỏ — .sv mở với foldlevel=3, .md
-    " với 0, nên dòng mới có thể nằm trong fold đang đóng.
     silent! normal! zv
-    " lazyredraw đang bật -> phải redraw thì dòng mới hiện ra ngay.
     silent! redraw
     echo 'Sentence inserted (line ' . line('.') . ', press u to undo)'
 endfunction
 
-" Menu chọn câu: GVim dùng popup_menu (↑↓ hoặc click chuột, Enter = chèn,
-" Esc = huỷ); nơi không có popup_menu thì dùng inputlist (gõ số).
 function! HaozSentenceMenu() abort
     if empty(g:haoz_sentences)
         echo 'g:haoz_sentences is empty'
@@ -757,7 +638,6 @@ function! HaozSentenceMenu() abort
     endif
 endfunction
 
-" idx = 1..N (popup_menu/inputlist đều đếm từ 1), -1 = huỷ.
 function! HaozSentenceMenuPick(idx) abort
     if a:idx < 1 || a:idx > len(g:haoz_sentences)
         return
@@ -765,38 +645,16 @@ function! HaozSentenceMenuPick(idx) abort
     call HaozInsertSentenceLine(g:haoz_sentences[a:idx - 1])
 endfunction
 
-" Thêm câu trong phiên làm việc hiện tại (muốn giữ lâu dài thì sửa list trên):
 command! -nargs=+ SentenceAdd  call add(g:haoz_sentences, <q-args>)
 command! -nargs=0 SentenceList echo join(map(copy(g:haoz_sentences),
     \ 'v:key + 1 . ". " . v:val'), "\n")
-" :SentenceShow  -> in ra dạng ESCAPE (string()) của từng câu: thấy rõ từng
-" space, từng dấu ` " \ nên kiểm tra "đúng từng ký tự" được ngay trong Vim.
 command! -nargs=0 SentenceShow echo join(map(copy(g:haoz_sentences),
     \ 'v:key + 1 . ". " . string(v:val)'), "\n")
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                             AUTO SAVE                                    │
-" │ Description: Automatically saves the buffer whenever text changes or     │
-" │ insert mode is left (if the buffer is modifiable). Also defaults an      │
-" │ unset filetype to 'log' on read — useful for arbitrary/extension-less    │
-" │ log files.                                                               │
-" └──────────────────────────────────────────────────────────────────────────┘
-" ── PERFORMANCE ─────────────────────────────────────────────────────────────
-" Bản cũ: `autocmd TextChanged,InsertLeave * if &modified | silent write`.
-" TextChanged bắn ra sau MỖI lệnh sửa ở Normal mode (x, dd, p, J, u, …), nên
-" mỗi phím = 1 lần ghi đĩa thật + ghi swap + BufWritePost + WinList dựng lại.
-" Trên NFS (/nobackup) mỗi lần ghi mất vài ms -> gõ phím thấy khựng.
-" Bản mới: hoãn ghi 800ms (gộp nhiều lần sửa thành 1 lần ghi), vẫn ghi NGAY
-" khi rời Insert và khi thoát Vim nên không mất dữ liệu.
-" Đổi độ trễ: let g:autosave_delay = 1500
 augroup autosave
     autocmd!
     autocmd BufRead      * if &filetype == "" | setlocal ft=log | endif
     autocmd TextChanged  * call s:AutoSaveSchedule()
-    " Ghi NGAY ở các mốc an toàn: rời Insert, rời buffer (chuyển file/tab/split
-    " — để buffer vừa sửa không bị bỏ lại chưa ghi), mất focus cửa sổ GVim, và
-    " thoát Vim.  Nhờ vậy việc hoãn 800ms ở TextChanged không thể mất dữ liệu.
     autocmd InsertLeave  * call s:AutoSaveNow()
     autocmd BufLeave     * call s:AutoSaveNow()
     autocmd FocusLost    * call s:AutoSaveNow()
@@ -805,9 +663,6 @@ augroup END
 
 let s:autosave_timer = -1
 
-" Chỉ ghi buffer thật sự ghi được: có tên, buftype rỗng, đang sửa, không RO.
-" (Bản cũ gọi 'write' cả trên buffer [No Name]/nofile -> E32 bị silent! nuốt,
-" nhưng vẫn tốn một lần gọi :write.)
 function! s:AutoSaveWritable() abort
     return &modified && !&readonly && &modifiable
         \ && &buftype ==# '' && bufname('%') !=# ''
@@ -828,7 +683,6 @@ function! s:AutoSaveSchedule() abort
     if !s:AutoSaveWritable()
         return
     endif
-    " Đang gõ dở (Insert/Replace) thì để InsertLeave lo, không hẹn ghi.
     if mode() =~# '^[iR]'
         return
     endif
@@ -839,14 +693,6 @@ function! s:AutoSaveSchedule() abort
         \ {-> s:AutoSaveNow()})
 endfunction
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          BASIC KEYBINDINGS                               │
-" │ Description: Miscellaneous general-purpose keymaps — new tab (Ctrl-N),   │
-" │ vertical split + focus (Ctrl-\), reload file (F5), copy full path        │
-" │ (F12), select-all (Ctrl-A), clear search highlight (Shift-L), and        │
-" │ Ctrl-L remapped to start Visual mode (Normal/Insert).                    │
-" └──────────────────────────────────────────────────────────────────────────┘
 noremap <C-n> :tabnew<CR>
 noremap <C-\> :vs<CR><C-w>w
 
@@ -870,14 +716,6 @@ nnoremap <silent> <S-l> :nohlsearch<CR>
 nnoremap <C-l> V
 inoremap <C-l> <Esc>V
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          COPY / PASTE / CUT                              │
-" │ Description: System-clipboard ("+  register) bindings for standard       │
-" │ Ctrl-C / Ctrl-V / Ctrl-X behavior across Normal, Visual, Insert, and     │
-" │ Command-line modes — mimics conventional OS clipboard shortcuts.         │
-" └──────────────────────────────────────────────────────────────────────────┘
-" Without +clipboard, bridge to the system clipboard via an external tool
 function! s:ClipTools() abort
     if executable('wl-copy') && executable('wl-paste')
         return ['wl-copy', 'wl-paste --no-newline']
@@ -893,7 +731,6 @@ function! s:ClipTools() abort
     return []
 endfunction
 
-" Send the unnamed register (just yanked/deleted) to the system clipboard
 function! ClipPush() abort
     let l:tools = s:ClipTools()
     if !empty(l:tools)
@@ -901,7 +738,6 @@ function! ClipPush() abort
     endif
 endfunction
 
-" Load the system clipboard into the unnamed register; returns '' for <C-r>=
 function! ClipPull() abort
     let l:tools = s:ClipTools()
     if empty(l:tools) | return '' | endif
@@ -932,19 +768,10 @@ else
     nnoremap <silent> <C-x> dd:call ClipPush()<CR>
 endif
 
-" Terminal Vim: avoid auto-indent staircase when pasting via the terminal
 if !has('gui_running')
     set pastetoggle=<F2>
 endif
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                       VISUAL MODE AND SELECTION                          │
-" │ Description: Remaps  V  to enter blockwise-visual (Ctrl-V default)       │
-" │ instead of linewise-visual. Ctrl-D selects/searches the word under       │
-" │ cursor (Normal/Insert); Ctrl-F sets the search register to the word      │
-" │ under cursor or the visually selected text and enables highlighting.     │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap V <C-v>
 
 nnoremap <C-d> :let @/='\<'.expand('<cword>').'\>'<CR>viw
@@ -953,14 +780,6 @@ inoremap <C-d> <Esc>viw
 nnoremap <C-f> :let @/ = '\<'.expand('<cword>').'\>'<CR>:set hlsearch<CR>
 vnoremap <C-f> "zy:let @/ = escape(@z, '/\')<CR>:set hlsearch<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                        SHIFT ARROW SELECTION                             │
-" │ Description: Standard "Shift+Arrow" text selection behavior familiar     │
-" │ from GUI editors — extends/starts a Visual selection in Insert,          │
-" │ Visual, and Normal mode using Shift+Arrow/Home/End. Ctrl-Shift-Arrow     │
-" │ extends selection by word (Insert mode).                                 │
-" └──────────────────────────────────────────────────────────────────────────┘
 inoremap <S-Left>    <Left><C-o>v
 inoremap <S-Right>   <C-o>v
 inoremap <S-Up>      <Left><C-o>v<Up><Right>
@@ -984,12 +803,6 @@ nnoremap <S-Down>  v<Down>
 nnoremap <S-Home>  v<Home>
 nnoremap <S-End>   v<End>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                      CTRL ARROW WORD NAVIGATION                          │
-" │ Description: Ctrl+Left/Right jumps by word (Normal/Visual/Insert);       │
-" │ Ctrl+Shift+Left/Right extends selection by word.                         │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-Right>   w
 nnoremap <C-Left>    b
 vnoremap <C-Right>   e
@@ -1001,21 +814,9 @@ vnoremap <C-S-Left>  b
 inoremap <C-Right>   <C-o>w
 inoremap <C-Left>    <C-o>b
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                       TAB NAVIGATION (CTRL UP/DOWN)                      │
-" │ Description: Ctrl+Up / Ctrl+Down switch to previous/next tab.            │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-Up>   :tabprevious<CR>
 nnoremap <C-Down> :tabnext<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                  SPLIT WINDOW NAVIGATION (ALT LEFT/RIGHT)                │
-" │ Description: Alt+Left / Alt+Right cycle focus between real (non-panel)   │
-" │ editing splits horizontally, automatically skipping over the WinList     │
-" │ and NERDTree panel windows and wrapping around at the edges.             │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <silent> <M-Left>  :call WinListNavLeft()<CR>
 nnoremap <silent> <M-Right> :call WinListNavRight()<CR>
 
@@ -1054,12 +855,6 @@ function! WinListNavRight() abort
     endif
 endfunction
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                     NUMBER KEY TAB JUMP  (1–9, 0=10)                     │
-" │ Description: Pressing a number key (1-9, 0 for tab 10) in Normal mode    │
-" │ jumps directly to that tab index, if it exists.                          │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! GoToTab(n) abort
     let l:target = a:n == 0 ? 10 : a:n
     if l:target <= tabpagenr('$')
@@ -1078,24 +873,9 @@ nnoremap <silent> 8 :call GoToTab(8)<CR>
 nnoremap <silent> 9 :call GoToTab(9)<CR>
 nnoremap <silent> 0 :call GoToTab(0)<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          HOME KEY BEHAVIOR                               │
-" │ Description: Home key jumps to first non-blank character (^) instead     │
-" │ of column 0, in both Normal and Insert mode.                             │
-" └──────────────────────────────────────────────────────────────────────────┘
 inoremap <Home> <C-o>^
 nnoremap <Home> ^
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                       TAB / SHIFT-TAB INDENTATION                        │
-" │ Description: Custom indent-aware Tab/Shift-Tab handling. In Normal       │
-" │ mode (currently commented-out bindings), Tab increases indent to the     │
-" │ next multiple of shiftwidth (or inserts a literal tab if past            │
-" │ leading whitespace); Shift-Tab dedents. In Visual mode, Tab/Shift-Tab    │
-" │ indent/dedent the whole selection by shiftwidth (active bindings).       │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! NormalModeTab()
     let sw = &shiftwidth
     let line = getline('.')
@@ -1161,33 +941,15 @@ function! VisualModeShiftTab()
     endfor
 endfunction
 
-" nnoremap <silent> <Tab>   :call NormalModeTab()<CR>
-" nnoremap <silent> <S-Tab> :call NormalModeShiftTab()<CR>
 vnoremap <silent> <Tab>   :<C-u>call VisualModeTab()<CR>gv
 vnoremap <silent> <S-Tab> :<C-u>call VisualModeShiftTab()<CR>gv
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                                UNDO                                      │
-" │ Description: Ctrl-Z triggers undo from Normal, Insert, and Visual mode.  │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <C-z> u
 inoremap <C-z> <C-o>u
 vnoremap <C-z> <Esc>u
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                            DELETE LINE                                   │
-" │ Description: Shift-Delete deletes the current line (like  dd ).          │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <S-Del> dd
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                            TOGGLE CASE                                   │
-" │ Description: Ctrl-U toggles case of the word under cursor (Normal) or    │
-" │ the selected text (Visual), using  g~ .                                  │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! ToggleCase()
     if mode() ==# 'v' || mode() ==# 'V' || mode() ==# "\<C-v>"
         normal! g~
@@ -1199,142 +961,91 @@ endfunction
 vnoremap <C-U> :<C-u>call ToggleCase()<CR>
 nnoremap <C-U> :<C-u>call ToggleCase()<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                         SEARCH NAVIGATION                                │
-" │ Description: n / N (next/prev search match) additionally re-center       │
-" │ the view (zz) after jumping.                                             │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap n nzz
 nnoremap N Nzz
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          TOGGLE LINE WRAP                                │
-" │ Description: Alt-Z toggles soft line-wrap.  MẶC ĐỊNH = WRAP BẬT cho mọi  │
-" │ buffer file (xem BASIC SETTINGS); panel WinList/picker luôn nowrap.      │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap <M-z> :set wrap!<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                        DISABLE PROBLEMATIC KEYS                          │
-" │ Description: Disables  x  (char delete), <Del>, and  o  (open new line   │
-" │ below) in Normal mode to prevent accidental deletions / stray lines.     │
-" │ Dùng thay thế: xoá dòng `S-Del`, mở dòng mới `O` (phía trên) hoặc        │
-" │ `:call append(line('.'), '')` (phía dưới).                               │
-" │ Insert/Visual mode KHÔNG bị ảnh hưởng.                                   │
-" └──────────────────────────────────────────────────────────────────────────┘
 nnoremap x     <Nop>
 nnoremap <Del> <Nop>
 nnoremap o     <Nop>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                              FOLDING                                     │
-" │ Description: indent-fold for Verilog/SystemVerilog (*.v, *.sv, *.svt)    │
-" │ with foldlevel=3 (đọc được tổng quan), header-fold for Markdown (*.md)   │
-" │ with foldlevel=0 (đóng hết); phím fold RIÊNG cho từng loại buffer; và    │
-" │ loads matchit.vim for % (matching pairs) navigation.                     │
-" └──────────────────────────────────────────────────────────────────────────┘
-" Phím fold, tất cả đều là mapping <buffer> (chỉ buffer đang mở) và lệnh gốc
-" của Vim KHÔNG bị đổi ở nơi khác:
-"   za   toggle fold HIỆN TẠI                        (có sẵn của Vim)
-"   zo   toggle TẤT CẢ fold của file                 (map, mọi buffer có fold)
-"   zA   toggle fold hiện tại + TOÀN BỘ node con     (map, chỉ file .sv)
 augroup filtype_verilog
     autocmd!
     autocmd FileType Verilog,verilog_systemverilog call HaozSvFoldSetup()
-    autocmd BufNewFile,BufRead *.v,*.sv,*.svh,*.svt call HaozSvFoldSetup()
+    autocmd BufNewFile,BufRead *.v,*.sv,*.svh,*.svt,*.svti call HaozSvFoldSetup()
     autocmd FileType md call HaozMdFoldSetup()
 augroup END
 
-" Fold cho buffer Verilog/SystemVerilog: Vim tự fold theo độ THỤT LỀ.
-" foldlevel=3 -> các khối lồng tới cấp 3 vẫn mở, sâu hơn mới đóng, nên mở
-" file ra là đọc được tổng quan cấu trúc.
 function! HaozSvFoldSetup() abort
     setlocal foldmethod=indent
     setlocal foldenable
-    setlocal foldlevel=3
-    " Mức "đã fold tất cả" của file .sv = 3 (vẫn thấy 3 cấp đầu để đọc tổng
-    " quan).  'zo' đóng về đúng mức này, không đóng xuống 0.
+    if get(b:, 'haoz_fold_lvl', -1) != 3
+        setlocal foldlevel=3
+        let b:haoz_fold_lvl = 3
+    endif
     let b:haoz_fold_home = 3
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
     nnoremap <buffer> <silent> zA :<C-U>call HaozFoldToggleRecursive()<CR>
 endfunction
 
-" Đặt fold + phím fold CHỈ cho buffer markdown (buffer-local mapping nên
-" không ảnh hưởng .sv/.v hay buffer khác).
 function! HaozMdFoldSetup() abort
     setlocal foldmethod=expr
     setlocal foldexpr=HaozMdFoldLevel(v:lnum)
-    setlocal foldtext=HaozMdFoldText()
     setlocal foldenable
-    setlocal foldlevel=0            " mặc định: ĐÓNG tất cả khi mở file
-    let b:haoz_fold_home = 0        " md: 'zo' đóng về 0 = đóng hết
+    setlocal foldtext=HaozMdFoldText()
+    if get(b:, 'haoz_fold_lvl', -1) != 2
+        setlocal foldlevel=2
+        let b:haoz_fold_lvl = 2
+    endif
+    let b:haoz_fold_home = 2
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
+    augroup haoz_md_fold_cache
+        autocmd! * <buffer>
+        autocmd TextChanged,TextChangedI,InsertLeave <buffer>
+                    \ silent! unlet! b:haoz_fm_end
+    augroup END
 endfunction
-" (za của buffer .md là lệnh gốc của Vim — không map.)
-
-" Fold cho markdown: 'foldmethod=expr' gọi hàm này cho TỪNG dòng và hỏi
-" "dòng này thuộc fold cấp mấy":
-"   '>N' = mở fold cấp N tại dòng này (dòng tiêu đề cấp N)
-"   '='  = cùng cấp với dòng phía trên -> dòng thân nằm trong fold của tiêu
-"          đề gần nhất phía trên
-" Nhận: front-matter '--- … ---' ở đầu file, tiêu đề ATX ('#', '##', …) và
-" setext (dòng dưới là '===' hoặc '---').  Đường kẻ ngang đứng một mình
-" ('===', '---', '***', '___' ở mục "Separators") KHÔNG bị coi là tiêu đề.
+command! -nargs=0 MdRefold call HaozMdFoldSetup() | echo 'md fold refreshed'
 function! HaozMdFoldLevel(lnum) abort
     let l:line = getline(a:lnum)
 
-    " 1) front-matter YAML ở đầu file -> cả khối là MỘT fold cấp 1
-    "    (chỉ xét 200 dòng đầu cho rẻ; front-matter luôn nằm ở đầu file)
-    if a:lnum <= 202 && getline(1) =~# '^---\s*$'
-        let l:end = 0
-        let l:i = 2
-        while l:i <= line('$') && l:i <= 200
-            if getline(l:i) =~# '^---\s*$'
-                let l:end = l:i
-                break
+    if l:line =~# '^\s*$'
+        return '='
+    endif
+
+    if a:lnum <= 202
+        if !exists('b:haoz_fm_end')
+            let b:haoz_fm_end = 0
+            if getline(1) =~# '^---\s*$'
+                let l:i = 2
+                while l:i <= line('$') && l:i <= 200
+                    if getline(l:i) =~# '^---\s*$'
+                        let b:haoz_fm_end = l:i
+                        break
+                    endif
+                    let l:i = l:i + 1
+                endwhile
             endif
-            let l:i = l:i + 1
-        endwhile
-        if l:end > 0
+        endif
+        if b:haoz_fm_end > 0
             if a:lnum == 1
                 return '>1'
-            elseif a:lnum <= l:end
+            elseif a:lnum <= b:haoz_fm_end
                 return '1'
-            elseif a:lnum == l:end + 1
-                return '0'  " dòng ngay sau front-matter: đóng fold
+            elseif a:lnum == b:haoz_fm_end + 1
+                return '0'
             endif
         endif
     endif
 
-    " 2) đường kẻ ngang (cũng là gạch dưới của setext) -> không mở fold
-    if l:line =~# '^\%(=\+\|-\+\|\*\*\*\+\|___\+\)\s*$'
-        return '='
-    endif
-
-    " 3) tiêu đề ATX: số dấu # = cấp fold
-    if l:line =~# '^#\{1,6}\s'
-        return '>' . strlen(matchstr(l:line, '^#*'))
-    endif
-
-    " 4) tiêu đề setext: dòng kế tiếp là '===' (h1) hoặc '---' (h2)
-    let l:next = getline(a:lnum + 1)
-    if l:next =~# '^=\+\s*$'
-        return '>1'
-    elseif l:next =~# '^-\+\s*$' && l:line =~# '^\S' && l:line !~# '^[|#>]'
-        return '>2'
-    endif
-    return '='
+    return '>' . (indent(a:lnum) / 4 + 1)
 endfunction
 
-" Chữ hiện trên dòng fold đang đóng: bỏ dấu # cho gọn, kèm số dòng.
 function! HaozMdFoldText() abort
     let l:line = getline(v:foldstart)
     if l:line =~# '^---\s*$'
-        let l:title = '[front-matter]'      " khối --- … --- ở đầu file
+        let l:title = '[front-matter]'
     else
         let l:title = substitute(l:line, '^#\+\s*', '', '')
         if empty(l:title)
@@ -1344,21 +1055,12 @@ function! HaozMdFoldText() abort
     return '▸ ' . l:title . '  ⋯ ' . (v:foldend - v:foldstart + 1) . ' dòng '
 endfunction
 
-" 'zA' = TOGGLE ĐỆ QUY: fold dưới con trỏ + TOÀN BỘ node con.
-" Vim có zo (mở 1 cấp), zO (mở hết cả cây con), zC (đóng hết cả cây con) —
-" nhưng không có toggle đệ quy.  Ở đây:
-"   • fold đang đóng (hoặc còn node con đang đóng) -> MỞ hết  (zO)
-"   • fold đang mở hết                              -> ĐÓNG hết (zC)
-" Muốn biết "còn node con nào đóng không" thì phải biết PHẠM VI fold hiện tại,
-" mà Vim chỉ cho biết phạm vi khi fold đang ĐÓNG (foldclosed/foldclosedend) —
-" nên: ghi lại các fold đang đóng, đóng thử fold hiện tại để lấy phạm vi, rồi
-" quyết định mở lại hay giữ đóng.
 function! HaozFoldToggleRecursive() abort
     if foldlevel('.') == 0
-        return          " dòng này không nằm trong fold nào
+        return
     endif
     if foldclosed('.') != -1
-        normal! zO      " đang đóng -> mở hết cả cây con
+        normal! zO
         return
     endif
     let l:closed = []
@@ -1378,22 +1080,12 @@ function! HaozFoldToggleRecursive() abort
     endif
     for l:s in l:closed
         if l:s > l:top && l:s <= l:bot
-            normal! zO  " bên trong còn node đóng -> người dùng muốn mở hết
+            normal! zO
             return
         endif
     endfor
-    " trước đó mở hết -> giữ đóng (zc vừa đóng cả cây con)
 endfunction
 
-" 'zo' = TOGGLE TẤT CẢ fold của file (map cho buffer .md và .sv).
-" Vim gốc chỉ có một chiều: zR = mở hết, zM = đóng hết.
-" Ở đây hai trạng thái là "mở hết" <-> "gập về mức home" (b:haoz_fold_home,
-" đặt trong HaozSvFoldSetup / HaozMdFoldSetup):
-"   • .sv  -> 3 : gập tới cấp 3, vẫn thấy 3 cấp đầu để đọc tổng quan
-"                 (không gập xuống 0)
-"   • .md  -> 0 : gập hết
-" Chiều toggle: đang ở mức home mà còn fold đóng (hoặc mới mở file) -> MỞ hết;
-" còn lại -> GẬP về mức home.  (za vẫn là toggle 1 fold của Vim.)
 function! HaozFoldToggleAll() abort
     if !&foldenable
         return
@@ -1411,72 +1103,37 @@ function! HaozFoldToggleAll() abort
     endwhile
 
     if l:any_closed && &l:foldlevel <= l:home
-        normal! zR                      " đang là trạng thái "đã gập" -> mở hết
+        normal! zR
     else
-        let &l:foldlevel = l:home       " đang mở -> gập về đúng mức home
+        let &l:foldlevel = l:home
     endif
 endfunction
 
 runtime macros/matchit.vim
 
-" ── Markdown: bỏ highlight lỗi của syntax mặc định ──────────────────────────
-" Vim tô đỏ (markdownError) các dòng markdown mà bộ syntax coi là sai —
-" ví dụ khối code không có ngôn ngữ, đường dẫn Windows, bảng thiếu cột.
-" Không phải lỗi thật nên tắt hẳn nhóm highlight đó.
-" Lưu ý: phải dùng 'hi! link ... NONE' (không phải 'highlight clear') để
-" giữ nguyên các nhóm markdown khác; và chạy sau khi syntax đã nạp nên
-" đặt trong FileType (và lặp lại ở Syntax nếu filetype đổi muộn).
 augroup markdown_fix
     autocmd!
-    " 'markdown' (mặc định Vim) VÀ 'md' (*.md, đặt ở BASIC SETTINGS)
     autocmd FileType markdown,md hi! link markdownError NONE
 augroup END
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                            INDENT LINE                                   │
-" │ Description: Configuration for the indentLine plugin — sets guide        │
-" │ character (┆) and its color to match the dark/cyan theme.                │
-" └──────────────────────────────────────────────────────────────────────────┘
-let g:indentLine_color_gui = '#0055aa'
+let g:indentLine_color_gui = '#363636'
 let g:indentLine_char      = '┆'
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                           VIM BOOKMARK                                   │
-" │ Description: Configuration for the vim-bookmark plugin — highlights      │
-" │ bookmarked lines/signs in the theme's dark-blue/cyan palette, sets       │
-" │ bookmark sign glyph ("==") and enables auto-centering on jump.           │
-" └──────────────────────────────────────────────────────────────────────────┘
 let g:bookmark_highlight_lines = 1
 highlight BookmarkLine ctermbg=17 guibg=#001933
 highlight BookmarkSign ctermbg=17 guibg=#001933 guifg=#00ffff
 let g:bookmark_sign   = '=='
 let g:bookmark_center = 1
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                          GVIM GUI SETTINGS                               │
-" │ Description: Hides GUI menu bar and toolbar by default. F10 toggles      │
-" │ menu+toolbar visibility on/off manually. Also builds the window title    │
-" │ from the CURRENT CONTENT window — focusing the WinList/NERDTree panel    │
-" │ no longer changes the title to "__WindowList__".                         │
-" └──────────────────────────────────────────────────────────────────────────┘
 if has('gui_running')
     set guioptions-=mT
 endif
 
-" Title = tên file thật của cửa sổ nội dung đang hoạt động.
-" Mặc định Vim dùng tên buffer của cửa sổ đang focus, nên khi focus vào
-" panel WinList thì title thành "__WindowList__" — đây là lỗi đã sửa.
 set title
 set titleold=
-" %{...} trong titlestring chỉ gọi được hàm public (không phải s:).
 function! GuiTitle() abort
-    " tabs: số tab đang mở, để giữ thông tin như title mặc định của Vim
     let l:ntabs = tabpagenr('$')
 
-    " tìm cửa sổ nội dung: ưu tiên cửa sổ focus nếu nó không phải panel
     let l:bn = bufnr('%')
     if s:IsPanelBuf(l:bn)
         for l:i in range(1, winnr('$'))
@@ -1495,7 +1152,6 @@ function! GuiTitle() abort
     let l:mod = getbufvar(l:bn, '&modified') ? ' [+]' : ''
     let l:ro  = getbufvar(l:bn, '&readonly') ? ' [RO]' : ''
 
-    " tab hiện tại / tổng số tab — giống kiểu title mặc định
     let l:tabinfo = l:ntabs > 1
         \ ? printf(' (%d/%d)', tabpagenr(), l:ntabs)
         \ : ''
@@ -1525,15 +1181,6 @@ augroup auto_toggle_gvim_toolbar
     autocmd GUIEnter * silent! call ToggleGvimMenuToolbar()
 augroup END
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                             DIFF MODE                                    │
-" │ Description: Custom diff highlight colors (add/change/delete/text) for   │
-" │ both dark and light backgrounds, re-applied on colorscheme change.       │
-" │ In diff mode: dn/db jump next/prev change, df ("diff-fix") applies       │
-" │ :diffput (dp) to push the change across. Also auto-unfolds all diff      │
-" │ windows on startup so changes are immediately visible.                   │
-" └──────────────────────────────────────────────────────────────────────────┘
 augroup diffcolors
     autocmd!
     autocmd ColorScheme * silent! call s:DiffHighlights()
@@ -1587,34 +1234,12 @@ augroup Difffoldfix
     autocmd VimEnter * silent! call UnfoldAllDiffWindows()
 augroup END
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                           MISCELLANEOUS                                  │
-" │ Description: Restores cursor to last-known position when reopening a     │
-" │ file, and disables auto-comment continuation (formatoptions c/r/o) so    │
-" │ new lines don't inherit comment leaders automatically.                   │
-" └──────────────────────────────────────────────────────────────────────────┘
 if has("autocmd")
     au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | exe "normal! g`\"" | endif
 endif
 
 autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                 SIDE PANEL (WinList always-on + NERDTree)                │
-" │ Description: Global state/config for the side panel.  WinList is a       │
-" │ persistent left-hand column listing every tab/window — it is ALWAYS on   │
-" │ and stays consistent across all tabs.  NERDTree is on-demand only:       │
-" │ Ctrl-B toggles it, and when open it takes the bottom half of the same    │
-" │ column (WinList top / NERDTree bottom, 50/50).  Ctrl-O hides both while  │
-" │ netrw is open.  Includes width/height constants + state flags.           │
-" └──────────────────────────────────────────────────────────────────────────┘
-
-" ── Panel dimensions ────────────────────────────────────────────────────────
-" Width cố định 50 cột; min 15, max 50.  Dùng hàm s:PanelWidth() bên dưới
-" để mọi chỗ resize đều bị kẹp trong [min,max] — trước đây min/max khai
-" báo nhưng KHÔNG chỗ nào đọc, nên panel có thể bị nới rộng tuỳ ý.
 let g:winlist_min_width    = 15
 let g:winlist_max_width    = 50
 let g:winlist_padding      = 2
@@ -1624,17 +1249,8 @@ let NERDTreeShowHidden     = 1
 let g:NERDTreeWinPos       = "left"
 let g:NERDTreeWinSize      = 50
 
-" WinList luôn hiển thị ở mọi tab; NERDTree chỉ bật/tắt bằng Ctrl-B
 let g:winlist_always       = 1
 
-" Trạng thái netrw của Ctrl-O.  Ctrl-O không ẩn panel / không resize gì cả,
-" nên KHÔNG cần nhớ layout để dựng lại — chỉ cần các biến dưới đây.
-" g:netrw_expanding      : 1 trong lúc đang xem netrw -> tạm tắt auto-close tab
-"                          và các lần refresh/dựng lại panel.
-" g:netrw_explore_active : 1 = phiên Ctrl-O đang mở (để SmartCtrlORestore()
-"                          bỏ qua những lần rời netrw không do Ctrl-O tạo ra).
-" g:netrw_back_buf/path  : buffer (và đường dẫn dự phòng) đã xem NGAY TRƯỚC khi
-"                          mở netrw — Ctrl-O lần 2 sẽ quay lại đúng chỗ này.
 let g:netrw_expanding         = 0
 let g:netrw_explore_active    = 0
 let g:netrw_back_buf          = -1
@@ -1653,23 +1269,11 @@ endif
 let g:winlist_opening      = 0
 let g:winlist_file_opening = 0
 let g:panel_opening        = 0
-" (g:netrw_expanding / g:netrw_explore_active khai báo ở trên, cùng cụm với
-"  trạng thái Ctrl-O)
 
-
-" ── Helper: compute half-screen height for WinList panel ────────────────────
 function! WinListHalfHeight() abort
     let l:total = &lines - 2
     return max([5, l:total / 2])
 endfunction
-
-
-" ════════════════════════════════════════════════════════════════════════════
-"  TAB ID SYSTEM — stable IDs that survive drag-reorder
-"  Description: Assigns each tab a unique, stable string ID (independent
-"  of its numeric position) so WinList jump-targets remain valid even
-"  after tabs are reordered/dragged.
-" ════════════════════════════════════════════════════════════════════════════
 
 function! WinListEnsureTabID(...) abort
     let l:t = a:0 > 0 ? a:1 : tabpagenr()
@@ -1706,22 +1310,10 @@ augroup WinListTabID
     autocmd TabEnter * call WinListEnsureTabID()
 augroup END
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  HELPER FUNCTIONS
-"  Description: Buffer/window classification helpers used throughout the
-"  panel system — detect if a buffer/window is the WinList panel,
-"  NERDTree, or any "special" (non-editable) window, and locate the
-"  nearest normal editing window.
-" ════════════════════════════════════════════════════════════════════════════
-
 function! WinListBufName(...) abort
     return '__WindowList__'
 endfunction
 
-" Width thực tế của panel, đã kẹp trong [g:winlist_min_width, g:winlist_max_width].
-" Không bao giờ vượt quá nửa màn hình: panel rộng hơn nửa thì cửa sổ soạn
-" thảo còn < 50% và không đọc được code.
 function! s:PanelWidth() abort
     let l:w = g:winlist_width
     let l:w = max([l:w, g:winlist_min_width])
@@ -1730,13 +1322,6 @@ function! s:PanelWidth() abort
     return l:w
 endfunction
 
-" Trả về BUFFER NUMBER của cửa sổ NỘI DUNG đang hoạt động trong tab hiện
-" tại.  Dùng bufnr chứ không dùng winnr: winnr thay đổi khi tách/đóng
-" split hoặc khi panel chen vào, còn bufnr thì ổn định — đây chính là
-" nguồn gốc bug marker '>' chỉ sai dòng trước đây.
-" - Focus đang ở cửa sổ nội dung  -> bufnr của nó
-" - Focus đang ở panel           -> bufnr đã nhớ trong g:winlist_last_active
-" - Không có gì hợp lệ           -> -1
 function! s:CurrentContentBuf() abort
     if !WinListIsSpecial()
         return bufnr('%')
@@ -1781,14 +1366,9 @@ function! WinListFindNormalWin() abort
     return -1
 endfunction
 
-" Như WinListFindNormalWin(), nhưng CHẤP NHẬN netrw làm cửa sổ tựa.
-" netrw có buftype=nofile nên bị WinListIsSpecial() coi là special — nếu
-" dùng FindNormalWin() ở đây sẽ trả -1 và code gọi enew, đè mất netrw.
 function! WinListFindAnchorWin() abort
-    " ưu tiên cửa sổ soạn thảo thật
     let l:w = WinListFindNormalWin()
     if l:w != -1 | return l:w | endif
-    " không có -> lấy cửa sổ netrw nếu đang mở
     for l:i in range(1, winnr('$'))
         let l:bn = winbufnr(l:i)
         if WinListIsNERDTree(l:bn) || WinListIsWinList(l:bn)
@@ -1805,9 +1385,6 @@ function! WinListIsOpen() abort
     return bufwinnr(WinListBufName()) != -1
 endfunction
 
-" Panel có hiển thị ở BẤT KỲ tab nào không.  Buffer WinList là MỘT buffer dùng
-" chung cho mọi tab, nên chỉ cần nó hiện ở đâu đó là nội dung phải đúng; còn
-" nếu không hiện ở đâu thì không cần dựng lại nội dung (đây là phần đắt nhất).
 function! WinListIsOpenAnywhere() abort
     let l:bn = bufnr(WinListBufName())
     if l:bn == -1
@@ -1834,17 +1411,6 @@ function! CombinedPanelIsOpen() abort
     return WinListIsOpen()
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  AUTO-CLOSE TAB WHEN ONLY PANEL REMAINS
-"  Description: If a tab's only remaining windows are the WinList/NERDTree
-"  panel (no real file buffer left), automatically closes that tab (or
-"  quits Vim if it's the last tab) after a short debounce delay.
-" ════════════════════════════════════════════════════════════════════════════
-
-" Tab này có chứa buffer session picker không?  Picker là buffer nofile nên bị
-" tính là "không phải cửa sổ thật" -> nếu không loại trừ, tab picker vừa mở
-" sẽ bị auto-close đóng lại sau ~200ms.
 function! s:TabHasSessionPicker() abort
     let l:pbuf = get(g:, 'session_picker_buf', '__SessionPicker__')
     for l:i in range(1, winnr('$'))
@@ -1859,10 +1425,7 @@ function! WinListCheckAutoCloseTab() abort
     if g:winlist_opening      | return | endif
     if g:winlist_file_opening | return | endif
     if g:panel_opening        | return | endif
-    " Đang xem netrw bằng Ctrl-O: panel bị ẩn và buffer netrw là nofile nên
-    " "số cửa sổ thật" có thể bằng 0 — không được đóng tab lúc này.
     if get(g:, 'netrw_expanding', 0) | return | endif
-    " Tab đang hiện session picker: coi như có nội dung
     if s:TabHasSessionPicker()        | return | endif
 
     let l:real = 0
@@ -1886,7 +1449,6 @@ function! s:DelayedAutoClose() abort
     if g:winlist_file_opening | return | endif
     if g:panel_opening        | return | endif
     if get(g:, 'netrw_expanding', 0) | return | endif
-    " tab đang hiện session picker (buffer nofile) -> coi như có nội dung
     if s:TabHasSessionPicker()        | return | endif
 
     let l:real = 0
@@ -1908,15 +1470,6 @@ function! s:DelayedAutoClose() abort
         endif
     endif
 endfunction
-
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WIDTH MANAGEMENT  (panel-open time + manual only)
-"  Description: Locks/unlocks winfixwidth on real editing splits so panel
-"  open/resize operations don't disturb user split widths. Provides
-"  manual-only width sync (WinListFixWidth) and NERDTree width sync
-"  (SyncNERDTreeWidth) — never triggered automatically during normal edits.
-" ════════════════════════════════════════════════════════════════════════════
 
 function! WinListLockSplitWidths() abort
     for l:i in range(1, winnr('$'))
@@ -1948,7 +1501,6 @@ function! SyncNERDTreeWidth() abort
     endfor
 endfunction
 
-" ── Manual-only: <leader>W or :WinListFix ───────────────────────────────────
 function! WinListFixWidth() abort
     if g:netrw_expanding  | return | endif
     if !WinListIsOpen()   | return | endif
@@ -1964,7 +1516,6 @@ function! WinListFixWidth() abort
     silent! call SyncNERDTreeWidth()
 endfunction
 
-" ── Manual-only: <leader>wh or :WinListFixH ─────────────────────────────────
 function! WinListFixPanelHeights() abort
     if !WinListIsOpen() | return | endif
 
@@ -1991,18 +1542,6 @@ function! WinListFixPanelHeights() abort
     execute 'noautocmd ' . l:cur . 'wincmd w'
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WINLIST CONTENT
-"  Description: Builds the textual content of the WinList panel buffer —
-"  one section per tab (with split count + active marker), listing each
-"  editable window's filename, modified flag, and shortened directory path.
-" ════════════════════════════════════════════════════════════════════════════
-
-" Rút gọn đường dẫn thư mục để hiện dưới mỗi entry.  PERFORMANCE: kết quả
-" được cache theo đường dẫn — panel được dựng lại rất nhiều lần nhưng cùng
-" một thư mục thì luôn ra cùng một chuỗi, nên không cần split/join lại.
-" Cache tự xoá khi vượt 500 mục (đường dẫn đổi liên tục thì cũng không phình).
 let s:shortpath_cache = {}
 
 function! WinListShortPath(fullpath) abort
@@ -2027,21 +1566,12 @@ function! WinListShortPath(fullpath) abort
     return l:res
 endfunction
 
-" Bề ngang text thực tế của buffer WinList (đã trừ cột number), dùng để đệm
-" space cho dòng entry đang active nhằm phủ kín cả hàng bằng guibg.
-" Không có cửa sổ WinList (đang dựng panel) -> lấy theo bề rộng cấu hình.
 function! s:WinListTextWidth() abort
     let l:wnr = bufwinnr(WinListBufName())
     if l:wnr == -1
         return max([10, s:PanelWidth() - 1])
     endif
     let l:w = winwidth(l:wnr)
-    " Cột number chiếm 'numberwidth' cột + 1 dấu cách phân cách.  Lưu ý: với
-    " buffer winlist, augroup WinListBufSettings đặt 'nonumber' (FileType
-    " winlist bắn ra sau 'setlocal number' trong s:SetupWinListWindow), nên
-    " thực tế cột này KHÔNG tồn tại — chỉ trừ khi 'number' thật sự đang bật.
-    " Đệm dư 1-2 cột là vô hại (nowrap nên phần thừa bị cắt), đệm thiếu thì
-    " thanh nền bị hụt so với mép panel.
     if getwinvar(l:wnr, '&number')
         let l:w -= str2nr(getwinvar(l:wnr, '&numberwidth')) + 1
     endif
@@ -2051,8 +1581,6 @@ endfunction
 function! WinListBuildAllTabLines() abort
     let l:cur_tab = tabpagenr()
     let l:lines   = []
-    " Tính bề ngang panel MỘT lần cho cả lần dựng (bản cũ gọi lại cho từng
-    " dòng active -> mỗi lần là bufwinnr + winwidth + getwinvar).
     let l:textw   = s:WinListTextWidth()
 
     for l:t in range(1, tabpagenr('$'))
@@ -2078,16 +1606,9 @@ function! WinListBuildAllTabLines() abort
             \ printf('=== Tab %d  %s%s ===§%s',
             \        l:t, l:split_label, l:active_mark, l:tid))
 
-        " Xác định cửa sổ đang hoạt động bằng BUFFER NUMBER, không dùng index.
-        " Bug cũ: code so sánh raw_idx (vị trí trong tabpagebuflist) với
-        " g:winlist_last_active (vốn là winnr). Hai đại lượng khác hệ quy
-        " chiếu, nên khi thứ tự buffer trong tab khác thứ tự cửa sổ (rất hay
-        " xảy ra sau khi tách/mở nhiều split) marker '>' chỉ sai dòng.
         if l:t == l:cur_tab
             let l:active_buf = s:CurrentContentBuf()
         else
-            " tab khác: dùng buffer đã nhớ (g:winlist_last_active lưu BUFFER
-            " NUMBER, xem WinListRefreshAllTabs)
             let l:active_buf = get(g:winlist_last_active, l:t, -1)
         endif
 
@@ -2109,15 +1630,7 @@ function! WinListBuildAllTabLines() abort
             let l:entry = printf('%s%d: %s%s',
                 \ l:prefix, l:display_idx, l:fname, l:mod)
 
-            " Đệm space cho hết bề ngang panel CHỈ ở dòng entry đang active.
-            " Lý do: guibg của syntax chỉ tô phần có ký tự, nên nếu không đệm
-            " thì thanh nền xanh chỉ dài bằng tên file, không phủ hết hàng.
-            " Buffer WinList đặt 'nowrap' nên phần đệm dư không bao giờ xuống
-            " dòng.  Buffer là nofile và được dựng lại mỗi lần refresh
-            " (WinListRefresh/RefreshAllTabs) nên đệm luôn khớp bề ngang mới.
             if l:prefix ==# '> '
-                " Đệm tới textw-1 (không phải textw): panel đang 'wrap', đệm
-                " đúng bằng bề ngang sẽ bị đẩy 1 space sang dòng thứ hai.
                 let l:pad = l:textw - 1 - strwidth(l:entry)
                 if l:pad > 0
                     let l:entry .= repeat(' ', l:pad)
@@ -2136,20 +1649,10 @@ function! WinListBuildAllTabLines() abort
         endfor
     endfor
 
-    " Chụp layout mọi tab (và phát hiện tab vừa đóng) ngay tại đây: hàm này
-    " vốn đã đi qua toàn bộ tab/cửa sổ nên không tốn thêm vòng lặp đáng kể.
     silent! call s:SnapshotAllTabLayouts()
 
     return l:lines
 endfunction
-
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WINLIST STATUSLINE
-"  Description: Renders a mini tab-indicator statusline inside the WinList
-"  panel window itself — shows all tab numbers, highlighting the active
-"  one, plus a "current/total" counter on the right.
-" ════════════════════════════════════════════════════════════════════════════
 
 function! WinListStatusLine() abort
     let l:cur   = tabpagenr()
@@ -2170,15 +1673,6 @@ function! WinListStatusLine() abort
     return l:out
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  HIGHLIGHTS & SYNTAX
-"  Description: Highlight groups and syntax rules for the WinList buffer —
-"  colors headers, split counts, active-tab marker, entry numbers, active
-"  entry, modified flag, path text, plus the mini-statusline groups.
-"  Also sets WinList buffer-local options (nofile, nowrap off, etc.).
-" ════════════════════════════════════════════════════════════════════════════
-
 function! WinListSetupHighlight() abort
     silent! highlight default WinListHeader     guifg=#61AFEF ctermfg=75  gui=bold
     silent! highlight default WinListHeaderID   guifg=bg      ctermfg=0   gui=NONE
@@ -2186,17 +1680,6 @@ function! WinListSetupHighlight() abort
     silent! highlight default WinListSplitCnt   guifg=#e5c07b ctermfg=180 gui=bold
     silent! highlight default WinListActivTab   guifg=#e06c75 ctermfg=204 gui=bold
     silent! highlight default WinListNumber     guifg=#98c379 ctermfg=114 gui=bold
-    " Dòng entry đang hoạt động (có marker '>') trong WinList: chữ TRẮNG trên
-    " nền xanh đậm #003366 — đúng bằng màu nền của nhóm Search, nên trông
-    " giống một match đang được search-highlight thay vì chữ cyan như trước.
-    " Ba nhóm ActiveNum/ActiveMod/ActiveMark là bản "contained" của
-    " Number/Modified/Mark: chúng PHẢI khai báo lại guibg, vì trong Vim một
-    " syntax item contained không thừa hưởng thuộc tính của nhóm bao ngoài —
-    " thiếu guibg thì chữ số / [+] / '>' sẽ bị khoét lỗ đen giữa thanh xanh.
-    " Bốn nhóm dưới đây cố ý KHÔNG dùng 'default': ':highlight default' không
-    " ghi đè nhóm đã tồn tại, nên sau khi 'hi clear' (đổi colorscheme) hay
-    " khi source lại vimrc giữa chừng, màu mới sẽ không được áp — đúng lỗi
-    " đã gặp: chữ vẫn cyan cũ, chỉ các nhóm mới sinh ra mới có nền xanh.
     silent! highlight WinListActive     guifg=#ffffff guibg=#003366 ctermfg=231 ctermbg=DarkBlue gui=bold
     silent! highlight WinListActiveNum  guifg=#98c379 guibg=#003366 ctermfg=114 ctermbg=DarkBlue gui=bold
     silent! highlight WinListActiveMod  guifg=#E06C75 guibg=#003366 ctermfg=204 ctermbg=DarkBlue gui=bold
@@ -2217,10 +1700,6 @@ augroup WinListHighlight
     autocmd ColorScheme * silent! call WinListSetupHighlight()
     augroup WinListBufSettings
         autocmd!
-        " Panel WinList WRAP: tên test/file dài thì xuống dòng, KHÔNG bị cắt cụt
-        " ở mép panel.  linebreak: chỉ ngắt ở khoảng trắng cho dễ đọc.
-        " (Dòng entry đang active được đệm space tới textw-1 chứ không phải
-        "  đúng textw, nên phần đệm không bao giờ đẩy sang dòng thứ hai.)
         autocmd FileType winlist setlocal wrap linebreak
                                \ nonumber norelativenumber nolist
                                \ cursorline buftype=nofile noswapfile nobuflisted
@@ -2229,12 +1708,6 @@ augroup WinListHighlight
 augroup END
 
 function! WinListApplySyntax() abort
-    " PERFORMANCE: các 'syntax match' dưới đây KHÔNG phụ thuộc nội dung nên
-    " chỉ cần đặt MỘT lần cho buffer panel.  Bản cũ chạy 'syntax clear' + 13
-    " lệnh ':syntax' ở mọi lần refresh (mỗi lần chuyển cửa sổ/ghi file), và
-    " 'syntax clear' còn ép tô lại toàn bộ cửa sổ panel.
-    " Điều kiện 'exists(b:current_syntax)' để nếu ai đó 'syntax clear' (đổi
-    " colorscheme, :syntax on…) thì ta đặt lại.
     if get(b:, 'winlist_syntax_done', 0) && exists('b:current_syntax')
         return
     endif
@@ -2251,10 +1724,6 @@ function! WinListApplySyntax() abort
 
     setlocal conceallevel=2 concealcursor=nvic
 
-    " Dòng entry đang hoạt động: nền xanh đậm phủ cả dòng, chữ trắng.
-    " Chỉ contains các nhóm riêng của dòng active (đều đã có guibg cùng màu),
-    " KHÔNG dùng WinListNumber/Modified/Path nữa vì các nhóm đó không có nền
-    " và chỉ dùng cho những dòng không active.
     syntax match WinListActive     /^>.*$/
         \ contains=WinListActiveMark,WinListActiveNum,WinListActiveMod
     syntax match WinListActiveMark /^>/              contained
@@ -2266,7 +1735,6 @@ function! WinListApplySyntax() abort
     syntax match WinListSpecial    /\[[^\]+]\+\]/
     syntax match WinListPath       /^\s\+[…\/].*/
 
-    " Đánh dấu đã đặt xong (xem chú thích ở đầu hàm).
     let b:current_syntax      = 'winlist'
     let b:winlist_syntax_done = 1
 endfunction
@@ -2280,15 +1748,6 @@ function! WinListApplyStatusLine() abort
     execute 'noautocmd ' . l:cur . 'wincmd w'
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WINLIST REFRESH  — content only, NO resize
-"  Description: Rebuilds and rewrites the WinList buffer content without
-"  touching window sizes. WinListRefresh updates just the current window's
-"  view; WinListRefreshAllTabs rebuilds fully across all tabs (used by
-"  most autocmds) while remembering the "last active" real window per tab.
-" ════════════════════════════════════════════════════════════════════════════
-
 function! WinListRefresh() abort
     if g:winlist_opening | return | endif
     if g:panel_opening   | return | endif
@@ -2297,8 +1756,6 @@ function! WinListRefresh() abort
     let l:wl_winnr = bufwinnr(WinListBufName())
     let l:cur_win  = winnr()
 
-    " LƯU BUFFER NUMBER (không phải winnr): winnr đổi khi tách/đóng split
-    " hoặc khi panel chiếm chỗ, còn bufnr thì ổn định.
     if l:cur_win != l:wl_winnr
         \ && !WinListIsSpecial()
         \ && !WinListIsNERDTree(winbufnr(l:cur_win))
@@ -2333,12 +1790,8 @@ function! WinListRefreshAllTabs() abort
         let g:winlist_last_active[l:cur_tab] = bufnr('%')
     endif
 
-    " Chụp layout MỌI tab cho tính năng khôi phục tab — việc này phải chạy kể
-    " cả khi panel đang ẩn (chính nó đã tự chặn 1 lần/200ms nên rất rẻ).
     silent! call s:SnapshotAllTabLayouts()
 
-    " Panel không hiển thị ở đâu cả -> bỏ qua phần ĐẮT NHẤT (dựng danh sách
-    " mọi tab/buffer + xoá và ghi lại cả buffer panel).
     if WinListIsOpenAnywhere()
         let l:lines  = WinListBuildAllTabLines()
         let l:wl_buf = WinListBufName()
@@ -2360,22 +1813,6 @@ function! WinListRefreshAllTabs() abort
     let &lazyredraw = l:save_lz
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  GỘP NHIỀU EVENT THÀNH MỘT LẦN DỰNG PANEL      (performance)
-"  Một thao tác của người dùng bắn ra nhiều event liền nhau: chuyển cửa sổ =
-"  WinEnter + BufEnter; mở file = BufReadPost + BufEnter + WinEnter; ghi file
-"  = BufWritePost (+ BufAdd khi tạo buffer mới)…  Bản cũ gọi
-"  WinListRefreshAllTabs() NGAY cho từng event -> 2-4 lần quét toàn bộ tab và
-"  ghi lại cả buffer panel cho MỘT thao tác.
-"  WinListRefreshSoon() thay vào đó:
-"    • cập nhật anchor (một phép gán) NGAY -> Ctrl-Shift-T vẫn đúng vị trí;
-"    • dựng panel ngay nếu lần trước đã cách > 40ms;
-"    • nếu vừa dựng xong thì hẹn MỘT lần dựng bù sau 60ms, để event cuối
-"      cùng vẫn được phản ánh (không bị mất trạng thái);
-"    • lần dựng bù chỉ chạy khi đang ở Normal mode (không đổi cửa sổ khi
-"      đang Insert / command-line).
-" ════════════════════════════════════════════════════════════════════════════
 let s:wl_last_refresh  = reltime()
 let s:wl_refresh_timer = -1
 
@@ -2402,8 +1839,6 @@ endfunction
 
 function! s:WinListRefreshTick(...) abort
     let s:wl_refresh_timer = -1
-    " Đổi cửa sổ khi đang gõ / đang ở command-line sẽ làm nháy màn hình và có
-    " thể cắt ngang thao tác -> hẹn lại.
     if mode() !~# '^\%(n\|no\)$'
         let s:wl_refresh_timer = timer_start(120, {-> s:WinListRefreshTick()})
         return
@@ -2418,25 +1853,10 @@ function! s:WinListRefreshTick(...) abort
     silent! call WinListRefreshAllTabs()
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  SIDE PANEL — Open / Close / Toggle
-"  Description: Core open/close/toggle logic. CombinedPanelOpen() opens
-"  WinList alone (full height, left column) — NERDTree is NOT opened.
-"  NERDTreePanelToggle() (Ctrl-B) opens NERDTree on demand; if WinList is
-"  already up, WinList takes the top half and NERDTree the bottom half of
-"  the same column. Panel-local keymaps (double-click/Enter to jump, q to
-"  close, r to refresh) are applied by s:SetupWinListWindow(). Focus is
-"  always restored to the previously active editing window afterwards.
-" ════════════════════════════════════════════════════════════════════════════
-
-" ── Áp option + keymap cho cửa sổ WinList (dùng chung mọi nơi mở panel) ─────
 function! s:SetupWinListWindow() abort
     setlocal winfixwidth
     setlocal buftype=nofile bufhidden=hide
     setlocal noswapfile nobuflisted
-    " wrap: tên dài xuống dòng thay vì bị cắt ở mép panel (xem thêm
-    " WinListBufSettings — FileType winlist cũng đặt wrap linebreak).
     setlocal wrap linebreak number norelativenumber
     setlocal cursorline filetype=winlist signcolumn=no
     setlocal statusline=%!WinListStatusLine()
@@ -2448,13 +1868,10 @@ function! s:SetupWinListWindow() abort
     nnoremap <silent> <nowait> <buffer> r             :call WinListRefreshAllTabs()<CR>
 endfunction
 
-
-" Mở WinList (full height, cột trái). KHÔNG mở NERDTree nữa.
 function! CombinedPanelOpen() abort
     if g:panel_opening   | return | endif
     if g:winlist_opening | return | endif
 
-    " đang mở rồi -> chỉ refresh + chỉnh lại bề rộng
     if WinListIsOpen()
         silent! call WinListRefreshAllTabs()
         silent! call WinListFixWidth()
@@ -2479,7 +1896,6 @@ function! CombinedPanelOpen() abort
 
         let g:winlist_tab_open[tabpagenr()] = 1
 
-        " trả focus về cửa sổ nội dung (chấp nhận cả netrw)
         let l:back = WinListFindAnchorWin()
         if l:back != -1
             execute 'noautocmd ' . l:back . 'wincmd w'
@@ -2492,9 +1908,6 @@ function! CombinedPanelOpen() abort
     silent! call WinListRefreshAllTabs()
 endfunction
 
-
-" Mở NERDTree theo yêu cầu. Nếu WinList đang mở -> WinList nửa trên,
-" NERDTree nửa dưới, cùng cột trái.
 function! PanelOpenWithNERDTree() abort
     if g:panel_opening | return | endif
     if !exists(':NERDTree')
@@ -2509,7 +1922,6 @@ function! PanelOpenWithNERDTree() abort
     let g:panel_opening = 1
 
     try
-        " 1) NERDTree tạo cột trái trước (nó luôn mở sang trái)
         if !NERDTreeIsOpen()
             let l:cwd = filereadable(expand('%:p'))
                 \ ? fnamemodify(expand('%:p'), ':h')
@@ -2519,7 +1931,6 @@ function! PanelOpenWithNERDTree() abort
             setlocal winfixwidth
         endif
 
-        " 2) tìm cửa sổ NERDTree vừa tạo
         let l:nt = -1
         for l:i in range(1, winnr('$'))
             if WinListIsNERDTree(winbufnr(l:i))
@@ -2528,7 +1939,6 @@ function! PanelOpenWithNERDTree() abort
             endif
         endfor
 
-        " 3) chèn WinList vào NỬA TRÊN của cột đó
         if l:nt != -1 && !WinListIsOpen()
             let l:half = WinListHalfHeight()
 
@@ -2537,7 +1947,6 @@ function! PanelOpenWithNERDTree() abort
             call s:SetupWinListWindow()
             execute 'vertical resize ' . s:PanelWidth()
 
-            " cân lại NERDTree cho đúng nửa dưới
             let l:nt2 = -1
             for l:i in range(1, winnr('$'))
                 if WinListIsNERDTree(winbufnr(l:i))
@@ -2567,10 +1976,6 @@ function! PanelOpenWithNERDTree() abort
     silent! call WinListRefreshAllTabs()
 endfunction
 
-
-" Ctrl-B: bật/tắt NERDTree. WinList không bị ảnh hưởng.
-" Khi BẬT: con trỏ nhảy thẳng vào cửa sổ NERDTree vừa mở.
-" Khi TẮT: con trỏ trả về cửa sổ soạn thảo gần nhất.
 function! NERDTreePanelToggle() abort
     if NERDTreeIsOpen()
         silent! NERDTreeClose
@@ -2587,8 +1992,6 @@ function! NERDTreePanelToggle() abort
     endif
 endfunction
 
-
-" Đóng WinList (NERDTree giữ nguyên — nó có công tắc riêng là Ctrl-B)
 function! CombinedPanelClose() abort
     if WinListIsOpen()
         let l:wl_wnr = bufwinnr(WinListBufName())
@@ -2602,8 +2005,6 @@ function! CombinedPanelClose() abort
     endif
 endfunction
 
-
-" Toggle WinList. Không đụng tới NERDTree.
 function! CombinedPanelToggle() abort
     if CombinedPanelIsOpen()
         silent! call CombinedPanelClose()
@@ -2620,11 +2021,6 @@ function! s:FocusWinListPanel() abort
     endif
 endfunction
 
-" Đặt con trỏ vào cửa sổ NERDTree ngay sau khi bật nó bằng Ctrl-B.
-" Phải chạy qua timer: PanelOpenWithNERDTree() kết thúc bằng việc trả focus
-" về cửa sổ soạn thảo, nên nếu focus ngay lập tức thì sẽ bị kéo ngược lại.
-" Dùng winnr của NERDTree tại thời điểm timer chạy (layout đã ổn định),
-" không dùng winnr tính trước đó.
 function! s:FocusNERDTreeWindow() abort
     for l:i in range(1, winnr('$'))
         if WinListIsNERDTree(winbufnr(l:i))
@@ -2633,15 +2029,6 @@ function! s:FocusNERDTreeWindow() abort
         endif
     endfor
 endfunction
-
-
-" ════════════════════════════════════════════════════════════════════════════
-"  NERDTREE — open file as RIGHT SPLIT, keep panel open
-"  Description: Overrides NERDTree's default Enter/double-click file-open
-"  behavior so files always open in a new rightmost vertical split (or as
-"  a fresh split if no editing window exists yet), instead of replacing
-"  the NERDTree window — panel stays open and in sync afterward.
-" ════════════════════════════════════════════════════════════════════════════
 
 autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1
     \ && exists('b:NERDTree') && b:NERDTree.isTabTree()
@@ -2657,12 +2044,6 @@ autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'scope':    'FileNode',
       \ 'callback': 'OpenSmart',
       \ 'override': 1 })
-" T (shift-t) mặc định của NERDTree mở file trong tab mới NGAY SAU tab hiện tại;
-" ở đây đổi thành: tab mới nhưng đặt ở VỊ TRÍ CUỐI thanh tab, và vẫn giữ focus
-" ở tab đang đứng (giống hành vi "silent" gốc của T).
-" Đăng ký cho CẢ 3 scope vì mỗi bản NERDTree gắn 'T' vào scope khác nhau; nếu
-" chỉ đăng ký FileNode thì bản dùng 'Node'/'DirNode' vẫn chạy mapping gốc và
-" tab sẽ nằm ngay cạnh tab hiện tại (đúng lỗi đã gặp).
 autocmd VimEnter * silent! call NERDTreeAddKeyMap({
       \ 'key':      'T',
       \ 'scope':    'FileNode',
@@ -2684,30 +2065,23 @@ function! OpenInNewTabAtEnd(node) abort
     let l:cur   = tabpagenr()
     let l:ntabs = tabpagenr('$')
 
-    " ':tabnew' chèn tab mới NGAY SAU tab hiện tại, nên muốn nó ở cuối thì
-    " trước hết đứng ở tab cuối đã.  Cách này chắc chắn hơn ':tabmove' và
-    " không phụ thuộc việc tính lại số hiệu tab.
     if tabpagenr() != l:ntabs
         silent! execute 'tabnext ' . l:ntabs
     endif
 
     silent! execute 'tabnew ' . fnameescape(l:path)
     if tabpagenr('$') != l:ntabs + 1
-        " không tạo được tab (vd E37: buffer đang sửa mà không ghi được)
         echo 'T: cannot open a new tab for ' . fnamemodify(l:path, ':t')
         silent! execute 'tabnext ' . l:cur
         return
     endif
 
-    " về lại tab ban đầu như T gốc (tab mới vẫn tự có WinList riêng)
     if tabpagenr() != l:cur && l:cur <= tabpagenr('$')
         silent! execute 'tabnext ' . l:cur
     endif
 
     silent! call WinListRefreshAllTabs()
 
-    " thông báo ngắn để biết override CÓ chạy (không thấy dòng này = NERDTree
-    " vẫn dùng mapping gốc)
     echo printf('T: %s -> tab %d/%d (last)',
         \ fnamemodify(l:path, ':t'), l:ntabs + 1, l:ntabs + 1)
 endfunction
@@ -2754,14 +2128,6 @@ function! s:ClearFileOpening() abort
     let g:winlist_file_opening = 0
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WINLIST MOUSE JUMP
-"  Description: Handles double-click inside the WinList panel — resolves
-"  the exact clicked line/column via getmousepos() and jumps to the
-"  corresponding entry if the line matches a file entry pattern.
-" ════════════════════════════════════════════════════════════════════════════
-
 function! WinListMouseJump() abort
     let l:lnum = 0
 
@@ -2781,15 +2147,6 @@ function! WinListMouseJump() abort
         call WinListJump()
     endif
 endfunction
-
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WINLIST JUMP — uses stable Tab ID to survive drag-reorder
-"  Description: Given the cursor's current line in the WinList buffer,
-"  parses the entry number and the concealed Tab ID from its section
-"  header, resolves it to the real (possibly reordered) tab number, and
-"  focuses the corresponding editing window.
-" ════════════════════════════════════════════════════════════════════════════
 
 function! WinListJump() abort
     let l:line = getline('.')
@@ -2839,14 +2196,6 @@ function! WinListJump() abort
     endif
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  WINLIST OPEN / CLOSE / TOGGLE (backward-compat wrappers)
-"  Description: Thin wrapper functions preserving the original
-"  WinListOpen/Close/Toggle API names, delegating to the CombinedPanel*
-"  functions. WinListOpenInAllTabs opens the panel across every tab.
-" ════════════════════════════════════════════════════════════════════════════
-
 function! WinListOpen() abort
     silent! call CombinedPanelOpen()
 endfunction
@@ -2865,20 +2214,11 @@ function! WinListOpenInAllTabs() abort
     execute 'tabnext ' . l:cur
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  TAB LIFECYCLE HANDLERS
-"  Description: Tracks, per tab, whether the panel was open before
-"  leaving it, and automatically re-opens/refreshes it upon re-entering
-"  that tab (with a small timer delay to let Vim settle window layout).
-" ════════════════════════════════════════════════════════════════════════════
-
 function! WinListOnTabLeave() abort
     let g:winlist_tab_open[tabpagenr()] = WinListIsOpen() ? 1 : 0
 endfunction
 
 function! WinListOnTabEnter() abort
-    " WinList luôn có mặt ở mọi tab, trừ khi đang trong netrw (Ctrl-O)
     if !get(g:, 'winlist_always', 1) | return | endif
     call timer_start(20, {-> s:EnsureWinListInTab(tabpagenr())})
 endfunction
@@ -2898,18 +2238,8 @@ function! WinListOnTabNew() abort
     let g:winlist_tab_open[l:tabnr] = 1
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  AUTOCMDS  — content refresh only, editing splits never auto-resized
-"  Description: Wires up all events (buffer write/read/add/delete/wipeout,
-"  window/buffer enter, tab enter/leave/new) that keep the WinList panel
-"  content in sync, without ever forcibly resizing the user's own splits.
-" ════════════════════════════════════════════════════════════════════════════
-
 augroup WinListAuto
     autocmd!
-    " Tất cả cùng gọi WinListRefreshSoon(): nó gộp các event bắn liền nhau
-    " thành MỘT lần dựng lại panel (xem chú thích ở WinListRefreshSoon).
     autocmd BufWritePost * silent! call WinListRefreshSoon()
     autocmd BufReadPost  * silent! call WinListRefreshSoon()
     autocmd BufAdd       * silent! call WinListRefreshSoon()
@@ -2926,14 +2256,9 @@ augroup WinListAuto
     autocmd TabEnter * silent! call WinListOnTabEnter()
     autocmd TabNew   * silent! call WinListOnTabNew()
 
-    " Đổi bề ngang cửa sổ (hoặc resize panel bằng <leader>W / Ctrl-w +) thì
-    " phần đệm space của dòng active phải được tính lại, nếu không thanh nền
-    " xanh sẽ hụt (hẹp lại) hoặc dư (rộng ra) so với bề ngang panel.
     autocmd VimResized * silent! call WinListRefreshSoon()
 augroup END
 
-
-" ── Mở WinList ngay khi khởi động (VimEnter không bắn TabEnter) ─────────────
 augroup WinListStartup
     autocmd!
     autocmd VimEnter * call timer_start(60, {-> s:StartupWinList()})
@@ -2944,9 +2269,6 @@ function! s:StartupWinList() abort
     if get(g:, 'netrw_expanding', 0)  | return | endif
     if WinListIsOpen()                | return | endif
 
-    " Khởi động với một thư mục (gvim . / gvim /path/dir) hoặc không có
-    " argument: Vim mở [No Name] trống.  Nếu có thư mục làm việc thì mở
-    " netrw để hiện cây thư mục, thay vì để buffer trống.
     if &buftype ==# '' && expand('%') ==# ''
         let l:dir = argc() > 0 ? fnamemodify(argv(0), ':p') : getcwd()
         if isdirectory(l:dir)
@@ -2954,29 +2276,11 @@ function! s:StartupWinList() abort
         endif
     endif
 
-    " Không bao giờ enew ở đây: netrw dùng buftype=nofile nên bị coi là
-    " special, enew sẽ đè mất netrw.  CombinedPanelOpen() tự tìm cửa sổ
-    " tựa qua WinListFindAnchorWin() (chấp nhận cả netrw).
     silent! call CombinedPanelOpen()
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  KEYMAPS + COMMANDS
-"  Description: User-facing entry points for the panel system.
-"    wl          → toggle WinList (bật/tắt cột WindowList)
-"    Ctrl-B      → toggle NERDTree ONLY (không đụng WinList)
-"    <leader>W   → fix/sync WinList width
-"    <leader>wa  → open panel in ALL tabs
-"    <leader>wh  → fix 50/50 panel heights (khi NERDTree đang mở)
-"  Ex commands (:WinList, :WinListClose, :WinListFix, etc.) mirror these.
-" ════════════════════════════════════════════════════════════════════════════
-
-" wl — bật/tắt WinList. Dùng nnoremap để KHÔNG ảnh hưởng Visual mode
-" (Visual  w  phải giữ nguyên nghĩa "chọn word tiếp theo").
 nnoremap <silent> wl :call WinListToggle()<CR>
 
-" Ctrl-B chỉ bật/tắt NERDTree. WinList luôn hiển thị.
 noremap <silent> <C-b> :call NERDTreePanelToggle()<CR>
 
 nnoremap <silent> <leader>w  :call WinListToggle()<CR>
@@ -2991,15 +2295,6 @@ command! WinListRefresh call WinListRefreshAllTabs()
 command! WinListAllTabs call WinListOpenInAllTabs()
 command! WinListFixH    call WinListFixPanelHeights()
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                    DOUBLE-ENTER SPLIT EXPAND / RESTORE                   │
-" │ Description: Pressing Enter twice quickly in a vertical split            │
-" │ temporarily maximizes the current split's width (minimizing others to    │
-" │ 1 column) — pressing Enter again restores original layout. Ctrl-Enter    │
-" │ force-expands the current window immediately (collapsing any active      │
-" │ expand first). Panel (WinList/NERDTree) widths are protected throughout. │
-" └──────────────────────────────────────────────────────────────────────────┘
 let g:splitexpand_active  = 0
 let g:splitexpand_timer   = 0
 let g:splitexpand_pending = 0
@@ -3058,7 +2353,6 @@ function! SplitExpandCurrentWin() abort
     let g:splitexpand_active = 1
 endfunction
 
-
 function! SplitExpandRestore() abort
     let l:total  = winnr('$')
     let l:cur    = winnr()
@@ -3091,7 +2385,6 @@ function! SplitExpandRestore() abort
 
     let g:splitexpand_active = 0
 endfunction
-
 
 function! SplitExpandHandleEnter() abort
     if g:splitexpand_pending
@@ -3146,24 +2439,6 @@ augroup END
 nnoremap <silent> <CR>   :call SplitExpandHandleEnter()<CR>
 nnoremap <silent> <C-CR> :call SplitExpandCtrlEnter()<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │        CTRL+O — mở netrw / quay lại file vừa xem (toggle 2 chiều)        │
-" │ Description: Ctrl-O bật/tắt netrw NGAY TRONG cửa sổ hiện tại — KHÔNG ẩn  │
-" │ panel, KHÔNG phóng to, layout của tab giữ nguyên như bình thường.        │
-" │  • Lần 1 (đang xem file): nhớ buffer hiện tại rồi mở explorer bằng tên   │
-" │    đầy đủ ':Explore' — ':E' đã được định nghĩa lại thành ':e' (mở file   │
-" │    theo đường dẫn) nên không dùng được cho explorer nữa).                │
-" │  • Lần 2 (đang trong netrw): quay lại đúng buffer/file vừa xem; nếu      │
-" │    buffer đó đã bị xoá thì mở lại theo đường dẫn, cuối cùng fallback     │
-" │    sang alternate buffer.                                                │
-" │ Chọn file trong netrw -> file mở ra thay chỗ netrw (browse_split = 0),   │
-" │ panel vẫn nguyên chỗ cũ.  Không có layout nào phải dựng lại, nên khi     │
-" │ rời netrw chỉ cần hạ cờ.                                                 │
-" └──────────────────────────────────────────────────────────────────────────┘
-
-" Có cửa sổ netrw nào đang mở không — dùng để phát hiện cờ cũ còn sót lại
-" (netrw bị đóng bằng :bd nên autocmd BufLeave không bắt được).
 function! s:HasNetrwWindow() abort
     for l:i in range(1, winnr('$'))
         if getbufvar(winbufnr(l:i), '&filetype') ==# 'netrw'
@@ -3173,16 +2448,10 @@ function! s:HasNetrwWindow() abort
     return 0
 endfunction
 
-" Buffer đang hiển thị có phải netrw không (dùng filetype, giống các autocmd
-" BufLeave/BufWinLeave bên dưới).
 function! s:IsNetrwBuffer() abort
     return &filetype ==# 'netrw' || bufname('%') =~# '^netrw'
 endfunction
 
-" Quay lại buffer đã xem trước khi mở netrw.  Ba mức dự phòng, theo thứ tự:
-"   1. buffer number đã nhớ (còn tồn tại)
-"   2. đường dẫn đã nhớ (buffer bị :bwipeout nhưng file còn trên đĩa)
-"   3. alternate buffer  -> cho trường hợp netrw mở bằng tay, không qua Ctrl-O
 function! s:NetrwBack() abort
     let l:bn   = get(g:, 'netrw_back_buf', -1)
     let l:path = get(g:, 'netrw_back_path', '')
@@ -3207,16 +2476,11 @@ function! s:NetrwBack() abort
 endfunction
 
 function! SmartCtrlO() abort
-    " Đang trong netrw -> Ctrl-O lần 2 = quay lại file vừa xem.  Việc chuyển
-    " buffer sẽ bắn BufLeave(netrw) -> SmartCtrlORestore() hạ cờ giúp mình.
     if s:IsNetrwBuffer()
         silent! call s:NetrwBack()
         return
     endif
 
-    " Tên đầy đủ ':Explore' (netrw).  Không dùng ':E': trong gvim ':E' đã
-    " được bind cho Ctrl-O và hành xử như ':e' (mở file), nên ':Explore' là
-    " cách gọi chắc chắn đúng explorer, không phụ thuộc alias/abbrev.
     if !exists(':Explore')
         echo ':Explore (netrw) not available - cannot open explorer.'
         return
@@ -3227,15 +2491,9 @@ function! SmartCtrlO() abort
         let g:netrw_expanding      = 0
     endif
 
-    " Nhớ chỗ đang xem để Ctrl-O lần 2 quay lại: buffer number là chính, đường
-    " dẫn chỉ là phương án dự phòng khi buffer bị xoá.
     let g:netrw_back_buf  = bufnr('%')
     let g:netrw_back_path = expand('%:p')
 
-    " Cờ này KHÔNG dùng để dựng lại layout (không có gì bị thay đổi), chỉ để:
-    " (1) tạm tắt auto-close tab trong lúc buffer duy nhất của tab là netrw —
-    " netrw có buftype=nofile nên bị tính là "không phải cửa sổ thật",
-    " (2) các hàm panel khỏi refresh/dựng lại giữa chừng.
     let g:netrw_expanding      = 1
     let g:netrw_explore_active = 1
 
@@ -3243,10 +2501,6 @@ function! SmartCtrlO() abort
 endfunction
 
 function! SmartCtrlORestore() abort
-    " Rời netrw = đã chọn xong file, đã bấm Ctrl-O quay lại, hoặc thoát
-    " explorer.  Chỉ hạ cờ; layout và panel không bị đụng tới nên không phải
-    " dựng lại gì.  g:netrw_back_buf/path được GIỮ LẠI để lần Ctrl-O sau còn
-    " dùng (nó luôn được ghi đè khi mở netrw).
     if !get(g:, 'netrw_explore_active', 0) | return | endif
     let g:netrw_explore_active = 0
     let g:netrw_expanding      = 0
@@ -3260,21 +2514,8 @@ augroup END
 
 noremap <silent> <C-o> :call SmartCtrlO()<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                  ':E' = ':e'  (mở file), KHÔNG phải explorer             │
-" │ Description: netrw định nghĩa ':E' là ':Explore' trong plugin của nó,    │
-" │ và plugin được nạp SAU vimrc — nên phải ghi đè ở VimEnter mới thắng.     │
-" │ Kết quả: ':E <path>' mở file y như ':e <path>'; ':E' (không tham số)     │
-" │ nạp lại file hiện tại.  Explorer vẫn còn nguyên: ':Explore' và Ctrl-O    │
-" │ (SmartCtrlO gọi thẳng ':Explore' nên không bị ảnh hưởng).                │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! s:DefineEAsEdit() abort
-    " delcommand trước để không bị E174 khi định nghĩa lại
     silent! delcommand E
-    " -nargs=?  : ':E' không tham số = ':e' (nạp lại file hiện tại)
-    " -bang     : cho ':E!' hoạt động như ':e!'
-    " -complete=file : Tab completion giống ':e'
     command! -nargs=? -bang -complete=file E edit<bang> <args>
 endfunction
 
@@ -3283,37 +2524,18 @@ augroup ForceEAsEdit
     autocmd VimEnter * call s:DefineEAsEdit()
 augroup END
 
-" Gọi ngay 1 lần nữa: lúc khởi động lệnh này bị netrw (nạp sau vimrc) ghi đè
-" và được VimEnter sửa lại; nhưng khi ':so ~/.vimrc' giữa chừng thì VimEnter
-" không bắn nữa, nên phải áp luôn tại đây.
 silent! call s:DefineEAsEdit()
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │              REOPEN LAST CLOSED  (CTRL+SHIFT+T)                          │
-" │ Description: Tracks a stack (max 20) of recently closed real file        │
-" │ buffers. Ctrl-W closes the current window while pushing onto the stack   │
-" │ not only its file path but ALSO which tab it belonged to (stable         │
-" │ Tab-ID), its ordinal among the tab's content windows, and its width.     │
-" │ Ctrl-Shift-T then reopens it in that very tab, at that very position,    │
-" │ with the same width — not as a stray split in the current tab.           │
-" │ Tab vừa đóng được ưu tiên khôi phục trước (xem mục TAB RESTORE bên       │
-" │ dưới, chạy cùng phím Ctrl-Shift-T).                                      │
-" └──────────────────────────────────────────────────────────────────────────┘
 if !exists('g:closed_file_stack')
     let g:closed_file_stack = []
 endif
 
 let g:closed_file_stack_max = 20
 
-" Đường dẫn của 1 entry trong ngăn xếp (chấp nhận cả entry dict kiểu mới lẫn
-" string của bản cũ, phòng khi ngăn xếp được tạo từ trước khi source lại).
 function! s:ClosedEntryPath(e) abort
     return type(a:e) == type({}) ? get(a:e, 'path', '') : a:e
 endfunction
 
-" Thứ tự (1-based) của cửa sổ đang hiển thị buffer {bn} trong tab hiện tại,
-" chỉ đếm cửa sổ NỘI DUNG (bỏ panel) — đúng thứ tự WinList đang liệt kê.
 function! s:ContentWinOrdinal(bn) abort
     let l:c = 0
     for l:i in range(1, winnr('$'))
@@ -3327,7 +2549,6 @@ function! s:ContentWinOrdinal(bn) abort
     return 0
 endfunction
 
-" Số hiệu cửa sổ (winnr) của cửa sổ NỘI DUNG thứ n; 0 nếu không có.
 function! s:ContentWinNr(n) abort
     let l:c = 0
     for l:i in range(1, winnr('$'))
@@ -3339,8 +2560,6 @@ function! s:ContentWinNr(n) abort
     return 0
 endfunction
 
-" Ghi lại cửa sổ sắp đóng: file + TAB nào (Tab-ID ổn định) + vị trí thứ mấy
-" trong tab + bề rộng, để ReopenLastClosedFile() dựng lại ĐÚNG CHỖ.
 function! ClosedFileStackPush() abort
     let l:name = expand('%:p')
     let l:bt   = &buftype
@@ -3362,12 +2581,6 @@ function! ClosedFileStackPush() abort
         \ 'w':      winwidth(0),
         \ }
 
-    " Bỏ entry cũ khi:
-    "   1. cùng ĐƯỜNG DẪN (đóng lại chính file đó ở chỗ khác), hoặc
-    "   2. cùng SLOT (cùng tabidx + cùng ord) — ca "đóng split B rồi mở split C
-    "      thay đúng chỗ đó rồi đóng C": vị trí đó chỉ còn đúng MỘT cửa sổ, nên
-    "      entry của C GHI ĐÈ entry của B thay vì giữ cả hai (giữ cả hai thì
-    "      bấm Ctrl-Shift-T 2 lần sẽ dựng lại 3 split, không đúng thực tế).
     call filter(g:closed_file_stack,
         \ 'type(v:val) == type({})'
         \ . ' ? (v:val.path !=# l:name'
@@ -3381,13 +2594,6 @@ function! ClosedFileStackPush() abort
     endif
 endfunction
 
-" Mở lại cửa sổ vừa đóng Ở ĐÚNG TAB VÀ ĐÚNG VỊ TRÍ của nó:
-"   1. tab cũ còn sống (so theo Tab-ID, không phụ thuộc thứ tự tab) -> tabnext
-"   2. dựng split đúng thứ tự: ord = 1 -> chèn vào trái cửa sổ nội dung đầu;
-"      ord = N -> chèn ngay sau cửa sổ nội dung thứ N-1
-"   3. trả lại bề rộng cũ
-" Không tìm được tab cũ (tab đã bị đóng hẳn) thì mới mở trong tab hiện tại —
-" trường hợp đó tab-restore (Ctrl-Shift-T) đã có nhánh riêng lo cả tab.
 function! ReopenLastClosedFile() abort
     if empty(g:closed_file_stack)
         echo 'No recently closed files.'
@@ -3413,13 +2619,8 @@ function! ReopenLastClosedFile() abort
             \ fnamemodify(l:path, ':t'), l:tabid, l:tabidx, l:ord, l:width)
     endif
 
-    " 1) về đúng tab cũ; tab đã bị đóng hẳn thì DỰNG LẠI TAB đó (không mở
-    "    file lạc vào tab đang đứng) — đây là trường hợp đóng cả file lẫn tab.
     let l:tab = l:tabid ==# '' ? -1 : WinListFindTabByID(l:tabid)
 
-    " Lần bấm TRƯỚC đã dựng lại đúng tab chứa cửa sổ này?  Tab dựng lại mang
-    " Tab-ID mới nên tìm theo ID ở trên thất bại — dùng ký ức theo VỊ TRÍ.
-    " Chỉ dùng một lần rồi xoá, tránh lần khôi phục sau nhảy nhầm tab.
     if l:tab == -1 && !empty(get(g:, 'last_restored_tab', {}))
         let l:lrt = g:last_restored_tab
         if get(l:lrt, 'index', -1) == l:tabidx
@@ -3439,21 +2640,13 @@ function! ReopenLastClosedFile() abort
         if tabpagenr('$') == l:n_before + 1
             silent! execute 'edit ' . fnameescape(l:path)
 
-            " Khôi phục MỘT thứ mỗi lần bấm (giống restore tab của browser):
-            " ở đây chỉ mở đúng file này trong tab mới.  Các cửa sổ khác của
-            " tab đó (nếu người dùng đóng nhiều split trước khi tab biến mất)
-            " sẽ được khôi phục ở những lần bấm TIẾP THEO, nhờ
-            " g:last_restored_tab bên dưới chỉ đúng tab này.
             let g:last_restored_tab = {'tabnr': tabpagenr(), 'index': l:tabidx}
 
-            " WinList của tab mới
             silent! call CombinedPanelOpen()
 
-            " về đúng vị trí tab cũ
             let l:target = max([0, min([l:tabidx - 1, tabpagenr('$') - 1])])
             silent! execute 'tabmove ' . l:target
 
-            " trả bề rộng cũ cho cửa sổ vừa mở
             if l:width > 0 && winwidth(0) != l:width
                 silent! execute 'vertical resize ' . l:width
             endif
@@ -3463,12 +2656,10 @@ function! ReopenLastClosedFile() abort
                 \ tabpagenr(), fnamemodify(l:path, ':t'))
             return 1
         endif
-        " không tạo được tab mới -> rơi xuống nhánh mở trong tab hiện tại
     elseif l:tab != -1 && l:tab != tabpagenr()
         silent! execute 'tabnext ' . l:tab
     endif
 
-    " 2) dựng lại split đúng vị trí
     let l:n_wins = 0
     for l:i in range(1, winnr('$'))
         if !WinListIsSpecial(winbufnr(l:i)) && !WinListIsNERDTree(winbufnr(l:i))
@@ -3476,28 +2667,22 @@ function! ReopenLastClosedFile() abort
         endif
     endfor
 
-    " cửa sổ làm mốc: đứng ngay trước vị trí cũ; vị trí cũ vượt quá số cửa sổ
-    " hiện có thì lấy cửa sổ cuối (coi như thêm vào cuối)
     let l:anchor = s:ContentWinNr(max([1, l:ord - 1]))
     if l:anchor == 0
         let l:anchor = s:ContentWinNr(l:n_wins)
     endif
 
     if l:anchor == 0
-        " tab không còn cửa sổ nội dung nào -> mở ngay trong cửa sổ hiện tại
         silent! execute 'edit ' . fnameescape(l:path)
     else
         execute 'noautocmd ' . l:anchor . 'wincmd w'
         if l:ord <= 1
-            " vị trí cũ là cửa sổ đầu -> chèn sang TRÁI cửa sổ nội dung đầu
             silent! execute 'leftabove vsplit ' . fnameescape(l:path)
         else
-            " chèn ngay SAU cửa sổ thứ ord-1 -> thành cửa sổ thứ ord
             silent! execute 'rightbelow vsplit ' . fnameescape(l:path)
         endif
     endif
 
-    " 3) trả lại bề rộng cũ (chỉ khi cửa sổ mới thật sự hẹp/rộng khác đi)
     if l:width > 0 && winwidth(0) != l:width
         silent! execute 'vertical resize ' . l:width
     endif
@@ -3518,24 +2703,6 @@ noremap <silent> <C-w> :call SmartClose()<CR>
 nnoremap <silent> <C-S-t> :call ReopenLastClosed()<CR>
 inoremap <silent> <C-S-t> <Esc>:call ReopenLastClosed()<CR>
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  TAB RESTORE — Ctrl-Shift-T mở lại TAB vừa đóng, ĐÚNG vị trí cũ
-"  Description: mỗi lần WinList refresh, layout của TẤT CẢ tab được chụp lại
-"  (danh sách cửa sổ con + buffer + bề rộng/chiều cao + cửa sổ đang active).
-"  Tab nào biến mất khỏi danh sách tab thì bản chụp của nó được đẩy vào
-"  g:closed_tab_stack.  Ctrl-Shift-T lấy mục đầu, tạo lại tab với đúng các
-"  cửa sổ con đó rồi ':tabmove' về đúng vị trí tab cũ, và GIỮ LẠI Tab-ID cũ
-"  cho tab vừa dựng (settabvar) — nhờ vậy các entry còn trong
-"  closed_file_stack của tab đó vẫn tìm lại được chính tab này.
-"  Không có tab nào đã đóng thì Ctrl-Shift-T mở lại CỬA SỔ vừa đóng bằng
-"  Ctrl-W: đúng tab (theo Tab-ID), đúng vị trí thứ N, đúng bề rộng.  Nếu tab
-"  chứa cửa sổ đó cũng đã bị đóng hẳn (đóng file rồi đóng luôn tab) thì nó
-"  DỰNG LẠI TAB đó ở vị trí cũ chứ không thả file vào tab đang đứng.
-"  Không cần TabClosed (Vim cũ không có) — việc phát hiện tab đã đóng dựa
-"  trên so sánh Tab-ID ổn định (g:winlist_tab_id) với danh sách tab hiện có.
-" ════════════════════════════════════════════════════════════════════════════
-
 if !exists('g:closed_tab_stack')
     let g:closed_tab_stack = []
 endif
@@ -3545,22 +2712,12 @@ endif
 
 let g:closed_tab_stack_max = 10
 
-" Mốc thời gian của lần chụp layout gần nhất — dùng để chặn tần suất (xem
-" s:SnapshotAllTabLayouts).
 let g:tab_snapshot_last = reltime()
 
-" ── restore_log: nhật ký push/pop của cơ chế khôi phục ──────────────────────
-" Ghi lại MỌI quyết định (đẩy tab, đẩy cửa sổ, pop, có gộp file vào tab hay
-" không) kèm giờ.  Chỉ để chẩn đoán: :ClosedInfo in 40 dòng gần nhất, nhờ vậy
-" biết chính xác lần bấm Ctrl-Shift-T đã thấy dữ liệu gì.
 if !exists('g:restore_log')
     let g:restore_log = []
 endif
 
-" Tab vừa được Ctrl-Shift-T dựng lại: {'tabnr': N, 'index': vị trí tab cũ}.
-" Dùng cho lần bấm TIẾP THEO: nếu cửa sổ cần khôi phục thuộc tab vừa dựng đó
-" (so theo vị trí) thì đưa nó vào đúng tab ấy — không phụ thuộc Tab-ID, vì
-" tab dựng lại mang ID mới nên WinListFindTabByID() không tìm ra.
 if !exists('g:last_restored_tab')
     let g:last_restored_tab = {}
 endif
@@ -3572,10 +2729,6 @@ function! s:RestoreLog(msg) abort
     endwhile
 endfunction
 
-" ── :ClosedInfo — in nội dung 2 ngăn xếp khôi phục ──────────────────────────
-" Dùng để chẩn đoán khi Ctrl-Shift-T khôi phục sai chỗ: xem nó sẽ lấy entry
-" nào, entry đó mang tab/tabidx/ord gì, và trong ngăn xếp có entry cũ sót
-" lại từ lần thử trước hay không.
 function! ClosedInfo() abort
     echomsg '── closed_tab_stack (newest first) ──'
     if empty(g:closed_tab_stack)
@@ -3625,7 +2778,6 @@ function! ClosedInfo() abort
 endfunction
 command! ClosedInfo call ClosedInfo()
 
-" Thu các winid của node 'leaf' theo đúng thứ tự layout.
 function! s:CollectLayoutLeaves(node, out) abort
     if a:node[0] ==# 'leaf'
         call add(a:out, a:node[1])
@@ -3636,10 +2788,6 @@ function! s:CollectLayoutLeaves(node, out) abort
     endfor
 endfunction
 
-" Bỏ panel (WinList/NERDTree/cửa sổ special) khỏi cây layout, và gộp node chỉ
-" còn 1 con vào con đó.  Nhờ vậy hướng chia của tab được suy ra từ phần NỘI
-" DUNG, không bị cột panel bên trái làm sai: ví dụ
-"   ['row', leaf(WinList), ['col', A, B]]  ->  ['col', A, B]  -> chia NGANG
 function! s:PruneLayout(node) abort
     if a:node[0] ==# 'leaf'
         let l:bn = winbufnr(a:node[1])
@@ -3662,8 +2810,6 @@ function! s:PruneLayout(node) abort
     return [a:node[0]] + l:kids
 endfunction
 
-" Chụp layout của 1 tab.  Trả {} nếu không lấy được / tab không còn cửa sổ
-" nội dung nào (tab chỉ có panel thì không có gì để dựng lại).
 function! s:SnapshotTabLayout(tabnr) abort
     try
         call WinListEnsureTabID(a:tabnr)
@@ -3681,28 +2827,19 @@ function! s:SnapshotTabLayout(tabnr) abort
         for l:wid in l:wids
             let l:bn = winbufnr(l:wid)
             if l:bn <= 0 | continue | endif
-            " Bỏ panel: WinList luôn tự mở lại ở mọi tab, NERDTree do Ctrl-B
             if WinListIsWinList(l:bn) || WinListIsNERDTree(l:bn) | continue | endif
             if WinListIsSpecial(l:bn) | continue | endif
-            " Ghi đường dẫn TUYỆT ĐỐI: buffer number có thể bị dùng lại / đổi
-            " nội dung khi chuyển qua lại giữa các tab, còn đường dẫn thì
-            " không.  Buffer không tên ([No Name]) thì để rỗng.
             let l:name  = bufname(l:bn)
             let l:apath = l:name ==# '' ? '' : fnamemodify(l:name, ':p')
             call add(l:wins, {
                 \ 'nr':   l:bn,
-                \ 'path': l:apath,                     " FULL PATH (tuyệt đối)
+                \ 'path': l:apath,
                 \ 'name': l:name ==# '' ? '[No Name]' : fnamemodify(l:name, ':t'),
                 \ 'w':    winwidth(l:wid),
                 \ 'h':    winheight(l:wid),
                 \ })
         endfor
 
-        " ── Fallback ──────────────────────────────────────────────────────
-        " winlayout()/winbufnr(winid) không dùng được (Vim cũ, hoặc trả về
-        " rỗng) -> lấy danh sách buffer của tab bằng tabpagebuflist().  Khi đó
-        " không biết bề rộng/chiều cao từng cửa sổ (để 0, lúc dựng lại
-        " s:ApplySnapshotSizes sẽ bỏ qua) và hướng chia lấy mặc định.
         if empty(l:wins)
             for l:bn in tabpagebuflist(a:tabnr)
                 if l:bn <= 0 | continue | endif
@@ -3722,9 +2859,6 @@ function! s:SnapshotTabLayout(tabnr) abort
 
         if empty(l:wins) | return {} | endif
 
-        " Hướng chia lấy từ node gốc SAU KHI bỏ panel: 'row' = các cửa sổ nằm
-        " NGANG nhau (split dọc), 'col' = xếp CHỒNG (split ngang).  Mặc định
-        " 'row' vì vimrc này dùng split dọc là chính.
         let l:dir = 'row'
         let l:pruned = empty(l:root) ? [] : s:PruneLayout(l:root)
         if type(l:pruned) == type([]) && !empty(l:pruned)
@@ -3733,14 +2867,6 @@ function! s:SnapshotTabLayout(tabnr) abort
             endif
         endif
 
-        " ── ANCHOR = nội dung WinList ──────────────────────────────────────
-        " Không dùng tabpagewinnr()/tabpagebuflist() để đoán cửa sổ đang active:
-        " khi chuyển qua lại giữa các gvim tab, hoặc khi focus đang nằm ở panel,
-        " index đó trỏ sai cửa sổ (buffer "đổi chỗ").  WinList đã giải quyết
-        " đúng chuyện này bằng BUFFER NUMBER, lưu ở g:winlist_last_active[tab]
-        " và cũng chính là dấu '>' trong panel — nên lấy lại từ đó:
-        "   • tab hiện tại : s:CurrentContentBuf()  (tự fallback về buffer đã nhớ)
-        "   • tab khác     : g:winlist_last_active[tab]  (do WinListRefresh ghi)
         let l:active_buf = (a:tabnr == tabpagenr())
             \ ? s:CurrentContentBuf()
             \ : get(g:winlist_last_active, a:tabnr, -1)
@@ -3767,7 +2893,6 @@ function! s:SnapshotTabLayout(tabnr) abort
     endtry
 endfunction
 
-" Đẩy bản chụp của tab vừa đóng vào ngăn xếp (bỏ trùng, giới hạn số lượng).
 function! s:PushClosedTab(snap) abort
     if empty(a:snap) || empty(get(a:snap, 'wins', [])) | return | endif
 
@@ -3789,13 +2914,7 @@ function! s:PushClosedTab(snap) abort
     endif
 endfunction
 
-" Chụp layout mọi tab + phát hiện tab vừa đóng.  Được gọi ở cuối
-" WinListBuildAllTabLines() nên chạy theo mọi lần panel refresh.
 function! s:SnapshotAllTabLayouts() abort
-    " Hàm này được gọi từ MỌI lần WinList refresh (BufEnter/WinEnter/TabEnter...)
-    " nên rất hay chạy; mỗi lần lại quét mọi tab.  Chặn còn tối đa 1 lần/200ms —
-    " dò "tab vừa đóng" không cần nhanh hơn thế, mà mở nhiều file liên tiếp thì
-    " đỡ hẳn chi phí.
     if reltimefloat(reltime(g:tab_snapshot_last)) < 0.2
         return
     endif
@@ -3812,7 +2931,6 @@ function! s:SnapshotAllTabLayouts() abort
         endif
     endfor
 
-    " Tid có trong cache mà không còn tab tương ứng -> tab đó vừa bị đóng.
     for l:tid in keys(g:tab_layout_cache)
         if !has_key(l:live, l:tid)
             call s:PushClosedTab(remove(g:tab_layout_cache, l:tid))
@@ -3820,31 +2938,20 @@ function! s:SnapshotAllTabLayouts() abort
     endfor
 endfunction
 
-" Mở buffer của 1 cửa sổ trong snapshot.  Trả 1 nếu cửa sổ này ĐÃ HIỂN THỊ
-" đúng buffer/file cần khôi phục, 0 nếu thất bại (vd E37 vì buffer đang sửa
-" mà không ghi được) — nhờ vậy chỗ gọi báo được lỗi thay vì im lặng.
-" Ưu tiên ĐƯỜNG DẪN: buffer number có thể đã bị dùng lại cho file khác trong
-" lúc chuyển qua lại giữa các tab.  ':edit <path>' tự dùng lại buffer đã nạp
-" sẵn cùng đường dẫn nên không tạo buffer trùng.
 function! s:OpenSnapshotBuf(w) abort
     let l:nr   = get(a:w, 'nr', -1)
     let l:path = get(a:w, 'path', '')
-    " Session lưu FULL PATH; phòng khi file session cũ/bị sửa tay chỉ ghi
-    " đường dẫn tương đối thì quy về tuyệt đối trước khi mở.
     if l:path !=# '' && l:path !~# '^\%(/\|\a:[/\\]\)'
         let l:path = fnamemodify(l:path, ':p')
     endif
     if l:path !=# '' && filereadable(l:path)
         silent! execute 'edit ' . fnameescape(l:path)
-        " xác nhận cửa sổ hiện tại thật sự đang hiển thị file đó
         if fnamemodify(bufname('%'), ':p') ==# l:path
             return 1
         endif
-        " thử lại một lần: buffer đang giữ chỗ có thể bị sửa mà chưa ghi
         silent! execute 'edit! ' . fnameescape(l:path)
         return fnamemodify(bufname('%'), ':p') ==# l:path ? 1 : 0
     endif
-    " buffer không tên ([No Name]) -> dùng số buffer, kiểm tra lại cho chắc
     if l:nr > 0 && bufexists(l:nr) && bufname(l:nr) ==# ''
         silent! execute 'buffer ' . l:nr
         return bufnr('%') == l:nr ? 1 : 0
@@ -3852,9 +2959,6 @@ function! s:OpenSnapshotBuf(w) abort
     return 0
 endfunction
 
-" Trả về winid của cửa sổ NỘI DUNG thứ n (1-based, bỏ qua panel
-" WinList/NERDTree).  Dùng winid chứ không dùng winnr vì có panel chen vào
-" thì số thứ tự cửa sổ không còn khớp với thứ tự cửa sổ con của tab cũ.
 function! s:NormalWinId(n) abort
     let l:c = 0
     for l:i in range(1, winnr('$'))
@@ -3868,7 +2972,6 @@ function! s:NormalWinId(n) abort
     return 0
 endfunction
 
-" Focus cửa sổ NỘI DUNG thứ n (1-based, bỏ qua panel WinList/NERDTree).
 function! s:FocusNormalWin(n) abort
     if a:n <= 0 | return | endif
     let l:wid = s:NormalWinId(a:n)
@@ -3877,9 +2980,6 @@ function! s:FocusNormalWin(n) abort
     endif
 endfunction
 
-" Trả lại bề rộng (split dọc) / chiều cao (split ngang) đã ghi cho từng cửa
-" sổ con.  Chạy SAU khi WinList được dựng lại, vì lúc panel chen vào Vim sẽ
-" lấy bớt bề ngang của cửa sổ đầu tiên.
 function! s:ApplySnapshotSizes(snap) abort
     if !exists('*win_execute') | return | endif
     let l:j = 0
@@ -3901,8 +3001,6 @@ function! ReopenLastClosedTab() abort
         return 0
     endif
 
-    " Chỉ POP khi đã khôi phục xong — hỏng giữa chừng thì giữ lại để thử lại,
-    " tránh mất luôn tab vừa đóng.
     let l:snap     = g:closed_tab_stack[0]
     let l:n_before = tabpagenr('$')
 
@@ -3924,32 +3022,20 @@ function! ReopenLastClosedTab() abort
     try
         silent! execute 'tabnew'
 
-        " Tab mới PHẢI được tạo thật.  Nếu không (vd bị autocmd/timer khác
-        " chặn), dừng ngay — trước đây lỗi này bị silent! nuốt mất nên các
-        " bước sau chạy nhầm vào tab đang mở, đẩy file sang tab khác.
         if tabpagenr('$') != l:n_before + 1
             echo 'Ctrl-Shift-T: could not create a new tab - state kept.'
             return 0
         endif
         let l:newtab = tabpagenr()
 
-        " Nhớ tab vừa dựng để lần bấm TIẾP THEO đưa cửa sổ file đã đóng vào
-        " đúng tab này (xem ReopenLastClosedFile).  Không phụ thuộc Tab-ID.
         let g:last_restored_tab = {'tabnr': l:newtab, 'index': l:snap.index}
 
-        " Giữ nguyên Tab-ID CŨ cho tab vừa dựng lại.  Nhờ vậy nếu trước đó
-        " trong closed_file_stack còn entry của một cửa sổ thuộc tab này
-        " (file bị đóng TRƯỚC khi cả tab bị đóng), lần Ctrl-Shift-T sau
-        " WinListFindTabByID() vẫn tìm ra đúng tab này để mở lại đúng chỗ,
-        " thay vì tạo thêm một tab mới.
         if get(l:snap, 'tid', '') !=# ''
             silent! call settabvar(l:newtab, 'winlist_tab_id', l:snap.tid)
         endif
 
-        " 1) dựng lại từng cửa sổ con, giữ đúng hướng chia của tab cũ
         let l:i = 0
         for l:w in l:snap.wins
-            " bảo đảm vẫn đang ở đúng tab mới trước mỗi bước
             if tabpagenr() != l:newtab
                 silent! execute 'tabnext ' . l:newtab
             endif
@@ -3963,7 +3049,6 @@ function! ReopenLastClosedTab() abort
             let l:i += 1
         endfor
 
-        " Không mở được cửa sổ nào -> dọn tab vừa tạo, giữ snapshot để thử lại
         if len(l:missing) == len(l:snap.wins)
             if tabpagenr('$') > 1
                 silent! close
@@ -3972,8 +3057,6 @@ function! ReopenLastClosedTab() abort
             return 0
         endif
 
-        " 2) về đúng vị trí tab cũ (':tabmove' đếm từ 0).  Kẹp lại trong
-        "    khoảng hợp lệ phòng khi vị trí cũ lớn hơn số tab hiện có.
         let l:target = l:snap.index - 1
         let l:target = max([0, min([l:target, tabpagenr('$') - 1])])
         silent! execute 'tabmove ' . l:target
@@ -3981,15 +3064,9 @@ function! ReopenLastClosedTab() abort
         let g:panel_opening = 0
     endtry
 
-    " 3) Mở lại WinList — KHÔNG nằm trong snapshot và không được dựng từ
-    "    snapshot: bản chụp chỉ giữ cửa sổ NỘI DUNG (s:PruneLayout bỏ panel),
-    "    bề rộng panel luôn lấy theo s:PanelWidth() hiện tại, nên tab khôi
-    "    phục không mang theo bề rộng panel cũ.  Phải mở panel TRƯỚC khi
-    "    resize: khi panel chen vào, Vim lấy bớt bề ngang của cửa sổ bên cạnh.
     silent! call CombinedPanelOpen()
     silent! call s:ApplySnapshotSizes(l:snap)
 
-    " 4) focus đúng cửa sổ đang active như lúc trước khi đóng tab
     silent! call s:FocusNormalWin(l:snap.active)
     silent! call WinListRefreshAllTabs()
 
@@ -4004,16 +3081,11 @@ function! ReopenLastClosedTab() abort
         echo 'Ctrl-Shift-T: could not open ' . join(l:missing, ', ')
     endif
 
-    " khôi phục xong mới bỏ snapshot khỏi ngăn xếp
     call remove(g:closed_tab_stack, 0)
     return 1
 endfunction
 
-" Ctrl-Shift-T: ưu tiên khôi phục TAB vừa đóng; nếu không có tab nào đã đóng
-" thì quay về hành vi cũ là mở lại FILE vừa đóng bằng Ctrl-W.
 function! ReopenLastClosed() abort
-    " Hết cả hai ngăn xếp -> chỉ báo info, KHÔNG đụng vào layout/buffer hiện
-    " tại (khôi phục rỗng).
     if empty(g:closed_tab_stack) && empty(g:closed_file_stack)
         echo 'Ctrl-Shift-T: nothing left to restore (empty stack).'
         call s:RestoreLog('EMPTY (không còn gì để khôi phục)')
@@ -4027,30 +3099,6 @@ function! ReopenLastClosed() abort
     endif
 endfunction
 
-
-" ════════════════════════════════════════════════════════════════════════════
-"  SESSION SAVE / RESTORE
-"  Description: lưu toàn bộ phiên (mọi tab + mọi split, đúng thứ tự, đúng
-"  hướng chia, đúng bề rộng, đúng cửa sổ active) ra file JSON trong
-"  ~/.gvim_sessions/session-YYYYmmdd-HHMMSS.json.
-"   • Khi thoát GVim mà có NHIỀU tab hoặc có SPLIT: hiện hộp thoại 2 nút
-"     "Save-exit" / "Exit" (confirm() của GVim).  Save-exit -> ghi file rồi
-"     thoát; Exit -> thoát không lưu; Esc -> thoát, không lưu.
-"   • `:SaveSession` lưu tay bất cứ lúc nào.
-"   • `<F2>` = TOGGLE danh sách session NGAY TRONG CỬA SỔ HIỆN TẠI (không mở
-"     tab mới — đây là thao tác hay dùng khi vừa mở một GVim trống): tên
-"     session = ngày giờ lưu, kèm danh sách tab/split của từng session; Enter
-"     (hoặc double click) để khôi phục, q đóng, r đọc lại thư mục.  Bấm F2
-"     lần nữa (dù con trỏ đang ở cửa sổ khác) cũng đóng picker.
-"     Toàn bộ chữ trong picker là TIẾNG ANH.
-"     Vì sao không dùng Ctrl-Shift-O: trong Vim, với CHỮ CÁI thì Shift bị bỏ
-"     qua khi đi cùng Ctrl -> <C-S-o> chính là <C-o>, map nó sẽ ghi đè phím
-"     Ctrl-O (explorer) của SmartCtrlO().
-"  Kỹ thuật dựng lại tab dùng chung với TAB RESTORE ở trên
-"  (s:OpenSnapshotBuf / s:ApplySnapshotSizes): panel WinList không nằm trong
-"  bản lưu, mỗi tab luôn tự mở lại panel như bình thường.
-" ════════════════════════════════════════════════════════════════════════════
-
 let g:session_max         = 20
 let g:session_picker_buf  = '__SessionPicker__'
 
@@ -4062,10 +3110,6 @@ function! s:SessionsDir() abort
     return l:dir
 endfunction
 
-" Danh sách file session, MỚI NHẤT TRƯỚC.
-" Sắp theo THỜI GIAN SỬA FILE (getftime) chứ không theo tên: khi người dùng
-" đặt tên session, tên file thành session-<tên>-<timestamp>.json nên sort
-" theo tên sẽ nhóm lộn xộn.
 function! s:SessionFiles() abort
     let l:files = glob(s:SessionsDir() . '/session-*.json', 1, 1)
     if empty(l:files) | return [] | endif
@@ -4080,7 +3124,6 @@ function! s:SessionRead(path) abort
     endtry
 endfunction
 
-" Giữ tối đa g:session_max file, xoá các file cũ nhất.
 function! s:PruneSessions() abort
     let l:files = s:SessionFiles()
     if len(l:files) <= g:session_max | return | endif
@@ -4089,7 +3132,6 @@ function! s:PruneSessions() abort
     endfor
 endfunction
 
-" Chụp toàn bộ phiên hiện tại thành dict {saved, tabs:[{wins,dir,active}]}.
 function! s:SessionSnapshot() abort
     let l:tabs = []
     for l:t in range(1, tabpagenr('$'))
@@ -4104,17 +3146,12 @@ function! s:SessionSnapshot() abort
     return {'saved': strftime('%Y-%m-%d %H:%M:%S'), 'tabs': l:tabs}
 endfunction
 
-" Lưu session.  {label} là tuỳ chọn: rỗng -> tên mặc định
-" session-YYYYmmdd-HHMMSS.json; có tên -> session-<tên>-YYYYmmdd-HHMMSS.json
-" (tên được làm sạch ký tự lạ để không hỏng tên file).
 function! s:SaveSession(...) abort
     let l:label = a:0 > 0 ? substitute(a:1, '[^0-9A-Za-z._-]', '-', 'g') : ''
     let l:label = substitute(l:label, '^-\+\|-\+$', '', 'g')
 
     let l:data = s:SessionSnapshot()
     if empty(l:data.tabs)
-        " Kèm vài số liệu để biết vì sao: winlayout có sẵn không, đang có mấy
-        " tab, buffer của tab hiện tại là gì.
         echo printf('SaveSession: nothing to save (winlayout=%d tabs=%d bufs=%s)',
             \ exists('*winlayout'), tabpagenr('$'), string(tabpagebuflist()))
         return ''
@@ -4135,20 +3172,13 @@ function! s:SaveSession(...) abort
     return l:path
 endfunction
 
-" <F3>: echo hỏi tên rồi lưu.
-"   • Enter (không gõ gì)  -> lưu với tên mặc định session-<ngày giờ>.json
-"   • gõ tên               -> lưu thành session-<tên>-<ngày giờ>.json
-"   • Ctrl-C               -> huỷ (input() bị ngắt nên hàm abort, không lưu)
 function! s:AskNameAndSave() abort
     let l:label = input('Session name (Enter = default, Ctrl-C = cancel): ')
-    " input() để lại nguyên dòng prompt (kể cả tên vừa gõ) trên command line;
-    " xoá đi rồi mới in "Session saved: ..." để thông báo đứng riêng một dòng.
     echo ''
     silent! redraw
     call s:SaveSession(l:label)
 endfunction
 
-" Dựng lại 1 tab từ snapshot {wins, dir, active} rồi đưa về vị trí index.
 function! s:BuildTabFromSnapshot(snap, index) abort
     let l:n_before = tabpagenr('$')
     silent! execute 'tabnew'
@@ -4185,7 +3215,6 @@ function! s:BuildTabFromSnapshot(snap, index) abort
     return 1
 endfunction
 
-" Khôi phục toàn bộ session (đúng thứ tự tab/split đã lưu).
 function! s:RestoreSession(sess) abort
     if type(a:sess) != type({}) | return 0 | endif
     let l:tabs = get(a:sess, 'tabs', [])
@@ -4194,8 +3223,6 @@ function! s:RestoreSession(sess) abort
         return 0
     endif
 
-    " tab đang đứng trước khi khôi phục: nếu chỉ là scratch ([No Name] /
-    " picker / netrw) thì dọn sau khi dựng xong, để không để lại tab rác
     let l:old_tid     = WinListGetTabID()
     let l:old_special = (WinListIsSpecial() || bufname('%') ==# '') ? 1 : 0
 
@@ -4226,7 +3253,6 @@ function! s:RestoreSession(sess) abort
     return 1
 endfunction
 
-" ── Chọn session (<F2> / :SessionPicker) ────────────────────────────────────
 function! s:SessionPickerLines() abort
     let l:L = []
     let l:files = s:SessionFiles()
@@ -4244,7 +3270,6 @@ function! s:SessionPickerLines() abort
         for l:t in l:tabs
             let l:nw += len(get(l:t, 'wins', []))
         endfor
-        " '§path' ở cuối dòng bị conceal; dùng để biết dòng thuộc session nào
         let l:label = get(l:s, 'label', '')
         call add(l:L, printf('=== %s%s   (%d tabs, %d windows) ===§%s',
             \ get(l:s, 'saved', fnamemodify(l:f, ':t:r')),
@@ -4255,7 +3280,6 @@ function! s:SessionPickerLines() abort
             let l:i += 1
             let l:names = []
             for l:w in get(l:t, 'wins', [])
-                " ưu tiên 'name' đã lưu; file session cũ thì lấy tên từ path
                 call add(l:names, get(l:w, 'name',
                     \ fnamemodify(get(l:w, 'path', ''), ':t')))
             endfor
@@ -4297,7 +3321,6 @@ function! s:SessionPickerFill() abort
     silent! call s:SessionPickerSetup()
 endfunction
 
-" Đóng picker: trả lại buffer đã hiển thị trước đó trong cửa sổ này.
 function! s:SessionPickerClose() abort
     if bufname('%') !=# g:session_picker_buf
         let l:wnr = bufwinnr(g:session_picker_buf)
@@ -4313,11 +3336,7 @@ function! s:SessionPickerClose() abort
     endif
 endfunction
 
-" Mở danh sách session NGAY TRONG CỬA SỔ HIỆN TẠI (không mở tab mới) — đây
-" là thao tác hay dùng khi vừa mở một GVim trống, nên chiếm luôn cửa sổ đó.
 function! SessionPicker() abort
-    " TOGGLE: picker đang hiện ở bất kỳ cửa sổ nào -> đóng (trả lại buffer cũ);
-    " chưa mở -> mở trong cửa sổ hiện tại.
     if bufwinnr(g:session_picker_buf) != -1
         call s:SessionPickerClose()
         return
@@ -4326,7 +3345,6 @@ function! SessionPicker() abort
     let l:prev = bufnr('%')
     silent! execute 'keepalt edit ' . fnameescape(g:session_picker_buf)
     if bufname('%') !=# g:session_picker_buf
-        " :edit thất bại (vd buffer hiện tại đang sửa mà không ghi được)
         silent! enew
         silent! execute 'file ' . g:session_picker_buf
         if bufname('%') !=# g:session_picker_buf
@@ -4341,7 +3359,6 @@ function! SessionPicker() abort
     echo 'Pick a session and press Enter (double-click also works); q to close.'
 endfunction
 
-" Restore the session on the cursor line (header line or one of its Tab lines).
 function! s:SessionPickRestore() abort
     let l:path = ''
     for l:lnum in range(line('.'), 1, -1)
@@ -4370,14 +3387,6 @@ function! s:SessionPickRestore() abort
     silent! call s:RestoreSession(l:sess)
 endfunction
 
-" Hai phím của tính năng session (trong GVim F2/F3 chưa dùng — pastetoggle bên
-" dưới chỉ đặt cho Vim trong terminal):
-"   <F2> = TOGGLE session picker (chọn session để restore)
-"   <F3> = hỏi TÊN rồi lưu: Enter = tên mặc định (session-<ngày giờ>.json),
-"          gõ tên = session-<tên>-<ngày giờ>.json, Ctrl-C = huỷ
-" TUYỆT ĐỐI không map <C-S-o>: trong Vim, với CHỮ CÁI phần Shift bị bỏ qua khi
-" đi cùng Ctrl, nên <C-S-o> chính là <C-o> — map nó sẽ GHI ĐÈ mapping <C-o>
-" của SmartCtrlO() (explorer), và Ctrl-O sẽ mở nhầm session picker.
 if has('gui_running')
     nnoremap <silent> <F2> :call SessionPicker()<CR>
     inoremap <silent> <F2> <Esc>:call SessionPicker()<CR>
@@ -4387,22 +3396,7 @@ endif
 command! -nargs=? SaveSession call <SID>SaveSession(<q-args>)
 command! SessionPicker call SessionPicker()
 
-" KHÔNG có autocmd VimLeavePre: đóng bằng X hay :q đều im lặng, không hỏi,
-" không tự lưu.  Việc lưu là do người dùng bấm <F3>.
-
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │               QUICK REPLACE  :R <old> --- <new>                          │
-" │ Description: Replaces ALL literal (regex-safe, symbol/space-agnostic)    │
-" │ occurrences of <old> with <new> across the whole buffer, case-sensitive. │
-" │ Delimiter is the LAST "---" found in the argument string, so both        │
-" │ <old> and <new> may freely contain spaces, punctuation, or code syntax   │
-" │ (brackets, arrows, dots, etc.) without breaking the pattern. After a     │
-" │ successful replace, the NEW text is search-highlighted (clear via        │
-" │ <S-l> / :nohlsearch). Reports the number of occurrences replaced.        │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! QuickReplace(args) abort
-    " ── Find the LAST '---' delimiter ──────────────────────────────────────
     let l:idx         = -1
     let l:search_from = 0
     while 1
@@ -4428,16 +3422,11 @@ function! QuickReplace(args) abort
         return
     endif
 
-    " ── Build a fully literal (\V) search pattern ─────────────────────────
-    " Only '\' and '/' need escaping under \V — everything else
-    " (. * $ ^ [ ] ( ) { } + ? | < > ~ - etc.) is treated as plain text.
     let l:escaped_old = escape(l:old, '\/')
     let l:pattern      = '\V\C' . l:escaped_old
 
-    " ── Escape only what matters on the *replacement* side of :substitute ─
     let l:escaped_new = escape(l:new, '\/&~')
 
-    " ── Count literal occurrences first (plain string search, no regex) ───
     let l:count = 0
     let l:lnum  = 1
     while l:lnum <= line('$')
@@ -4471,19 +3460,6 @@ endfunction
 
 command! -nargs=+ R call QuickReplace(<q-args>)
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                    QUICK DELETE  :D <text>                               │
-" │ Description: Deletes ALL literal (regex-safe, symbol/space-agnostic)     │
-" │ occurrences of <text> across the whole buffer, case-sensitive. <text>    │
-" │ may contain spaces, punctuation, or code syntax — works for single       │
-" │ words or full multi-word phrases, matching the same \V-literal engine    │
-" │ as :R. After a successful delete, every FULL LINE that had a match is    │
-" │ highlighted (since the deleted text itself no longer exists to           │
-" │ highlight), built via ordinary-magic \%Nl line-number atoms — clear via  │
-" │ <S-l> / :nohlsearch, identical to :R's behavior. Reports the number of   │
-" │ occurrences deleted.                                                     │
-" └──────────────────────────────────────────────────────────────────────────┘
 function! QuickDelete(args) abort
     let l:target = trim(a:args)
 
@@ -4495,11 +3471,9 @@ function! QuickDelete(args) abort
         return
     endif
 
-    " ── Build a fully literal (\V) search pattern ─────────────────────────
     let l:escaped = escape(l:target, '\/')
     let l:pattern = '\V\C' . l:escaped
 
-    " ── Find occurrences + collect affected line numbers ──────────────────
     let l:count         = 0
     let l:affected_lnum = []
     let l:lnum = 1
@@ -4527,7 +3501,6 @@ function! QuickDelete(args) abort
 
     execute 'silent! %substitute/' . l:pattern . '//g'
 
-    " ── Highlight affected full lines (ordinary magic mode, correct \%Nl) ─
     let l:parts = []
     for l:n in l:affected_lnum
         call add(l:parts, '\%' . l:n . 'l')
@@ -4547,21 +3520,6 @@ command! -nargs=+ D call QuickDelete(<q-args>)
 
 nnoremap <S-l> :nohlsearch<CR>
 
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │              WORD / SELECTION HIGHLIGHT BOOKMARK  ( m  /  ml )           │
-" │   Marks are bound to BUFFER content — they never leak into netrw/        │
-" │   WinList/other buffers reused in the same window, and never fire        │
-" │   automatically outside of an explicit  m  /  ml  keypress.              │
-" │ Description: Persistent per-buffer text-highlight bookmarks (a manual    │
-" │ "sticky highlight" separate from search-highlight). Press  m  on a       │
-" │ word (Normal) or a selection (Visual) to toggle a highlight mark at      │
-" │ that exact position; marks persist across buffer switches (redrawn via   │
-" │ matchaddpos on BufEnter) and are cleaned up automatically when a         │
-" │ buffer is wiped out. Press  ml  to clear all marks in the current        │
-" │ buffer.                                                                  │
-" └──────────────────────────────────────────────────────────────────────────┘
-
 function! s:MarkedHighlights() abort
     silent! highlight default MarkedWord guibg=#7a333d guifg=NONE gui=NONE ctermbg=95 ctermfg=NONE
     silent! highlight default MarkedLine guibg=#7a333d guifg=NONE gui=NONE ctermbg=95 ctermfg=NONE
@@ -4573,12 +3531,10 @@ augroup MarkedHighlightColors
     autocmd ColorScheme * call s:MarkedHighlights()
 augroup END
 
-" g:marked_store : { bufnr : { key : {'group': <hl>, 'pos': [[l,c,len], ...]} } }
 if !exists('g:marked_store')
     let g:marked_store = {}
 endif
 
-" ── Guard: only allow marking on real, normal file buffers ──────────────────
 function! s:MarkGuardOK() abort
     if WinListIsSpecial() || WinListIsNERDTree()
         return 0
@@ -4597,7 +3553,6 @@ function! s:EnsureBufStore() abort
     return l:bn
 endfunction
 
-" Clear the visual matches (only) in the CURRENT window — storage untouched
 function! s:ClearWindowMatches() abort
     if exists('w:marked_ids')
         for l:id in w:marked_ids
@@ -4607,16 +3562,8 @@ function! s:ClearWindowMatches() abort
     let w:marked_ids = []
 endfunction
 
-" Vim cho tối đa 8 position trong MỘT matchaddpos() (quá 8 -> lỗi E5030
-" "Too many positions").  Selection dài hơn 8 dòng phải chẻ thành nhiều match.
 let s:maxpos = 8
 
-" (Re)draw matches for whatever buffer is now loaded in this window.
-" LƯU Ý (bug đã sửa): mark lưu theo (dòng, cột), nên sau khi sửa/xoá dòng thì
-" vị trí cũ có thể vượt quá số dòng hiện có -> matchaddpos() ném lỗi ở MỌI
-" lần BufEnter (vì hàm này chạy mỗi lần vào buffer), làm 'm' trông như lỗi.
-" Giờ: lọc lại vị trí, bỏ entry không còn hợp lệ, chẻ ≤ 8 position/match, và
-" bọc matchaddpos trong silent!.
 function! s:ApplyMarksForCurrentBuffer() abort
     call s:ClearWindowMatches()
     let l:bn = bufnr('%')
@@ -4624,7 +3571,6 @@ function! s:ApplyMarksForCurrentBuffer() abort
 
     let l:last = line('$')
     for [l:key, l:entry] in items(g:marked_store[l:bn])
-        " chỉ giữ vị trí còn nằm trong buffer và có độ dài > 0
         let l:valid = []
         for l:p in l:entry.pos
             if l:p[0] >= 1 && l:p[0] <= l:last && l:p[2] >= 1
@@ -4658,7 +3604,6 @@ augroup MarkedBufferSync
     autocmd BufEnter,BufWinEnter * call s:ApplyMarksForCurrentBuffer()
 augroup END
 
-" Free memory when a buffer is wiped out
 augroup MarkedBufWipe
     autocmd!
     autocmd BufWipeout * if has_key(g:marked_store, str2nr(expand('<abuf>')))
@@ -4666,14 +3611,11 @@ augroup MarkedBufWipe
                        \ | endif
 augroup END
 
-" ── Find exact (line, col, len) of the word instance under the cursor ───────
 function! s:GetWordAtCursorPos() abort
     let l:cword = expand('<cword>')
     if l:cword ==# '' | return [] | endif
 
     let l:line     = getline('.')
-    " escape phải có cả '\' (iskeyword của .sv có thể chứa '$', '.', … nên cword
-    " có thể là '$display' -> thiếu escape là pattern hỏng, matchstrpos ném lỗi)
     let l:pattern  = '\<' . escape(l:cword, '\.*$^~[]\') . '\>'
     let l:curcol   = col('.') - 1
     let l:startpos = 0
@@ -4690,7 +3632,6 @@ function! s:GetWordAtCursorPos() abort
     return []
 endfunction
 
-" ── Toggle highlight on the exact word occurrence under cursor ──────────────
 function! ToggleMarkWord() abort
     if !s:MarkGuardOK() | return | endif
 
@@ -4712,7 +3653,6 @@ function! ToggleMarkWord() abort
     call s:ApplyMarksForCurrentBuffer()
 endfunction
 
-" ── Build exact [line, col, len] list for the current visual selection ──────
 function! s:GetVisualSelectionPositions() abort
     let l:mode  = visualmode()
     let l:start = getpos("'<")
@@ -4769,14 +3709,11 @@ function! s:GetVisualSelectionPositions() abort
     return l:positions
 endfunction
 
-" ── Toggle highlight on the exact visual selection ──────────────────────────
 function! ToggleMarkSelection() abort
     if !s:MarkGuardOK() | return | endif
 
     let l:positions = s:GetVisualSelectionPositions()
     if empty(l:positions) | return | endif
-    " Chặn selection quá lớn: mỗi lần BufEnter phải dựng lại toàn bộ match, và
-    " 1 selection cả nghìn dòng sẽ làm chậm thấy rõ.
     if len(l:positions) > 500
         echo 'Selection too large to mark (max 500 lines)'
         return
@@ -4796,7 +3733,6 @@ function! ToggleMarkSelection() abort
     call s:ApplyMarksForCurrentBuffer()
 endfunction
 
-" ── Clear all marks for the CURRENT buffer only ─────────────────────────────
 function! ClearAllMarks() abort
     let l:bn = bufnr('%')
     if has_key(g:marked_store, l:bn)
@@ -4806,20 +3742,9 @@ function! ClearAllMarks() abort
     echo "All marks cleared (this buffer)"
 endfunction
 
-" CHỈ 2 phím (theo yêu cầu):
-"   mh = toggle mark (Normal: từ dưới con trỏ / Visual: cả vùng chọn)
-"   ml = clear all mark của buffer hiện tại
-" 'm' một mình KHÔNG còn map -> trả lại cho Vim lệnh đặt mark gốc (ma, mb, …).
 nnoremap <silent> mh :call ToggleMarkWord()<CR>
 vnoremap <silent> mh :<C-u>call ToggleMarkSelection()<CR>
 nnoremap <silent> ml :call ClearAllMarks()<CR>
-
-" ┌──────────────────────────────────────────────────────────────────────────┐
-" │                    F1 — VIMRC MANUAL (TOP SPLIT TOGGLE)                  │
-" │ Description: F1 toggles a top-half horizontal split showing a built-in   │
-" │ cheat-sheet documenting this vimrc's keybindings and auto-features.      │
-" │ Read-only scratch buffer; press F1 or q inside it to close.              │
-" └──────────────────────────────────────────────────────────────────────────┘
 
 function! s:VimrcManualHighlights() abort
     silent! highlight default VMHeader  guifg=#61AFEF ctermfg=75  gui=bold
@@ -4847,7 +3772,7 @@ function! s:VimrcManualContent() abort
     let l:L = []
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '  VIMRC MANUAL — haozxje custom GVim config   (F1 / q to close)')
-    call add(l:L, '  Version 7.42  ·  2026-11-19')
+    call add(l:L, '  Version 7.54  ·  2026-11-19')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     call add(l:L, '')
 
@@ -4855,7 +3780,7 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • Bố cục: `~/.vimrc` bên trái, `[CL<current>:TL<total>]` bên phải')
     call add(l:L, '     CL = dòng hiện tại, TL = tổng số dòng của buffer')
     call add(l:L, '  • Thứ tự BỐN khối, SÁT nhau không dấu cách:')
-    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.42]`')
+    call add(l:L, '     `[CL12:TL431][4sp][systemverilog][V7.54]`')
     call add(l:L, '  • Khối 2 `[<indent>]` — dò từ NỘI DUNG buffer:')
     call add(l:L, '     `[4sp]` = thụt 4 cột bằng dấu cách, `[8tb]` = thụt bằng TAB,')
     call add(l:L, '     `[mix]` = trộn cả hai (mỗi loại >= 10% số dòng có thụt).')
@@ -4923,7 +3848,22 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     Bản riêng: chữ thường TRẮNG; **đậm**/*nghiêng* đổi sang REGION')
     call add(l:L, '     nên tô được cả khi xuống dòng; dòng thụt 4 space VẪN có syntax')
     call add(l:L, '     (tắt: `let g:md_indent_is_code = 0`); mục list chia 3 cấp màu')
-    call add(l:L, '     theo độ thụt (0-3 / 4-7 / >=8 space).')
+    call add(l:L, '     theo độ thụt (0-3 / 4-7 / >=8 space). `code` chứa `/`')
+    call add(l:L, '     (đường dẫn) = XANH BIỂN; dấu ``` mở/đóng fence = CAM')
+    call add(l:L, '     (không nền).  NỀN XÁM `g:md_fence_bg` có cạnh TRÁI = lề NHỎ')
+    call add(l:L, '     NHẤT của khối (các dòng THẲNG CỘT) và chạy tới HẾT DÒNG;')
+    call add(l:L, '     cạnh phải cũng thẳng hàng nên thành hình chữ nhật.  Mặc định')
+    call add(l:L, '     `#363636` = đúng màu `highlight CursorLine` trong vimrc.')
+    call add(l:L, '     Cạnh phải thẳng hàng nhờ formatter đệm space cuối dòng trong')
+    call add(l:L, '     fence (`let g:md_fence_pad = 0` để tắt; `g:md_fence_bg =')
+    call add(l:L, '     ''NONE''` để tắt hẳn nền).  Chữ có màu riêng vẫn giữ màu.')
+    call add(l:L, '     Nền do ftplugin/md.vim vẽ bằng matchaddpos (`s:FenceBgApply`),')
+    call add(l:L, '     KHÔNG bằng syntax: `syn keyword` đứng đầu dòng luôn thắng syn')
+    call add(l:L, '     match/region nên tô nền bằng syntax thì dòng mở đầu bằng')
+    call add(l:L, '     bit/if/constraint/end bị mất nền.')
+    call add(l:L, '     BẢNG markdown cũng được tô nền y như khối ``` (`g:md_table_bg')
+    call add(l:L, '     = 0` để tắt); dòng phân cách `| --- |` màu XANH BIỂN giống')
+    call add(l:L, '     path (mdTableHead).')
     call add(l:L, '     Phím: CHỈ `za` (toggle fold hiện tại) + `zo` (toggle tất cả)')
     call add(l:L, '     TỰ FORMAT TOÀN BỘ NỘI DUNG mỗi lần ghi file: căn bảng, bỏ')
     call add(l:L, '     space cuối dòng, tiêu đề `#   X  ##` -> `# X`, `* `/`+ ` ->')
@@ -4938,6 +3878,19 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     `| --- |` sẽ được TỰ CHÈN (`let g:md_table_guess = 0` tắt);')
     call add(l:L, '     bảng thiếu `|` đầu dòng vẫn căn được; độ rộng cột tính theo')
     call add(l:L, '     số ô màn hình nên tiếng Việt có dấu không bị lệch cột.')
+    call add(l:L, '     BẢNG VIẾT TAY (cột căn bằng space, chỉ dòng `| --- |` có `|`):')
+    call add(l:L, '     số cột lấy theo ĐA SỐ các hàng, mỗi hàng tách theo `|` hoặc theo')
+    call add(l:L, '     cụm 2+ space -> tự chuyển thành bảng `| … | … |` chuẩn.  Hàng')
+    call add(l:L, '     không tách được đúng số cột thì GIỮ NGUYÊN VĂN, không bị phá.')
+    call add(l:L, '  • THEO LINK NỘI BỘ: đặt con trỏ lên `[text](#anchor)` (bảng')
+    call add(l:L, '     Contents) rồi `<C-]>` hoặc DOUBLE-CLICK -> nhảy tới tiêu đề')
+    call add(l:L, '     có slug khớp (GitHub-style, giữ dấu tiếng Việt; không khớp')
+    call add(l:L, '     chính xác thì so lần 2 sau khi bỏ dấu cả hai phía; vẫn không')
+    call add(l:L, '     khớp thì so TIỀN TỐ, và anchor `%xx` được giải mã). Tiêu đề')
+    call add(l:L, '     thụt lề bao nhiêu cũng được. Link không nằm dưới con trỏ mà')
+    call add(l:L, '     dòng chỉ có 1 link thì vẫn nhảy.  Nhảy xong TỰ VỀ NORMAL')
+    call add(l:L, '     (double-click không để lại Visual mode).')
+    call add(l:L, '     Lệnh: `:MdLink`.  (`:MdSyn` = soi nhóm syntax/màu dưới con trỏ)')
     call add(l:L, '     (FOLD của .md xem mục ▶ FOLDING)')
     call add(l:L, '  • `autoread` + CursorHold auto :checktime (detect external changes)')
     call add(l:L, '  • SWAP FILE: vẫn bật (lưới an toàn cho auto-save), nhưng dồn về')
@@ -4964,16 +3917,21 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ FOLDING  (mặc định + phím, riêng cho từng loại buffer)')
-    call add(l:L, '  • `.md`  `foldmethod=expr` theo TIÊU ĐỀ (hàm `HaozMdFoldLevel`/')
-    call add(l:L, '     `HaozMdFoldText` nằm NGAY trong .vimrc, không phụ thuộc')
-    call add(l:L, '     ftplugin); mở file = ĐÓNG HẾT (`foldlevel=0`).')
-    call add(l:L, '  • `.sv/.v/.svt`  `foldmethod=indent`; mở file = `foldlevel=3`')
-    call add(l:L, '     (khối lồng tới cấp 3 vẫn mở -> đọc được tổng quan).')
+    call add(l:L, '  • `.md`: `foldmethod=expr` + `foldexpr=HaozMdFoldLevel()` — cấp')
+    call add(l:L, '     fold = số space đầu dòng / 4 + 1 (BƯỚC CỐ ĐỊNH 4 SPACE), nên')
+    call add(l:L, '     KHÔNG phụ thuộc `shiftwidth` (sleuth đổi sw -> indent-fold gộp')
+    call add(l:L, '     cả file thành 1 fold).  Cấp: cột 0 = 1 (`#`,`##`), 4 space = 2')
+    call add(l:L, '     (`###`), 8 space = 3 (thân bài), 12 = 4 …')
+    call add(l:L, '     Mở file: **`foldlevel=2`** -> thấy `#`/`##`/`###`, GẬP thân bài.')
+    call add(l:L, '     (gập cả `###` -> 1; mở hết -> 5.)')
+    call add(l:L, '  • `.sv/.v/.svh/.svt/.svti`: `foldmethod=indent`, `foldlevel=3`.')
+    call add(l:L, '     `foldlevel` chỉ đặt ở lần mở buffer ĐẦU (b:haoz_fold_init) nên')
+    call add(l:L, '     buffer reload không làm fold tự gập.')
     call add(l:L, '  • Phím: `za` = toggle fold hiện tại (Vim gốc) | `zo` = toggle')
     call add(l:L, '     TẤT CẢ fold | `zA` = toggle fold hiện tại + toàn bộ node con')
     call add(l:L, '     (chỉ .sv — `HaozFoldToggleRecursive`)')
-    call add(l:L, '  • `zo` toggle giữa MỞ HẾT <-> GẬP VỀ mức "home" của buffer:')
-    call add(l:L, '     `.sv` -> 3 (không gập xuống 0), `.md` -> 0 (`b:haoz_fold_home`)')
+    call add(l:L, '  • `zo` toggle giữa MỞ HẾT <-> GẬP VỀ `b:haoz_fold_home`')
+    call add(l:L, '     (= 2 cho .md, 3 cho .sv)')
     call add(l:L, '  • Mọi mapping đều `<buffer>`; `zc`/`zO`/`zC`/`zM`/`zR` vẫn là')
     call add(l:L, '     lệnh gốc của Vim.')
     call add(l:L, '')
