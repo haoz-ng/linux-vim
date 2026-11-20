@@ -878,7 +878,7 @@ function! s:FenceBgApply() abort
   while l:i < len(l:pos)
     let l:last = (l:i + 7 < len(l:pos)) ? l:i + 7 : len(l:pos) - 1
     let l:id = 0
-    silent! let l:id = matchaddpos(s:fence_bg_group, l:pos[l:i : l:last], 1)
+    silent! let l:id = matchaddpos(s:fence_bg_group, l:pos[l:i : l:last], 10)
     if l:id > 0
       call add(w:md_fbg_ids, l:id)
     endif
@@ -888,6 +888,30 @@ function! s:FenceBgApply() abort
   " phải đợi lần vẽ kế tiếp (đúng lỗi 'mở file nền hiện chậm').
   silent! redraw
 endfunction
+
+function! s:FenceBgInfo() abort
+  let l:pos = []
+  call s:BgAddRanges(l:pos, s:FenceContentRanges())
+  if get(g:, 'md_table_bg', 1)
+    call s:BgAddRanges(l:pos, s:TableRanges())
+  endif
+  let l:hf = ''
+  let l:hb = ''
+  silent! let l:hf = execute('hi mdFence')
+  silent! let l:hb = execute('hi mdFenceBg')
+  echo 'ft=' . &filetype
+        \ . '  syn=' . get(b:, 'current_syntax', '?')
+        \ . '  matchaddpos=' . exists('*matchaddpos')
+        \ . '  g:md_fence_bg=' . string(get(g:, 'md_fence_bg', '#363636'))
+        \ . '  vim=' . v:version
+  echo 'mdFence hi=' . substitute(l:hf, '\n', ' ', 'g')
+  echo 'positions=' . len(l:pos)
+        \ . '  ids=' . (exists('w:md_fbg_ids') ? len(w:md_fbg_ids) : -1)
+        \ . '  bufwin=' . winbufnr(0) . '/' . bufnr('%')
+  echo 'mdFenceBg hi=' . substitute(l:hb, '\n', ' ', 'g')
+endfunction
+command! -buffer MdFenceBgInfo call s:FenceBgInfo()
+command! -buffer MdFenceBgOn call s:FenceBgClear() | call s:FenceBgApply() | redraw | echo 'bg: ' . len(get(w:, 'md_fbg_ids', [])) . ' matches'
 
 function! s:FenceBgTick(timer) abort
   let s:fence_bg_timer = -1
