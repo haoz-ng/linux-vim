@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.76                                                         ║
+" ║  Version  : 7.77                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -100,8 +100,8 @@ colorscheme haoz
 
 filetype plugin on
 au BufNewFile,BufRead *.md setlocal ft=md
-au FileType md setlocal nowrap
-au BufWinEnter,WinEnter *.md setlocal nowrap
+au FileType md setlocal nowrap shiftwidth=4
+au BufWinEnter,WinEnter *.md setlocal nowrap shiftwidth=4
 
 function! s:MdLeadCodes(text) abort
     let l:out = []
@@ -993,8 +993,8 @@ function! HaozSvFoldSetup() abort
 endfunction
 
 function! HaozMdFoldSetup() abort
-    setlocal foldmethod=expr
-    setlocal foldexpr=HaozMdFoldLevel(v:lnum)
+    setlocal shiftwidth=4
+    setlocal foldmethod=indent
     setlocal foldenable
     setlocal foldtext=HaozMdFoldText()
     if get(b:, 'haoz_fold_lvl', -1) != 2
@@ -3920,14 +3920,12 @@ function! s:VimrcManualContent() abort
     call add(l:L, '')
 
     call add(l:L, '▶ FOLDING  (mặc định + phím, riêng cho từng loại buffer)')
-    call add(l:L, '  • `.md`: `foldmethod=expr` + `foldexpr=HaozMdFoldLevel()` — cấp')
-    call add(l:L, '     fold = số space đầu dòng / 4 + 1 (BƯỚC CỐ ĐỊNH 4 SPACE), nên')
-    call add(l:L, '     KHÔNG phụ thuộc `shiftwidth` (sleuth đổi sw -> indent-fold gộp')
-    call add(l:L, '     cả file thành 1 fold).  Cấp: cột 0 = 1 (`#`,`##`), 4 space = 2')
-    call add(l:L, '     (`###`), 8 space = 3 (thân bài), 12 = 4 …')
+    call add(l:L, '  • `.md`: `foldmethod=indent` (C code, NHANH khi gõ) với')
+    call add(l:L, '     `shiftwidth=4` được GHIM cho buffer md (`FileType`/`BufWinEnter`)')
+    call add(l:L, '     để sleuth đổi sw cũng không làm fold sai (lỗi "fold 559 dòng").')
+    call add(l:L, '     Cấp: cột 0 = 1 (`#`,`##`), 4 space = 2 (`###`), 8 space = 3 …')
     call add(l:L, '     Mở file: **`foldlevel=2`** -> `#` và `##` MỞ, `###` GẬP')
-    call add(l:L, '     (thấy `+-- N dòng`), thân bài nằm trong fold.  (1 -> gập cả')
-    call add(l:L, '     `##`; 0 -> gập sạch; 3 -> thấy cả thân bài.)')
+    call add(l:L, '     (thấy `▸ ... ⋯ N dòng`).  (1 -> gập cả `##`; 0 -> gập sạch)')
     call add(l:L, '  • `.sv/.v/.svh/.svt/.svti`: `foldmethod=indent`, `foldlevel=3`.')
     call add(l:L, '     `foldtext=HaozSvFoldText()` — GIỐNG md: `▸ <dòng đầu>  ⋯ N dòng`')
     call add(l:L, '     `foldlevel` chỉ đặt ở lần mở buffer ĐẦU (b:haoz_fold_init) nên')
