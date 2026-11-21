@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.65                                                         ║
+" ║  Version  : 7.66                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -3866,7 +3866,9 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     path (mdTableHead).')
     call add(l:L, '     Phím: CHỈ `za` (toggle fold hiện tại) + `zo` (toggle tất cả)')
     call add(l:L, '     TỰ FORMAT NGAY KHI MỞ FILE (1 lần, xong đặt nomodified')
-    call add(l:L, '     nên không hiện [M]) + mỗi lần ghi file + khi rời Insert:')
+    call add(l:L, '     nên không hiện [M]) + mỗi lần ghi file + khi rời Insert,')
+    call add(l:L, '     và FORMAT LẠI khi file bị ghi thêm từ NGOÀI (autoread')
+    call add(l:L, '     nạp lại buffer -> s:MdOnReload, cũng nomodified):')
     call add(l:L, '     căn bảng, bỏ')
     call add(l:L, '     space cuối dòng, tiêu đề `#   X  ##` -> `# X`, `* `/`+ ` ->')
     call add(l:L, '     `- `, đánh số lại ordered list theo từng cấp, chèn/gộp dòng')
