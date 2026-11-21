@@ -786,6 +786,7 @@ function! s:FenceBgClear() abort
   " Xoá cả "chữ ký" -> lần vào lại buffer chắc chắn vẽ lại (tránh trạng thái
   " kẹt: chữ ký còn nhưng match đã bị xoá).
   let w:md_fbg_sig = ''
+  let w:md_fbg_tick = -1
 endfunction
 
 " Dải các BẢNG trong buffer: mỗi phần tử là [top, bot] (đã gồm hàng tiêu đề).
@@ -861,6 +862,11 @@ function! s:FenceBgApply() abort
     return
   endif
   silent! execute 'highlight ' . s:fence_bg_group . ' guifg=NONE guibg=' . l:bg . ' gui=NONE'
+  " Nhanh: buffer KHÔNG đổi từ lần vẽ trước thì khỏi tính lại toàn bộ position
+  " (đây là phần tốn kém nhất, chạy ở CursorHold mỗi giây khi đang đọc file).
+  if get(w:, 'md_fbg_tick', -1) == b:changedtick && !empty(w:md_fbg_ids)
+    return
+  endif
   " Tính position cho MỌI khối trước, rồi so với lần vẽ trước: nếu y hệt thì
   " KHÔNG xoá/thêm lại (mỗi lần matchdelete/matchaddpos đều làm Vim redraw cả
   " cửa sổ -> đây là nguồn lag chính khi gõ phím).
@@ -877,6 +883,7 @@ function! s:FenceBgApply() abort
   endif
   call s:FenceBgClear()
   let w:md_fbg_sig = l:sig
+  let w:md_fbg_tick = b:changedtick
   " matchaddpos() chỉ nhận tối đa 8 position mỗi lần -> chẻ nhỏ (E5030).
   let l:i = 0
   while l:i < len(l:pos)
@@ -984,7 +991,7 @@ execute 'augroup ' . s:fbg_aug
   autocmd TextChanged                 <buffer> call <SID>FenceBgSchedule(150)
   autocmd TextChangedI                <buffer> call <SID>FenceBgSchedule(600)
   autocmd InsertLeave,BufWritePost    <buffer> call <SID>FenceBgApply()
-  autocmd ColorScheme                 <buffer> call <SID>FenceBgApply()
+  autocmd ColorScheme                 <buffer> call <SID>FenceBgClear() | call <SID>FenceBgApply()
   autocmd BufLeave                    <buffer> call <SID>FenceBgClear()
 augroup END
 unlet s:fbg_aug
