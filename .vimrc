@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.73                                                         ║
+" ║  Version  : 7.76                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -982,6 +982,7 @@ augroup END
 function! HaozSvFoldSetup() abort
     setlocal foldmethod=indent
     setlocal foldenable
+    setlocal foldtext=HaozSvFoldText()
     if get(b:, 'haoz_fold_lvl', -1) != 3
         setlocal foldlevel=3
         let b:haoz_fold_lvl = 3
@@ -996,11 +997,11 @@ function! HaozMdFoldSetup() abort
     setlocal foldexpr=HaozMdFoldLevel(v:lnum)
     setlocal foldenable
     setlocal foldtext=HaozMdFoldText()
-    if get(b:, 'haoz_fold_lvl', -1) != 3
-        setlocal foldlevel=3
-        let b:haoz_fold_lvl = 3
+    if get(b:, 'haoz_fold_lvl', -1) != 2
+        setlocal foldlevel=2
+        let b:haoz_fold_lvl = 2
     endif
-    let b:haoz_fold_home = 3
+    let b:haoz_fold_home = 2
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
     silent! unlet! b:md_fold_tick
 endfunction
@@ -1045,6 +1046,11 @@ function! HaozMdFoldLevel(lnum) abort
         let b:md_fold_tick = b:changedtick
     endif
     return get(b:md_fold_cache, a:lnum - 1, '=')
+endfunction
+
+function! HaozSvFoldText() abort
+    let l:line = substitute(getline(v:foldstart), '\s\+$', '', '')
+    return '▸ ' . l:line . '  ⋯ ' . (v:foldend - v:foldstart + 1) . ' dòng '
 endfunction
 
 function! HaozMdFoldText() abort
@@ -3919,10 +3925,11 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     KHÔNG phụ thuộc `shiftwidth` (sleuth đổi sw -> indent-fold gộp')
     call add(l:L, '     cả file thành 1 fold).  Cấp: cột 0 = 1 (`#`,`##`), 4 space = 2')
     call add(l:L, '     (`###`), 8 space = 3 (thân bài), 12 = 4 …')
-    call add(l:L, '     Mở file: **`foldlevel=3`** -> thấy `#`/`##`/`###` + 1 cấp con,')
-    call add(l:L, '     các cấp sâu hơn thì GẬP.')
-    call add(l:L, '     (gập cả `###` -> 1; mở hết -> 5.)')
+    call add(l:L, '     Mở file: **`foldlevel=2`** -> `#` và `##` MỞ, `###` GẬP')
+    call add(l:L, '     (thấy `+-- N dòng`), thân bài nằm trong fold.  (1 -> gập cả')
+    call add(l:L, '     `##`; 0 -> gập sạch; 3 -> thấy cả thân bài.)')
     call add(l:L, '  • `.sv/.v/.svh/.svt/.svti`: `foldmethod=indent`, `foldlevel=3`.')
+    call add(l:L, '     `foldtext=HaozSvFoldText()` — GIỐNG md: `▸ <dòng đầu>  ⋯ N dòng`')
     call add(l:L, '     `foldlevel` chỉ đặt ở lần mở buffer ĐẦU (b:haoz_fold_init) nên')
     call add(l:L, '     buffer reload không làm fold tự gập.')
     call add(l:L, '  • Phím: `za` = toggle fold hiện tại (Vim gốc) | `zo` = toggle')
