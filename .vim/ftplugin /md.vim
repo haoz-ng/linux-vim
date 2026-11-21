@@ -37,9 +37,8 @@
 " ║   • NỀN XÁM của khối ``` … ``` do FILE NÀY vẽ bằng matchaddpos           ║
 " ║     (s:FenceBgApply, nhóm mdFenceBg): cạnh TRÁI = lề NHỎ NHẤT của khối   ║
 " ║     nên các dòng THẲNG CỘT; chạy tới HẾT DÒNG.  Không dùng syntax vì     ║
-" ║     'syn keyword' đứng đầu dòng luôn thắng syn match/region.             ║
-" ║     Màu: g:md_fence_bg (#363636 hoặc NONE).  BẢNG markdown cũng được     ║
-" ║     tô nền y như vậy (s:TableRanges; tắt: let g:md_table_bg = 0).        ║
+" ║     MẶC ĐỊNH TẮT NỀN (g:md_fence_bg = 'NONE'); bật: '#363636' — áp cho   ║
+" ║     cả khối ``` và bảng (s:TableRanges; tắt riêng bảng: g:md_table_bg=0).║
 " ║   • ĐỆM SPACE CUỐI DÒNG trong fence (s:FmtFencePad): mọi dòng NỘI DUNG   ║
 " ║     của một khối ``` được đệm cho bằng độ rộng hiển thị lớn nhất của     ║
 " ║     khối -> cạnh phải nền thẳng hàng.  Dòng trống và dòng ``` không đệm. ║
@@ -771,7 +770,7 @@ endfunction
 "   • Cạnh TRÁI = lề NHỎ NHẤT trong khối -> các dòng THẲNG CỘT với nhau.
 "   • Cạnh PHẢI = hết dòng, thẳng hàng nhờ s:FmtFencePad đệm space cuối dòng.
 "   • Dòng ``` (mở/đóng) và dòng trống: không tô.
-"   • Tắt:  let g:md_fence_bg = 'NONE'    Đổi màu:  let g:md_fence_bg = '#xxxxxx'
+"   • MẶC ĐỊNH 'NONE' (tắt nền).  Muốn bật: let g:md_fence_bg = '#363636'
 let s:fence_bg_group = 'mdFenceBg'
 let s:fence_bg_timer = -1
 let s:fence_bg_buf   = -1
@@ -855,7 +854,7 @@ function! s:FenceBgApply() abort
   if !exists('w:md_fbg_ids')
     let w:md_fbg_ids = []
   endif
-  let l:bg = get(g:, 'md_fence_bg', '#363636')
+  let l:bg = get(g:, 'md_fence_bg', 'NONE')
   if type(l:bg) == type('') && l:bg ==# 'NONE'
     call s:FenceBgClear()
     let w:md_fbg_sig = ''
@@ -900,19 +899,35 @@ function! s:FenceBgApply() abort
   silent! redraw
 endfunction
 
+" Chỉ ĐỆM SPACE trong fence (1 lượt, rất nhẹ) — dùng cho lúc MỞ FILE và lúc
+" buffer bị nạp lại.  KHÔNG chạy format toàn bộ (bảng/tiêu đề/list/spacing):
+" đó là 6-8 lượt quét cả file, là nguyên nhân "mở file md rất lâu".
+function! s:MdPadFencesLight() abort
+  if !&modifiable || !get(g:, 'md_fence_pad', 1)
+    return
+  endif
+  let l:old = getline(1, '$')
+  let l:new = copy(l:old)
+  call s:FmtFencePad(l:new)
+  if l:new == l:old
+    return
+  endif
+  let l:view = winsaveview()
+  silent! call s:ReplaceLines(l:old, l:new)
+  call winrestview(l:view)
+  let b:md_fmt_tick = b:changedtick
+endfunction
+
 function! s:MdFormatOnOpen() abort
   if get(b:, 'md_fmt_on_open_done', 0)
     call s:FenceBgApply()
     return
   endif
   let b:md_fmt_on_open_done = 1
-  if !s:AutoFormatOn() || !&modifiable
-        \ || line('$') > get(g:, 'md_autoformat_maxlines', 4000)
-    call s:FenceBgApply()
-    return
+  if s:AutoFormatOn()
+    silent! call s:MdPadFencesLight()
+    setlocal nomodified
   endif
-  silent! call s:FormatBuffer()
-  setlocal nomodified
   call s:FenceBgApply()
   silent! redraw
 endfunction
@@ -925,11 +940,10 @@ function! s:MdOnReload() abort
   if !get(b:, 'md_fmt_on_open_done', 0)
     return
   endif
-  if !s:AutoFormatOn() || !&modifiable
-        \ || line('$') > get(g:, 'md_autoformat_maxlines', 4000)
+  if !s:AutoFormatOn()
     return
   endif
-  silent! call s:FormatBuffer()
+  silent! call s:MdPadFencesLight()
   setlocal nomodified
   call s:FenceBgApply()
   silent! redraw
@@ -948,7 +962,7 @@ function! s:FenceBgInfo() abort
   echo 'ft=' . &filetype
         \ . '  syn=' . get(b:, 'current_syntax', '?')
         \ . '  matchaddpos=' . exists('*matchaddpos')
-        \ . '  g:md_fence_bg=' . string(get(g:, 'md_fence_bg', '#363636'))
+        \ . '  g:md_fence_bg=' . string(get(g:, 'md_fence_bg', 'NONE'))
         \ . '  vim=' . v:version
   echo 'mdFence hi=' . substitute(l:hf, '\n', ' ', 'g')
   echo 'positions=' . len(l:pos)
@@ -959,14 +973,46 @@ endfunction
 command! -buffer MdFenceBgInfo call s:FenceBgInfo()
 command! -buffer MdFenceBgOn call s:FenceBgClear() | call s:FenceBgApply() | redraw | echo 'bg: ' . len(get(w:, 'md_fbg_ids', [])) . ' matches'
 
+" ── TỰ FORMAT KHI BUFFER ĐỔI (dồn lại rồi mới chạy) ───────────────────────
+" Áp dụng cho cả khi BẠN sửa và khi công cụ khác ghi vào file (trường hợp sau
+" đi qua s:MdOnReload).  Dồn 700ms để không format giữa lúc đang gõ; bỏ qua
+" nếu buffer không đổi kể từ lần format trước (b:md_fmt_tick).
+let s:md_fmt_timer = -1
+let s:md_fmt_buf   = -1
+
+function! s:MdFormatTick(timer) abort
+  let s:md_fmt_timer = -1
+  if bufnr('%') != s:md_fmt_buf || mode() =~# "^[iR]"
+    return
+  endif
+  if get(b:, 'md_fmt_tick', -1) == b:changedtick
+    return
+  endif
+  if !s:AutoFormatOn() || !&modifiable
+        \ || line('$') > get(g:, 'md_autoformat_maxlines', 4000)
+    return
+  endif
+  silent! call s:FormatBuffer()
+  call s:FenceBgApply()
+endfunction
+
+function! s:MdScheduleFormat(...) abort
+  let l:delay = (a:0 && a:1 > 0) ? a:1 : 700
+  if s:md_fmt_timer != -1
+    call timer_stop(s:md_fmt_timer)
+  endif
+  let s:md_fmt_buf = bufnr('%')
+  let s:md_fmt_timer = timer_start(l:delay, function('s:MdFormatTick'))
+endfunction
+
 function! s:FenceBgTick(timer) abort
   let s:fence_bg_timer = -1
   if bufnr('%') == s:fence_bg_buf
     call s:FenceBgApply()
-    " ':redraw' gọi trong autocmd (BufWinEnter/BufReadPost) có thể bị bỏ qua;
-    " trong TIMER thì luôn có tác dụng.  Không có dòng này, nền chỉ hiện khi
-    " có redraw khác xảy ra (ví dụ vào/ra Insert) — đúng lỗi bạn vừa báo.
-    silent! redraw
+    " Nền đang TẮT (mặc định) -> không redraw, không tốn gì.
+    if get(g:, 'md_fence_bg', 'NONE') !=# 'NONE'
+      silent! redraw
+    endif
   endif
 endfunction
 
@@ -988,17 +1034,20 @@ execute 'augroup ' . s:fbg_aug
   autocmd BufWinEnter                 <buffer> call <SID>MdFormatOnOpen()
   autocmd BufReadPost,FileChangedShellPost <buffer> call <SID>MdOnReload()
   autocmd CursorHold,VimEnter         <buffer> call <SID>FenceBgSchedule(10)
-  autocmd TextChanged                 <buffer> call <SID>FenceBgSchedule(150)
+  autocmd TextChanged                 <buffer> call <SID>FenceBgSchedule(150) | call <SID>MdScheduleFormat(700)
   autocmd TextChangedI                <buffer> call <SID>FenceBgSchedule(600)
   autocmd InsertLeave,BufWritePost    <buffer> call <SID>FenceBgApply()
   autocmd ColorScheme                 <buffer> call <SID>FenceBgClear() | call <SID>FenceBgApply()
   autocmd BufLeave                    <buffer> call <SID>FenceBgClear()
 augroup END
 unlet s:fbg_aug
-" Vẽ ngay khi nạp ftplugin + hẹn 10ms sau (lúc đó buffer chắc chắn đã nằm
-" trong cửa sổ) -> mở file là thấy nền liền.
-call s:FenceBgApply()
-call s:FenceBgSchedule(10)
+" KHÔNG vẽ đồng bộ lúc nạp ftplugin (làm chậm thời gian MỞ file): hẹn 30ms
+" sau — lúc đó buffer đã nằm trong cửa sổ, vẽ + redraw trong timer nên nền
+" vẫn hiện gần như ngay, mà việc mở file không bị chặn.
+" Nền đang TẮT (mặc định 'NONE') -> không hẹn gì cả, mở file nhanh nhất.
+if get(g:, 'md_fence_bg', 'NONE') !=# 'NONE'
+  call s:FenceBgSchedule(30)
+endif
 
 " '* ' / '+ ' -> '- ' và đúng 1 space sau dấu
 function! s:FmtBullets(lines, mask) abort
@@ -1221,6 +1270,9 @@ function! s:FormatBuffer() abort
   call winrestview(l:view)
   " Format vừa đệm/đổi số dòng -> vẽ lại NỀN khối ``` (s:FenceBgApply).
   call s:FenceBgSchedule()
+  " Đánh dấu "đã format ở tick này" để s:MdFormatTick không chạy lại vô ích
+  " (chính việc format cũng làm b:changedtick tăng).
+  let b:md_fmt_tick = b:changedtick
   return l:tables
 endfunction
 
@@ -1230,16 +1282,16 @@ function! MdFormatAll()
   echo 'md: formatted whole buffer (' . l:n . ' tables)'
 endfunction
 
-" :MdFormatTable — theo yêu cầu: format TOÀN BỘ nội dung (bảng + tiêu đề +
-" list + dòng trống + trailing space), kể cả phần vừa append vào buffer.
-" (Trước đây chỉ căn bảng; giữ tên lệnh để khỏi phải nhớ lệnh mới.)
+" :MdFormatTable — ĐÃ TẮT theo yêu cầu (chỉ cần syntax tô màu, không format).
+" Giữ tên lệnh để gõ không bị E492; muốn căn bảng thì dùng :MdFormat.
 function! MdFormatTables()
-  let l:n = s:FormatBuffer()
-  echo 'md: formatted whole buffer (' . l:n . ' tables)'
+  echo 'md: table format is disabled — use :MdFormat if you really need it'
 endfunction
 
+" MẶC ĐỊNH TẮT tự format (0): mở file/đổi buffer KHÔNG format gì cả -> nhanh.
+" Muốn bật lại:  let g:md_autoformat = 1   (hoặc :MdAutoFormat cho 1 buffer)
 function! s:AutoFormatOn() abort
-  return get(b:, 'md_autoformat', get(g:, 'md_autoformat', 1))
+  return get(b:, 'md_autoformat', get(g:, 'md_autoformat', 0))
 endfunction
 
 function! MdAutoFormatToggle() abort
