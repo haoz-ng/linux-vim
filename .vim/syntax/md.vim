@@ -281,7 +281,7 @@ endfunction
 
 call s:MdColors()
 
-" ':colorscheme' chạy 'hi clear' -> các nhóm trên bị xoá; gắn lại.
+" ':colorscheme' chạy 'hi clear' -> các nhóm trên bị xoá; gắn lại. 
 " Dùng autocmd GLOBAL (không <buffer>) vì highlight group là global, và như
 " vậy mỗi lần một buffer .md được nạp chỉ thay thế đúng 1 entry, không xoá
 " mất entry của buffer khác.
