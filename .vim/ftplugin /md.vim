@@ -910,6 +910,24 @@ function! s:MdFormatOnOpen() abort
   silent! redraw
 endfunction
 
+" File bị GHI THÊM từ bên ngoài (Claude/công cụ khác) -> Vim nạp lại buffer,
+" nội dung mới CHƯA được format -> nền/đệm space mất.  Format lại ngay và
+" KHÔNG đánh dấu 'modified' (không ghi đè file của người khác).
+function! s:MdOnReload() abort
+  call s:FenceBgApply()
+  if !get(b:, 'md_fmt_on_open_done', 0)
+    return
+  endif
+  if !s:AutoFormatOn() || !&modifiable
+        \ || line('$') > get(g:, 'md_autoformat_maxlines', 4000)
+    return
+  endif
+  silent! call s:FormatBuffer()
+  setlocal nomodified
+  call s:FenceBgApply()
+  silent! redraw
+endfunction
+
 function! s:FenceBgInfo() abort
   let l:pos = []
   call s:BgAddRanges(l:pos, s:FenceContentRanges())
@@ -961,7 +979,7 @@ execute 'augroup ' . s:fbg_aug
   autocmd!
   autocmd BufEnter,WinEnter           <buffer> call <SID>FenceBgApply()
   autocmd BufWinEnter                 <buffer> call <SID>MdFormatOnOpen()
-  autocmd BufReadPost                 <buffer> call <SID>FenceBgApply()
+  autocmd BufReadPost,FileChangedShellPost <buffer> call <SID>MdOnReload()
   autocmd CursorHold,VimEnter         <buffer> call <SID>FenceBgSchedule(10)
   autocmd TextChanged                 <buffer> call <SID>FenceBgSchedule(150)
   autocmd TextChangedI                <buffer> call <SID>FenceBgSchedule(600)
