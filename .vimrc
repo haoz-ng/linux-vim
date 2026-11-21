@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.67                                                         ║
+" ║  Version  : 7.73                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -100,6 +100,8 @@ colorscheme haoz
 
 filetype plugin on
 au BufNewFile,BufRead *.md setlocal ft=md
+au FileType md setlocal nowrap
+au BufWinEnter,WinEnter *.md setlocal nowrap
 
 function! s:MdLeadCodes(text) abort
     let l:out = []
@@ -994,11 +996,11 @@ function! HaozMdFoldSetup() abort
     setlocal foldexpr=HaozMdFoldLevel(v:lnum)
     setlocal foldenable
     setlocal foldtext=HaozMdFoldText()
-    if get(b:, 'haoz_fold_lvl', -1) != 2
-        setlocal foldlevel=2
-        let b:haoz_fold_lvl = 2
+    if get(b:, 'haoz_fold_lvl', -1) != 3
+        setlocal foldlevel=3
+        let b:haoz_fold_lvl = 3
     endif
-    let b:haoz_fold_home = 2
+    let b:haoz_fold_home = 3
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
     silent! unlet! b:md_fold_tick
 endfunction
@@ -3868,27 +3870,15 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     = 0` để tắt); dòng phân cách `| --- |` màu XANH BIỂN giống')
     call add(l:L, '     path (mdTableHead).')
     call add(l:L, '     Phím: CHỈ `za` (toggle fold hiện tại) + `zo` (toggle tất cả)')
-    call add(l:L, '     TỰ FORMAT NGAY KHI MỞ FILE (1 lần, xong đặt nomodified')
-    call add(l:L, '     nên không hiện [M]) + mỗi lần ghi file + khi rời Insert,')
-    call add(l:L, '     và FORMAT LẠI khi file bị ghi thêm từ NGOÀI (autoread')
-    call add(l:L, '     nạp lại buffer -> s:MdOnReload, cũng nomodified):')
-    call add(l:L, '     căn bảng, bỏ')
-    call add(l:L, '     space cuối dòng, tiêu đề `#   X  ##` -> `# X`, `* `/`+ ` ->')
-    call add(l:L, '     `- `, đánh số lại ordered list theo từng cấp, chèn/gộp dòng')
-    call add(l:L, '     trống trước header/bảng/list/fence (bỏ qua ``` … ``` và')
-    call add(l:L, '     front-matter --- … ---). Rời Insert chỉ căn bảng đang đứng.')
-    call add(l:L, '     `:MdFormat` = format toàn bộ, `:MdFormatTable` = chỉ bảng,')
-    call add(l:L, '     `:MdAutoFormat` = bật/tắt cho buffer này, `let g:md_autoformat')
-    call add(l:L, '     = 0` = tắt toàn cục, `let g:md_trim_trailing_space = 0` =')
-    call add(l:L, '     giữ space cuối dòng. `indentexpr` giữ lề mục con; `<Tab>`')
-    call add(l:L, '     (sw=4) để lùi thêm 1 cấp. Bảng viết thiếu dòng phân cách')
-    call add(l:L, '     `| --- |` sẽ được TỰ CHÈN (`let g:md_table_guess = 0` tắt);')
-    call add(l:L, '     bảng thiếu `|` đầu dòng vẫn căn được; độ rộng cột tính theo')
-    call add(l:L, '     số ô màn hình nên tiếng Việt có dấu không bị lệch cột.')
-    call add(l:L, '     BẢNG VIẾT TAY (cột căn bằng space, chỉ dòng `| --- |` có `|`):')
-    call add(l:L, '     số cột lấy theo ĐA SỐ các hàng, mỗi hàng tách theo `|` hoặc theo')
-    call add(l:L, '     cụm 2+ space -> tự chuyển thành bảng `| … | … |` chuẩn.  Hàng')
-    call add(l:L, '     không tách được đúng số cột thì GIỮ NGUYÊN VĂN, không bị phá.')
+    call add(l:L, '     FORMAT: TẮT HẾT.  Không tự format khi mở/sửa/ghi file, và')
+    call add(l:L, '     `:MdFormatTable` cũng đã tắt (chỉ báo "disabled").  Chỉ còn')
+    call add(l:L, '     SYNTAX tô màu.  Nếu thật sự cần: `:MdFormat` (format cả file)')
+    call add(l:L, '     hoặc bật tự format bằng `let g:md_autoformat = 1`.')
+    call add(l:L, '     `indentexpr` giữ lề mục con; `<Tab>`')
+    call add(l:L, '     (sw=4) để lùi thêm 1 cấp.')
+    call add(l:L, '     (Code căn bảng vẫn còn nguyên trong ftplugin, nhưng KHÔNG')
+    call add(l:L, '     chạy ở đâu cả vì format đã tắt — bật lại bằng g:md_autoformat=1')
+    call add(l:L, '     hoặc gọi :MdFormat.)')
     call add(l:L, '  • THEO LINK NỘI BỘ: đặt con trỏ lên `[text](#anchor)` (bảng')
     call add(l:L, '     Contents) rồi `<C-]>` hoặc DOUBLE-CLICK -> nhảy tới tiêu đề')
     call add(l:L, '     có slug khớp (GitHub-style, giữ dấu tiếng Việt; không khớp')
@@ -3929,7 +3919,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '     KHÔNG phụ thuộc `shiftwidth` (sleuth đổi sw -> indent-fold gộp')
     call add(l:L, '     cả file thành 1 fold).  Cấp: cột 0 = 1 (`#`,`##`), 4 space = 2')
     call add(l:L, '     (`###`), 8 space = 3 (thân bài), 12 = 4 …')
-    call add(l:L, '     Mở file: **`foldlevel=2`** -> thấy `#`/`##`/`###`, GẬP thân bài.')
+    call add(l:L, '     Mở file: **`foldlevel=3`** -> thấy `#`/`##`/`###` + 1 cấp con,')
+    call add(l:L, '     các cấp sâu hơn thì GẬP.')
     call add(l:L, '     (gập cả `###` -> 1; mở hết -> 5.)')
     call add(l:L, '  • `.sv/.v/.svh/.svt/.svti`: `foldmethod=indent`, `foldlevel=3`.')
     call add(l:L, '     `foldlevel` chỉ đặt ở lần mở buffer ĐẦU (b:haoz_fold_init) nên')
