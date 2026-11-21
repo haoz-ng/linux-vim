@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.64                                                         ║
+" ║  Version  : 7.65                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -4100,7 +4100,8 @@ function! s:VimrcManualContent() abort
     call add(l:L, '  • `F12`  Copy full file path to clipboard')
     call add(l:L, '  • `Alt-Z` Toggle line wrap — MẶC ĐỊNH WRAP BẬT cho mọi file')
     call add(l:L, '     (`set wrap` + `linebreak` + `breakindent`, dòng nối có `↪`;')
-    call add(l:L, '     panel WinList / session picker / Vimrc Manual luôn nowrap)')
+    call add(l:L, '     panel WinList / session picker / Vimrc Manual luôn nowrap;')
+    call add(l:L, '     riêng *.md mở ra là NOWRAP — ftplugin/md.vim đặt setlocal)')
     call add(l:L, '')
     call add(l:L, '═══════════════════════════════════════════════════════════════════')
     return l:L
