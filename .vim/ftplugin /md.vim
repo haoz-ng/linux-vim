@@ -1429,7 +1429,7 @@ function! MdFold()
   echo ""
   if exists('*HaozMdFoldLevel')
     setlocal foldmethod=expr
-    setlocal foldexpr=HaozMdFoldLevel(v:lnum)
+    setlocal foldexpr=HaozMdFoldLevel(v:lnum) 
     if exists('*HaozMdFoldText')
       setlocal foldtext=HaozMdFoldText()
     endif
