@@ -47,6 +47,10 @@
 " ║  Lưu ý: \z mới đặt 'foldmethod=expr' cho buffer .md (không tự bật).      ║
 " ╚══════════════════════════════════════════════════════════════════════════╝
 
+" .md KHÔNG wrap khi mở (vimrc đặt 'set wrap' cho mọi file -> ghi đè tại đây).
+" <M-z> vẫn toggle được (window-local).
+setlocal nowrap
+
 function! MdMakeH1()
   echo ""
   call MdMakeHeader("=")
