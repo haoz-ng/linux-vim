@@ -1,6 +1,6 @@
 " ╔══════════════════════════════════════════════════════════════════════════╗
 " ║  Author   : haozxje                                                      ║
-" ║  Version  : 7.66                                                         ║
+" ║  Version  : 7.67                                                         ║
 " ║  Modified : 2026-11-19                                                   ║
 " ║  Desc     : Personal GVIM configuration — themes, keymaps, WinList       ║
 " ║             (always-on) + on-demand NERDTree, statusline with            ║
@@ -1000,46 +1000,49 @@ function! HaozMdFoldSetup() abort
     endif
     let b:haoz_fold_home = 2
     nnoremap <buffer> <silent> zo :<C-U>call HaozFoldToggleAll()<CR>
-    augroup haoz_md_fold_cache
-        autocmd! * <buffer>
-        autocmd TextChanged,TextChangedI,InsertLeave <buffer>
-                    \ silent! unlet! b:haoz_fm_end
-    augroup END
+    silent! unlet! b:md_fold_tick
 endfunction
 command! -nargs=0 MdRefold call HaozMdFoldSetup() | echo 'md fold refreshed'
+function! s:HaozMdBuildFoldLevels() abort
+    let l:lines = getline(1, '$')
+    let l:fm_end = 0
+    if !empty(l:lines) && l:lines[0] =~# '^---\s*$'
+        let l:i = 1
+        while l:i < len(l:lines) && l:i <= 200
+            if l:lines[l:i] =~# '^---\s*$'
+                let l:fm_end = l:i + 1
+                break
+            endif
+            let l:i += 1
+        endwhile
+    endif
+    let l:out = []
+    let l:n = 0
+    for l:l in l:lines
+        let l:n += 1
+        if l:l !~# '\S'
+            call add(l:out, '=')
+        elseif l:fm_end > 0 && l:n <= l:fm_end + 1
+            if l:n == 1
+                call add(l:out, '>1')
+            elseif l:n <= l:fm_end
+                call add(l:out, '1')
+            else
+                call add(l:out, '0')
+            endif
+        else
+            call add(l:out, '>' . (indent(l:n) / 4 + 1))
+        endif
+    endfor
+    return l:out
+endfunction
+
 function! HaozMdFoldLevel(lnum) abort
-    let l:line = getline(a:lnum)
-
-    if l:line =~# '^\s*$'
-        return '='
+    if get(b:, 'md_fold_tick', -1) != b:changedtick
+        let b:md_fold_cache = s:HaozMdBuildFoldLevels()
+        let b:md_fold_tick = b:changedtick
     endif
-
-    if a:lnum <= 202
-        if !exists('b:haoz_fm_end')
-            let b:haoz_fm_end = 0
-            if getline(1) =~# '^---\s*$'
-                let l:i = 2
-                while l:i <= line('$') && l:i <= 200
-                    if getline(l:i) =~# '^---\s*$'
-                        let b:haoz_fm_end = l:i
-                        break
-                    endif
-                    let l:i = l:i + 1
-                endwhile
-            endif
-        endif
-        if b:haoz_fm_end > 0
-            if a:lnum == 1
-                return '>1'
-            elseif a:lnum <= b:haoz_fm_end
-                return '1'
-            elseif a:lnum == b:haoz_fm_end + 1
-                return '0'
-            endif
-        endif
-    endif
-
-    return '>' . (indent(a:lnum) / 4 + 1)
+    return get(b:md_fold_cache, a:lnum - 1, '=')
 endfunction
 
 function! HaozMdFoldText() abort
